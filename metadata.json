@@ -1,0 +1,6 @@
+{
+  "name": "全源流程资产管理平台 dflow",
+  "description": "基于 draw.io 企业级流程架构设计与资产运营平台",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
