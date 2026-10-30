@@ -398,49 +398,51 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
           )}
         </div>
 
-        {/* Row 8: 底部编辑/操作按钮 (严格根据管理权限控制) */}
-        <div className="pt-4 flex items-center gap-3">
-          {!isEditing ? (
-            canManage ? (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="h-8 px-4 rounded border border-[#b3d8ff] bg-[#ecf5ff] hover:bg-[#409eff] text-[#409eff] hover:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-              >
-                <FileEdit className="w-3.5 h-3.5" />
-                <span>{type === 'arch' ? '编写架构资料' : '编写流程资料'}</span>
-              </button>
+        {/* Row 8: 底部编辑/操作按钮 (仅在非只读模式下展示，流程概览为纯继承只读呈现) */}
+        {!readOnly && (
+          <div className="pt-4 flex items-center gap-3">
+            {!isEditing ? (
+              canManage ? (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="h-8 px-4 rounded border border-[#b3d8ff] bg-[#ecf5ff] hover:bg-[#409eff] text-[#409eff] hover:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                >
+                  <FileEdit className="w-3.5 h-3.5" />
+                  <span>{type === 'arch' ? '编写架构资料' : '编写流程资料'}</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-[#909399] py-1">
+                  <ShieldAlert className="w-4 h-4 text-[#c0c4cc]" />
+                  <span>
+                    当前账号（{currentUser?.userName || '访客'}）无管理编辑权限，仅支持只读浏览
+                  </span>
+                </div>
+              )
             ) : (
-              <div className="flex items-center gap-2 text-xs text-[#909399] py-1">
-                <ShieldAlert className="w-4 h-4 text-[#c0c4cc]" />
-                <span>
-                  当前账号（{currentUser?.userName || '访客'}）无管理编辑权限，仅支持只读浏览
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="h-8 px-5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>保存{type === 'arch' ? '架构资料' : '流程资料'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="h-8 px-4 rounded border border-[#dcdfe6] bg-white hover:bg-[#f5f7fa] text-[#606266] text-xs font-medium cursor-pointer transition-colors"
+                >
+                  取消
+                </button>
+                <span className="text-[11px] text-[#909399]">
+                  修改完成后点击保存将实时同步至企业流程管理中心
                 </span>
               </div>
-            )
-          ) : (
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSave}
-                className="h-8 px-5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>保存{type === 'arch' ? '架构资料' : '流程资料'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="h-8 px-4 rounded border border-[#dcdfe6] bg-white hover:bg-[#f5f7fa] text-[#606266] text-xs font-medium cursor-pointer transition-colors"
-              >
-                取消
-              </button>
-              <span className="text-[11px] text-[#909399]">
-                修改完成后点击保存将实时同步至企业流程管理中心
-              </span>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

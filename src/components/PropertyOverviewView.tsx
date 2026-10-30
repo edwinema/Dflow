@@ -285,11 +285,12 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
       if (dictRes?.data) setDictBundle(dictRes.data);
       if (repealRes?.data) setRepealRecords(repealRes.data);
 
-      // Only published & non-repealed flows
+      // 仅展示继承自流程设计页面直接发布或发布审批后的有效流程
       const published = flows.filter(
         (f: any) =>
           f.status !== 'repealed' &&
-          (f.status === 'published' || f.auditStatus === '已审核' || !f.status)
+          f.status !== 'draft' &&
+          (f.status === 'published' || f.auditStatus === '已审核')
       );
 
       if (selectedNode.type === 'flow') {
@@ -320,10 +321,9 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
   // 1. 严格过滤：只有通过直接发布或审批发布的流程才在流程概览页面显示
   const publishedFlows = useMemo(() => {
     return flowList.filter((f) => {
-      if (f.status === 'repealed') return false;
-      // 直接发布或审核发布生效
-      const isPublished =
-        f.status === 'published' || f.auditStatus === '已审核' || !f.status;
+      if (f.status === 'repealed' || f.status === 'draft') return false;
+      // 继承自流程建设-流程设计：直接发布或审核审批发布生效
+      const isPublished = f.status === 'published' || f.auditStatus === '已审核';
       return isPublished;
     });
   }, [flowList]);
@@ -1030,18 +1030,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                     archList={archList}
                     flowList={flowList}
                     currentUser={currentUser}
-                    onSave={async (updated) => {
-                      setCurrentFlow(updated);
-                      setFlowList((prev) =>
-                        prev.map((f) => (f.id === updated.id ? { ...f, ...updated } : f))
-                      );
-                      await fetch('/api/flow/model/full', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updated),
-                      });
-                      showToast('流程基本资料保存成功', 'success');
-                    }}
+                    readOnly={true}
                     showToast={showToast}
                   />
                 )}
@@ -1687,18 +1676,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                     archList={archList}
                     flowList={flowList}
                     currentUser={currentUser}
-                    onSave={async (updated) => {
-                      setCurrentArch(updated);
-                      setArchList((prev) =>
-                        prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
-                      );
-                      await fetch('/api/flow/type/full', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updated),
-                      });
-                      showToast('架构卡片保存成功', 'success');
-                    }}
+                    readOnly={true}
                     showToast={showToast}
                   />
                 )}
