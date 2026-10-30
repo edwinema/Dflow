@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
-  Sparkles,
   Info,
 } from 'lucide-react';
 import { MENU_ROUTES } from './config/menuRoutes';
@@ -505,13 +504,6 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-4 relative">
-            <button
-              onClick={() => handleEnterDesigner(selectedFlowId || 'flow_101')}
-              className="h-7 px-3 rounded bg-[#ecf5ff] hover:bg-[#409eff] text-[#409eff] hover:text-white border border-[#b3d8ff] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>流程设计画板</span>
-            </button>
             <button
               onClick={() => setUserDropdownOpen(!userDropdownOpen)}
               className="flex items-center gap-1.5 text-xs text-[#303133] hover:text-[#409eff] cursor-pointer py-1"
