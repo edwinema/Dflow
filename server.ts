@@ -303,6 +303,13 @@ const archTypes: any[] = [
   },
 ];
 
+// Ensure initial baseline system architectures are marked as published
+archTypes.forEach((a) => {
+  if (!a.status) {
+    a.status = 'published';
+  }
+});
+
 const buildDefaultFlowXml = (flowTitle: string, steps: { title: string; role: string; desc: string; out: string; kcp?: boolean; judge?: boolean }[]) => {
   const lines: string[] = [
     '<mxfile host="dflow.local" version="32.1.0">',
@@ -2116,18 +2123,24 @@ app.get('/api/flow/type', (req, res) => {
 });
 
 app.post('/api/flow/type', (req, res) => {
-  const { parentId, label } = req.body;
+  const { parentId, label, level, businessScope, applicableScope, deptName, ownerName } = req.body;
+  const parent = archTypes.find((a) => a.id === parentId);
+  const resolvedLevel = level || (!parentId || parentId === 'arch_root' ? 'L1' : (parent?.level === 'L1' ? 'L2' : 'L2'));
   const newArch = {
     id: 'arch_' + Date.now().toString(36),
     parentId: parentId || 'arch_root',
     label: label || '新建流程架构',
-    level: 'L2',
+    level: resolvedLevel,
     archNo: 'ARCH-' + Math.floor(100 + Math.random() * 900),
-    ownerName: '系统管理员',
-    deptName: '运营管理部',
+    ownerName: ownerName || currentActiveUser?.userName || '系统管理员',
+    deptName: deptName || (parent?.deptName || '运营管理部'),
     versionNo: 'V1',
-    publishUserName: '系统管理员',
-    publishTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    businessScope: businessScope || '',
+    applicableScope: applicableScope || '',
+    adaptScope: applicableScope || '',
+    publishUserName: '',
+    publishTime: '',
+    status: 'draft',
   };
   archTypes.push(newArch);
   res.json({ status: 1, data: newArch, info: 'ok' });
@@ -2151,9 +2164,12 @@ app.post('/api/flow/type/publish', (req, res) => {
   const { id } = req.body;
   const target = archTypes.find((a) => a.id === id);
   const nextVer = target ? `V${parseInt((target.versionNo || 'V1').slice(1)) + 1}` : 'V2';
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
   if (target) {
     target.versionNo = nextVer;
-    target.publishTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    target.status = 'published';
+    target.publishTime = nowStr;
+    target.publishUserName = currentActiveUser?.userName || '系统管理员';
   }
   res.json({ status: 1, data: { versionNo: nextVer }, info: 'ok' });
 });

@@ -290,8 +290,17 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
         (f: any) =>
           f.status !== 'repealed' &&
           f.status !== 'draft' &&
-          (f.status === 'published' || f.auditStatus === '已审核')
+          (f.status === 'published' || f.auditStatus === '已审核') &&
+          Boolean(f.publishTime)
       );
+
+      const pubArchs = archs.filter((a: any) => {
+        if (!a.parentId || a.id === 'arch_root') return true;
+        if (a.status === 'draft' || a.status !== 'published' || !a.publishTime || a.publishTime.trim() === '') {
+          return false;
+        }
+        return true;
+      });
 
       if (selectedNode.type === 'flow') {
         const found = published.find((f: any) => f.id === selectedNode.id);
@@ -301,13 +310,18 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
           const fallback = published[0];
           setSelectedNode({ type: 'flow', id: fallback.id });
           setCurrentFlow(fallback);
-        } else if (archs[0]) {
-          setSelectedNode({ type: 'arch', id: archs[0].id });
-          setCurrentArch(archs[0]);
+        } else if (pubArchs[0]) {
+          setSelectedNode({ type: 'arch', id: pubArchs[0].id });
+          setCurrentArch(pubArchs[0]);
         }
       } else {
-        const foundArch = archs.find((a: any) => a.id === selectedNode.id) || archs[0];
-        if (foundArch) setCurrentArch(foundArch);
+        const foundArch = pubArchs.find((a: any) => a.id === selectedNode.id) || pubArchs[0];
+        if (foundArch) {
+          setCurrentArch(foundArch);
+        } else if (published[0]) {
+          setSelectedNode({ type: 'flow', id: published[0].id });
+          setCurrentFlow(published[0]);
+        }
       }
     } catch {
       showToast('加载流程资产数据失败', 'error');
@@ -323,28 +337,29 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
     return flowList.filter((f) => {
       if (f.status === 'repealed' || f.status === 'draft') return false;
       // 继承自流程建设-流程设计：直接发布或审核审批发布生效
-      const isPublished = f.status === 'published' || f.auditStatus === '已审核';
+      const isPublished =
+        (f.status === 'published' || f.auditStatus === '已审核') && Boolean(f.publishTime);
       return isPublished;
     });
   }, [flowList]);
 
-  // 2. 严格过滤：架构也仅展示正式发布或包含已发布业务流程/子架构的层级节点
+  // 2. 严格过滤：架构也仅展示正式通过“发布架构”发布后的层级节点
   const publishedArchs = useMemo(() => {
-    const getFlowCountUnderArch = (archId: string): number => {
-      const direct = publishedFlows.filter((f) => f.parentId === archId).length;
-      const children = archList.filter((a) => a.parentId === archId);
-      const sub = children.reduce((sum, ch) => sum + getFlowCountUnderArch(ch.id), 0);
-      return direct + sub;
-    };
-
     return archList.filter((a) => {
-      if (a.status === 'draft') return false;
-      // 根架构始终保留
+      // 根架构始终保留作为顶层入口
       if (!a.parentId || a.id === 'arch_root') return true;
-      const isPublished = a.status === 'published' || !!a.publishTime;
-      return isPublished || getFlowCountUnderArch(a.id) > 0;
+      // 只要处于草稿状态，或未明确发布（status !== 'published' 或 publishTime 为空），坚决不展示
+      if (
+        a.status === 'draft' ||
+        a.status !== 'published' ||
+        !a.publishTime ||
+        a.publishTime.trim() === ''
+      ) {
+        return false;
+      }
+      return true;
     });
-  }, [archList, publishedFlows]);
+  }, [archList]);
 
   // 3. 搜索条件过滤已发布的业务流程
   const filteredActiveFlows = useMemo(() => {
@@ -387,10 +402,14 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
 
   useEffect(() => {
     if (selectedNode.type === 'flow') {
-      const f = publishedFlows.find((x) => x.id === selectedNode.id) || flowList.find((x) => x.id === selectedNode.id);
+      const f = publishedFlows.find((x) => x.id === selectedNode.id);
       if (f) {
         setCurrentFlow(f);
         setShowDiagramForUnedited(false);
+      } else if (publishedFlows.length > 0) {
+        setSelectedNode({ type: 'flow', id: publishedFlows[0].id });
+      } else if (publishedArchs.length > 0) {
+        setSelectedNode({ type: 'arch', id: publishedArchs[0].id });
       }
       if (['zdwj', 'fxhg', 'lcsy', 'xgfj'].includes(flowTab)) {
         fetch(`/api/flow/model/refs?id=${selectedNode.id}&tab=${flowTab}`)
@@ -398,15 +417,21 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
           .then((res) => setFlowRefs(res.data || []));
       }
     } else {
-      const a = publishedArchs.find((x) => x.id === selectedNode.id) || archList.find((x) => x.id === selectedNode.id);
-      if (a) setCurrentArch(a);
+      const a = publishedArchs.find((x) => x.id === selectedNode.id);
+      if (a) {
+        setCurrentArch(a);
+      } else if (publishedArchs.length > 0) {
+        setSelectedNode({ type: 'arch', id: publishedArchs[0].id });
+      } else if (publishedFlows.length > 0) {
+        setSelectedNode({ type: 'flow', id: publishedFlows[0].id });
+      }
       if (['zdwj', 'fxhg', 'xgfj'].includes(archTab)) {
         fetch(`/api/flow/type/refs?id=${selectedNode.id}&tab=${archTab}`)
           .then((r) => r.json())
           .then((res) => setArchRefs(res.data || []));
       }
     }
-  }, [selectedNode, flowTab, archTab, flowList, archList, publishedFlows, publishedArchs]);
+  }, [selectedNode, flowTab, archTab, publishedFlows, publishedArchs]);
 
   useEffect(() => {
     if (
@@ -576,7 +601,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
     const crumbs: any[] = [];
     let curId: string | null = archId;
     while (curId) {
-      const found = archList.find((a) => a.id === curId);
+      const found = publishedArchs.find((a) => a.id === curId);
       if (found) {
         crumbs.unshift(found);
         curId = found.parentId || null;
