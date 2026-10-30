@@ -343,42 +343,40 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
           </div>
         </div>
 
-        {/* Row 6: 流程起始 与 流程终止 (醒目蓝框高亮区域) */}
-        <div className="border-2 border-[#409eff] rounded-md p-3.5 bg-white shadow-2xs my-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            <div className="flex items-center min-w-0">
-              <span className="text-[#606266] shrink-0 w-24 font-medium">流程起始</span>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.flowStart}
-                  onChange={(e) => setFormData({ ...formData, flowStart: e.target.value })}
-                  placeholder="起始节点或触发条件"
-                  className="h-8 px-2.5 rounded border border-[#b3d8ff] bg-white text-xs outline-none focus:border-[#409eff] flex-1"
-                />
-              ) : (
-                <span className="text-[#1f2733] font-medium truncate">
-                  {formData.flowStart || '起始节点 / 业务触发'}
-                </span>
-              )}
-            </div>
+        {/* Row 6: 流程起始 / 流程终止 (2列，已去除蓝色边框) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center pt-1">
+          <div className="flex items-center min-w-0">
+            <span className="text-[#606266] shrink-0 w-24">流程起始</span>
+            {isEditing ? (
+              <input
+                type="text"
+                value={formData.flowStart}
+                onChange={(e) => setFormData({ ...formData, flowStart: e.target.value })}
+                placeholder="起始节点或触发条件"
+                className="h-8 px-2.5 rounded border border-[#dcdfe6] bg-white text-xs outline-none focus:border-[#409eff] flex-1 max-w-xs"
+              />
+            ) : (
+              <span className="text-[#1f2733] font-medium truncate">
+                {formData.flowStart || '业务启动 / 前序流程交付输入'}
+              </span>
+            )}
+          </div>
 
-            <div className="flex items-center min-w-0">
-              <span className="text-[#606266] shrink-0 w-24 font-medium">流程终止</span>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={formData.flowEnd}
-                  onChange={(e) => setFormData({ ...formData, flowEnd: e.target.value })}
-                  placeholder="终止节点或交付归档"
-                  className="h-8 px-2.5 rounded border border-[#b3d8ff] bg-white text-xs outline-none focus:border-[#409eff] flex-1"
-                />
-              ) : (
-                <span className="text-[#1f2733] font-medium truncate">
-                  {formData.flowEnd || '终止节点 / 成果归档'}
-                </span>
-              )}
-            </div>
+          <div className="flex items-center min-w-0">
+            <span className="text-[#606266] shrink-0 w-24">流程终止</span>
+            {isEditing ? (
+              <input
+                type="text"
+                value={formData.flowEnd}
+                onChange={(e) => setFormData({ ...formData, flowEnd: e.target.value })}
+                placeholder="终止节点或交付归档"
+                className="h-8 px-2.5 rounded border border-[#dcdfe6] bg-white text-xs outline-none focus:border-[#409eff] flex-1 max-w-xs"
+              />
+            ) : (
+              <span className="text-[#1f2733] font-medium truncate">
+                {formData.flowEnd || '交付验收 / 成果归档入库'}
+              </span>
+            )}
           </div>
         </div>
 
