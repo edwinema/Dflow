@@ -81,6 +81,9 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
   useEffect(() => {
     if (!data) return;
     setFormData({
+      deptName: data.deptName || data.applicableScope || data.adaptScope || '系统管理部,流程管理部,权责管理部',
+      ownerName: data.ownerName || '流程管理员(E0002)',
+      collaborators: data.collaborators || [],
       level: data.level || data.flowLevel || 'L3',
       code: data.archNo || data.flowNo || (type === 'arch' ? '9.1-FG-001' : 'IPD-TR-001'),
       prevArch: data.prevArch || (parentArch ? parentArch.label : '9.1 第一产业集团'),
@@ -109,6 +112,10 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
   const handleSave = async () => {
     const updated = {
       ...data,
+      deptName: formData.deptName,
+      applicableScope: formData.deptName,
+      ownerName: formData.ownerName,
+      collaborators: formData.collaborators,
       level: formData.level,
       flowLevel: formData.level,
       archNo: type === 'arch' ? formData.code : data.archNo,
@@ -135,6 +142,9 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
   const handleCancel = () => {
     // 恢复数据
     setFormData({
+      deptName: data.deptName || data.applicableScope || data.adaptScope || '系统管理部,流程管理部,权责管理部',
+      ownerName: data.ownerName || '流程管理员(E0002)',
+      collaborators: data.collaborators || [],
       level: data.level || data.flowLevel || 'L3',
       code: data.archNo || data.flowNo || (type === 'arch' ? '9.1-FG-001' : 'IPD-TR-001'),
       prevArch: data.prevArch || (parentArch ? parentArch.label : '9.1 第一产业集团'),
@@ -152,14 +162,21 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
 
   return (
     <div className="flex flex-col min-h-0 w-full text-xs">
-      {/* 1. 顶部标准卡片表头 */}
+      {/* 1. 顶部标准卡片表头 (编辑模式下负责部门、负责人、协作者支持从组织架构中选择) */}
       <FlowPageStandardHeader
         archName={fullArchPath}
         name={data.label || data.name}
         nameLabel={type === 'arch' ? '架构名称' : '流程名称'}
-        deptName={data.deptName || data.applicableScope || data.adaptScope || '系统管理部,流程管理部,权责管理部'}
-        ownerName={data.ownerName || '流程管理员(E0002)'}
-        collaborators={data.collaborators}
+        deptName={formData.deptName}
+        ownerName={formData.ownerName}
+        collaborators={formData.collaborators}
+        isEditing={isEditing}
+        onDeptChange={(newDept) => setFormData((prev: any) => ({ ...prev, deptName: newDept }))}
+        onOwnerChange={(newOwner) => setFormData((prev: any) => ({ ...prev, ownerName: newOwner }))}
+        onCollaboratorsChange={(newCollabs) =>
+          setFormData((prev: any) => ({ ...prev, collaborators: newCollabs }))
+        }
+        showToast={showToast}
       />
 
       {/* 2. 表头下方统一格式排版区 (严格按照设计稿布局) */}
