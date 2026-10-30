@@ -1,0 +1,800 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/session",
+    "sourceLine": 1944,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/session",
+    "sourceLine": 1982,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/site/logout",
+    "sourceLine": 1986,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/fulltypes",
+    "sourceLine": 1991,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/fullSimpleModels",
+    "sourceLine": 1995,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/type",
+    "sourceLine": 1999,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/type",
+    "sourceLine": 2004,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flow/type",
+    "sourceLine": 2022,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flow/type/full",
+    "sourceLine": 2029,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/type/publish",
+    "sourceLine": 2036,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/type/publishVersionHistories",
+    "sourceLine": 2047,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/type/refs",
+    "sourceLine": 2059,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/type/refs",
+    "sourceLine": 2066,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/model/full",
+    "sourceLine": 2074,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flow/model/full",
+    "sourceLine": 2079,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/model",
+    "sourceLine": 2086,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/model/copy",
+    "sourceLine": 2111,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/model/publish",
+    "sourceLine": 2126,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/model/publishVersionHistories",
+    "sourceLine": 2172,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/model/refs",
+    "sourceLine": 2184,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/model/refs",
+    "sourceLine": 2191,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/:id/xml",
+    "sourceLine": 2198,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/:id/xml",
+    "sourceLine": 2203,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/collaborators",
+    "sourceLine": 2214,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/collaborators",
+    "sourceLine": 2231,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/audits",
+    "sourceLine": 2246,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/audits/apply",
+    "sourceLine": 2250,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/audits/action",
+    "sourceLine": 2290,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/audits/batch-action",
+    "sourceLine": 2339,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/flow/audits/:id",
+    "sourceLine": 2380,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/audits/batch-delete",
+    "sourceLine": 2388,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/repeals",
+    "sourceLine": 2399,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/repeal/apply",
+    "sourceLine": 2403,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/repeal/action",
+    "sourceLine": 2422,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dict/bundle",
+    "sourceLine": 2430,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/dict/tree",
+    "sourceLine": 2434,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/dict/item",
+    "sourceLine": 2445,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dict/doc/download",
+    "sourceLine": 2481,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/execute/tasks",
+    "sourceLine": 2498,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/execute/tasks/assign",
+    "sourceLine": 2502,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/execute/tasks/:id",
+    "sourceLine": 2530,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/execute/tasks/:id/step",
+    "sourceLine": 2536,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/execute/tasks/:id",
+    "sourceLine": 2546,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/execute/tasks/batch-assign",
+    "sourceLine": 2554,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/execute/tasks/batch-delete",
+    "sourceLine": 2565,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/execute/tasks/:id/submit",
+    "sourceLine": 2575,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flowdoc/manuals",
+    "sourceLine": 2891,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/manuals",
+    "sourceLine": 2910,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flowdoc/manuals/:id/detail",
+    "sourceLine": 2950,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flowdoc/manuals/:id",
+    "sourceLine": 2966,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/flowdoc/manuals/:id",
+    "sourceLine": 2984,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/manuals/:id/copy",
+    "sourceLine": 2993,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/manuals/:id/archive",
+    "sourceLine": 3014,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/manuals/:id/categories",
+    "sourceLine": 3031,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flowdoc/manuals/:id/categories/:catId",
+    "sourceLine": 3061,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/flowdoc/manuals/:id/categories/:catId",
+    "sourceLine": 3083,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/manuals/:id/items",
+    "sourceLine": 3103,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flowdoc/manuals/:id/items/:itemId",
+    "sourceLine": 3131,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/flowdoc/manuals/:id/items/:itemId",
+    "sourceLine": 3143,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/manuals/:id/items/:itemId/copy",
+    "sourceLine": 3154,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/manuals/:id/items/batch-publish",
+    "sourceLine": 3172,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/audit/submit",
+    "sourceLine": 3396,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flowdoc/audit/tasks",
+    "sourceLine": 3476,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/audit/tasks/:id/approve",
+    "sourceLine": 3514,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/audit/tasks/:id/reject",
+    "sourceLine": 3567,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/audit/tasks/:id/transfer",
+    "sourceLine": 3602,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/audit/tasks/batch-approve",
+    "sourceLine": 3635,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flowdoc/audit/tasks/batch-reject",
+    "sourceLine": 3685,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flowdoc/duties",
+    "sourceLine": 3720,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flowdoc/duties/:id/config",
+    "sourceLine": 3724,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/org/bundle",
+    "sourceLine": 3731,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/depts",
+    "sourceLine": 3745,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/org/depts/:id",
+    "sourceLine": 3766,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/org/depts/:id",
+    "sourceLine": 3775,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/depts/batch-delete",
+    "sourceLine": 3784,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/depts/import",
+    "sourceLine": 3793,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/depts/reset",
+    "sourceLine": 3817,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/org/users",
+    "sourceLine": 3823,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/users",
+    "sourceLine": 3884,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/org/users/:id",
+    "sourceLine": 3933,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/org/users/:id",
+    "sourceLine": 3964,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/users/batch-delete",
+    "sourceLine": 3973,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/users/:id/reset-password",
+    "sourceLine": 3982,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/org/users/:id/change-status",
+    "sourceLine": 3996,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/users/import",
+    "sourceLine": 4006,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/users/reset",
+    "sourceLine": 4068,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/build/roles",
+    "sourceLine": 4077,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/build/roles",
+    "sourceLine": 4140,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/build/roles/:id",
+    "sourceLine": 4210,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/build/roles/:id",
+    "sourceLine": 4248,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/build/roles/batch-delete",
+    "sourceLine": 4263,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/build/roles/:id/change-status",
+    "sourceLine": 4280,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/build/roles/:id/assign-users",
+    "sourceLine": 4296,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/build/roles/import",
+    "sourceLine": 4312,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/build/roles/reset",
+    "sourceLine": 4367,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/build/role-categories",
+    "sourceLine": 4432,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/build/role-categories",
+    "sourceLine": 4441,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/build/role-categories/:id",
+    "sourceLine": 4476,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/build/role-categories/:id",
+    "sourceLine": 4519,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/build/role-categories/reset",
+    "sourceLine": 4557,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/terms",
+    "sourceLine": 4657,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/terms",
+    "sourceLine": 4697,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flow/terms/:id",
+    "sourceLine": 4727,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/flow/terms/:id",
+    "sourceLine": 4751,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/flow/term-categories",
+    "sourceLine": 4768,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/flow/term-categories",
+    "sourceLine": 4778,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/flow/term-categories/:id",
+    "sourceLine": 4805,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/flow/term-categories/:id",
+    "sourceLine": 4838,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/system/company",
+    "sourceLine": 4863,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/system/company",
+    "sourceLine": 4867,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/system/license",
+    "sourceLine": 4881,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/system/license/generate-code",
+    "sourceLine": 4894,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/system/license/activate",
+    "sourceLine": 4923,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/system/apis",
+    "sourceLine": 5019,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/system/forms",
+    "sourceLine": 5023,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "GET",
+    "path": "/api/system/forms/:formKey",
+    "sourceLine": 5027,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/system/forms",
+    "sourceLine": 5033,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/system/forms/:formKey",
+    "sourceLine": 5079,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/system/forms/:formKey",
+    "sourceLine": 5094,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/system/forms/:formKey/fields",
+    "sourceLine": 5108,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/system/forms/:formKey/fields/sort",
+    "sourceLine": 5146,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/system/forms/:formKey/fields/:id",
+    "sourceLine": 5171,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/system/forms/:formKey/import",
+    "sourceLine": 5186,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/system/forms/reset",
+    "sourceLine": 5217,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/form-fields-generate",
+    "sourceLine": 5227,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/drawio-generate",
+    "sourceLine": 5498,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/flow-audit",
+    "sourceLine": 5598,
+    "implementation": "transactional domain"
+  },
+  {
+    "method": "POST",
+    "path": "/api/ai/flow-chat",
+    "sourceLine": 5669,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "GET",
+    "path": "/api/mining/overview",
+    "sourceLine": 6027,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/mining/switch-dataset",
+    "sourceLine": 6049,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/mining/extract",
+    "sourceLine": 6062,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/mining/import-logs",
+    "sourceLine": 6087,
+    "implementation": "native service / explicit disabled reset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/mining/ai-diagnose",
+    "sourceLine": 6106,
+    "implementation": "native service / explicit disabled reset"
+  }
+]

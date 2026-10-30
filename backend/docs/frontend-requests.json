@@ -1,0 +1,802 @@
+[
+  {
+    "file": "AiAssistantChatModal.tsx",
+    "line": 199,
+    "request": "fetch('/api/ai/flow-chat', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          message: displayText,\n          mode: modeToSend,\n          options: genOptions,\n          cells: canvasCells,\n          flowTitle,\n        }),\n      })"
+  },
+  {
+    "file": "ApiManageView.tsx",
+    "line": 46,
+    "request": "fetch('/api/system/apis')"
+  },
+  {
+    "file": "ApiManageView.tsx",
+    "line": 87,
+    "request": "fetch('/api/system/apis', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify(editingApi),\n    })"
+  },
+  {
+    "file": "ApiManageView.tsx",
+    "line": 102,
+    "request": "fetch(`/api/system/apis/${id}`, { method: 'DELETE' })"
+  },
+  {
+    "file": "ApiManageView.tsx",
+    "line": 118,
+    "request": "fetch('/api/system/apis/debug', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        apiPath: debugApi.apiPath,\n        method: debugApi.method,\n      }),\n    })"
+  },
+  {
+    "file": "CollaboratorModal.tsx",
+    "line": 156,
+    "request": "fetch(`/api/flow/collaborators?targetType=${targetType || 'arch'}&targetId=${encodeURIComponent(targetId)}`)"
+  },
+  {
+    "file": "CollaboratorModal.tsx",
+    "line": 172,
+    "request": "fetch('/api/org/bundle')"
+  },
+  {
+    "file": "CollaboratorModal.tsx",
+    "line": 403,
+    "request": "fetch('/api/flow/collaborators', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          targetType,\n          targetId,\n          collaborators: safeCollabs,\n        }),\n      })"
+  },
+  {
+    "file": "CompanyAuthManageView.tsx",
+    "line": 72,
+    "request": "fetch('/api/system/company')"
+  },
+  {
+    "file": "CompanyAuthManageView.tsx",
+    "line": 130,
+    "request": "fetch('/api/system/company', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          systemDisplayName: displayNameInput.trim(),\n          systemLogo: logoPreview,\n          loginTitleSuffix,\n          copyrightText,\n          watermarkEnabled,\n        }),\n      })"
+  },
+  {
+    "file": "CompanyAuthManageView.tsx",
+    "line": 182,
+    "request": "fetch('/api/system/license/generate-code', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          companyName: targetCompanyName.trim(),\n          machineCode: targetMachineCode.trim(),\n          edition: selectedEdition,\n        }),\n      })"
+  },
+  {
+    "file": "CompanyAuthManageView.tsx",
+    "line": 247,
+    "request": "fetch('/api/system/license/activate', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          companyName: targetCompanyName.trim(),\n          machineCode: targetMachineCode.trim(),\n          licenseKey: licenseKeyInput.trim(),\n          edition: selectedEdition,\n          authUsersCount: selectedUsersCount,\n        }),\n      })"
+  },
+  {
+    "file": "DashboardView.tsx",
+    "line": 79,
+    "request": "fetch('/api/session')"
+  },
+  {
+    "file": "DashboardView.tsx",
+    "line": 93,
+    "request": "fetch('/api/system/company')"
+  },
+  {
+    "file": "DashboardView.tsx",
+    "line": 103,
+    "request": "fetch('/api/flow/audits')"
+  },
+  {
+    "file": "DashboardView.tsx",
+    "line": 114,
+    "request": "fetch('/api/execute/tasks')"
+  },
+  {
+    "file": "DashboardView.tsx",
+    "line": 125,
+    "request": "fetch('/api/flowdoc/duties')"
+  },
+  {
+    "file": "DashboardView.tsx",
+    "line": 136,
+    "request": "fetch('/api/flow/fullSimpleModels')"
+  },
+  {
+    "file": "DashboardView.tsx",
+    "line": 143,
+    "request": "fetch('/api/dict/bundle')"
+  },
+  {
+    "file": "DeptSelectModal.tsx",
+    "line": 109,
+    "request": "fetch('/api/org/bundle')"
+  },
+  {
+    "file": "DrawioDesigner.tsx",
+    "line": 741,
+    "request": "fetch(`/api/flow/${flowId}/xml`)"
+  },
+  {
+    "file": "DrawioDesigner.tsx",
+    "line": 761,
+    "request": "fetch(`/api/flow/${flowId}/xml`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ xml: latestXml, title: flowTitle }),\n      })"
+  },
+  {
+    "file": "DrawioDesigner.tsx",
+    "line": 1024,
+    "request": "fetch('/api/ai/drawio-generate', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ prompt: aiPrompt, existingTitle: flowTitle }),\n      })"
+  },
+  {
+    "file": "DrawioDesigner.tsx",
+    "line": 1050,
+    "request": "fetch('/api/ai/flow-audit', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ cells, flowTitle }),\n      })"
+  },
+  {
+    "file": "DutyAuditView.tsx",
+    "line": 189,
+    "request": "fetch(`/api/flowdoc/audit/tasks?${params.toString()}`)"
+  },
+  {
+    "file": "DutyAuditView.tsx",
+    "line": 247,
+    "request": "fetch('/api/flowdoc/audit/tasks/batch-approve', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            taskIds: selectedTaskIds,\n            opinion: approveModal.opinion,\n            operator: '当前登录人',\n          }),\n        })"
+  },
+  {
+    "file": "DutyAuditView.tsx",
+    "line": 270,
+    "request": "fetch(`/api/flowdoc/audit/tasks/${approveModal.task.id}/approve`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          opinion: approveModal.opinion,\n          operator: approveModal.task.currentApprover || '当前登录人',\n        }),\n      })"
+  },
+  {
+    "file": "DutyAuditView.tsx",
+    "line": 301,
+    "request": "fetch('/api/flowdoc/audit/tasks/batch-reject', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            taskIds: selectedTaskIds,\n            opinion: rejectModal.opinion,\n            operator: '当前登录人',\n          }),\n        })"
+  },
+  {
+    "file": "DutyAuditView.tsx",
+    "line": 324,
+    "request": "fetch(`/api/flowdoc/audit/tasks/${rejectModal.task.id}/reject`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          opinion: rejectModal.opinion,\n          operator: rejectModal.task.currentApprover || '当前登录人',\n        }),\n      })"
+  },
+  {
+    "file": "DutyAuditView.tsx",
+    "line": 350,
+    "request": "fetch(`/api/flowdoc/audit/tasks/${transferModal.task.id}/transfer`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          targetApprover: transferModal.targetApprover,\n          targetDept: transferModal.targetDept,\n          reason: transferModal.reason,\n          operator: transferModal.task.currentApprover || '原审批人',\n        }),\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 568,
+    "request": "fetch(url)"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 591,
+    "request": "fetch(`/api/flowdoc/manuals/${manualId}/detail`)"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 694,
+    "request": "fetch('/api/flowdoc/manuals', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            manualNo: manualNo.trim(),\n            manualName: manualName.trim(),\n            viewPermissions: viewPermissions || [],\n            attachment: attachment || '',\n            description: description || '',\n          }),\n        })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 713,
+    "request": "fetch(`/api/flowdoc/manuals/${manualEditModal.data.id}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            manualNo: manualNo.trim(),\n            manualName: manualName.trim(),\n            viewPermissions: viewPermissions || [],\n            attachment: attachment || '',\n            description: description || '',\n          }),\n        })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 739,
+    "request": "fetch(`/api/flowdoc/manuals/${manual.id}/copy`, {\n        method: 'POST',\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 756,
+    "request": "fetch(`/api/flowdoc/manuals/${manualArchiveConfirm.manual.id}/archive`, {\n        method: 'POST',\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 774,
+    "request": "fetch(`/api/flowdoc/manuals/${manualDeleteConfirm.manual.id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 899,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/categories`, {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ name: name.trim(), parentId: targetNode.id }),\n        })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 910,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/categories`, {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ name: name.trim(), parentId: null }),\n        })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 921,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/categories/${targetNode.id}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ name: name.trim() }),\n        })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 941,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/categories/${node.id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 968,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/items`, {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            dutyNo: data.dutyNo.trim(),\n            dutyName: data.dutyName.trim(),\n            categoryName: data.categoryName || selectedCategoryNode?.name || '财务管理中心',\n            categoryId: data.categoryId || selectedCategoryId || 'cat_fin',\n            primaryRole: data.primaryRole || '经办人',\n            scope: data.scope || '全集团各单位及下属子公司',\n            effectiveApproval: data.effectiveApproval || (data.status === '已发布' ? '已审批通过 (OA-2026-0391)' : '待发起审批'),\n            submitTime: data.submitTime || new Date().toISOString().slice(0, 19).replace('T', ' '),\n            status: data.status || '草稿',\n            scenarioText: data.scenarioText || '',\n          }),\n        })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 990,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/items/${data.id}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 1010,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/items/${item.id}/copy`, {\n        method: 'POST',\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 1027,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/items/${item.id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 1043,
+    "request": "fetch(`/api/flowdoc/manuals/${selectedManual.id}/items/batch-publish`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ itemIds: selectedItemIds }),\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 1129,
+    "request": "fetch('/api/flowdoc/audit/submit', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          manualId: selectedManual.id,\n          itemIds: multiLevelAuditModal.itemIds,\n          levels: multiLevelAuditModal.levels,\n          urgency: multiLevelAuditModal.urgency,\n          remark: multiLevelAuditModal.remark,\n          submitter: '流程管理员',\n        }),\n      })"
+  },
+  {
+    "file": "DutyBuildView.tsx",
+    "line": 1182,
+    "request": "fetch(\n        `/api/flowdoc/manuals/${selectedManual.id}/items/${scenarioModal.item.id}`,\n        {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            scenarioBlocks: blocks,\n            scenarios: rules,\n            scenarioText,\n          }),\n        }\n      )"
+  },
+  {
+    "file": "DutyManageView.tsx",
+    "line": 262,
+    "request": "fetch('/api/flowdoc/duties')"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 249,
+    "request": "fetch('/api/flow/fulltypes')"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 250,
+    "request": "fetch('/api/flow/fullSimpleModels')"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 251,
+    "request": "fetch('/api/dict/bundle')"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 285,
+    "request": "fetch(`/api/flow/model/full?id=${selectedNode.id}`)"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 299,
+    "request": "fetch(`/api/flow/type/refs?id=${selectedNode.id}&tab=${archTab}`)"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 310,
+    "request": "fetch(`/api/flow/model/refs?id=${selectedNode.id}&tab=${flowTab}`)"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 339,
+    "request": "fetch(url, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ id: targetId, tab, refIds: nextRefIds }),\n    })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 386,
+    "request": "fetch('/api/flow/type', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ parentId: nameModal.targetId, label: val }),\n      })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 393,
+    "request": "fetch('/api/flow/model', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ parentId: nameModal.targetId, label: val }),\n      })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 406,
+    "request": "fetch('/api/flow/type', {\n        method: 'PUT',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ id: nameModal.targetId, label: val }),\n      })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 413,
+    "request": "fetch('/api/flow/model', {\n        method: 'PUT',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ id: nameModal.targetId, label: val }),\n      })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 432,
+    "request": "fetch('/api/flow/type/publish', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ id: archObj.id }),\n        })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 452,
+    "request": "fetch('/api/flow/model/publish', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ id: flowObj.id, audit }),\n        })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 469,
+    "request": "fetch(url)"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 478,
+    "request": "fetch('/api/flow/model/copy', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ id: flow.id }),\n    })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 575,
+    "request": "fetch('/api/flow/reorder', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        orderedItems: sortModal.items.map((item) => ({ id: item.id, type: item.type })),\n      }),\n    })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 602,
+    "request": "fetch('/api/flow/reorder', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            orderedItems: next.map((item) => ({ id: item.id, type: item.type })),\n          }),\n        })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 623,
+    "request": "fetch(`/api/flow/${isArch ? 'type' : 'model'}?id=${id}`, { method: 'DELETE' })"
+  },
+  {
+    "file": "FlowDesignView.tsx",
+    "line": 634,
+    "request": "fetch('/api/flow/model/full', {\n      method: 'PUT',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify(currentFlow),\n    })"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 169,
+    "request": "fetch('/api/execute/tasks')"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 170,
+    "request": "fetch('/api/flow/fulltypes')"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 171,
+    "request": "fetch('/api/flow/fullSimpleModels')"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 172,
+    "request": "fetch('/api/dict/bundle')"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 173,
+    "request": "fetch('/api/flowdoc/duties')"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 406,
+    "request": "fetch('/api/execute/tasks/batch-assign', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            taskIds: selectedTaskIds,\n            assignee: assignUser.trim(),\n            taskDesc: assignTaskDesc.trim(),\n          }),\n        })"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 435,
+    "request": "fetch(`/api/execute/tasks/${reassignTargetTaskId}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            taskName: assignTaskName.trim(),\n            taskDesc: assignTaskDesc.trim(),\n            assignee: assignUser.trim(),\n          }),\n        })"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 470,
+    "request": "fetch('/api/execute/tasks/assign', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          modelId: assignFlowId,\n          taskName: assignTaskName.trim(),\n          taskDesc: assignTaskDesc.trim(),\n          assignee: assignUser.trim(),\n          creator: '系统管理员',\n        }),\n      })"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 496,
+    "request": "fetch(`/api/execute/tasks/${deleteConfirmTask.id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 512,
+    "request": "fetch('/api/execute/tasks/batch-delete', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ taskIds: selectedTaskIds }),\n      })"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 544,
+    "request": "fetch(`/api/execute/tasks/${activeTask.id}/step`, {\n      method: 'PUT',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        stepId: step.id,\n        status: nextStatus,\n      }),\n    })"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 560,
+    "request": "fetch(`/api/execute/tasks/${activeTask.id}/step`, {\n      method: 'PUT',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        stepId: editingStep.id,\n        status: stepStatusDraft,\n        completionNote: stepNoteDraft.trim(),\n        relatedFiles: stepFilesDraft,\n        startTime: stepStartDraft,\n        endTime: stepStatusDraft === '已办' ? stepEndDraft : '',\n      }),\n    })"
+  },
+  {
+    "file": "FlowProcessView.tsx",
+    "line": 580,
+    "request": "fetch(`/api/execute/tasks/${activeTask.id}/submit`, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n    })"
+  },
+  {
+    "file": "FlowTermsView.tsx",
+    "line": 112,
+    "request": "fetch(`/api/flow/terms?${params.toString()}`)"
+  },
+  {
+    "file": "FlowTermsView.tsx",
+    "line": 133,
+    "request": "fetch('/api/flow/term-categories')"
+  },
+  {
+    "file": "FlowTermsView.tsx",
+    "line": 223,
+    "request": "fetch('/api/flow/terms', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "FlowTermsView.tsx",
+    "line": 238,
+    "request": "fetch(`/api/flow/terms/${data.id}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "FlowTermsView.tsx",
+    "line": 262,
+    "request": "fetch(`/api/flow/terms/${deleteConfirm.term.id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "FlowTermsView.tsx",
+    "line": 298,
+    "request": "fetch('/api/flow/term-categories', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          name: newCategoryName.trim(),\n          description: newCategoryDesc.trim(),\n        }),\n      })"
+  },
+  {
+    "file": "FlowTermsView.tsx",
+    "line": 330,
+    "request": "fetch(`/api/flow/term-categories/${id}`, {\n        method: 'PUT',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          name: editingName.trim(),\n          description: editingDesc.trim(),\n        }),\n      })"
+  },
+  {
+    "file": "FlowTermsView.tsx",
+    "line": 360,
+    "request": "fetch(`/api/flow/term-categories/${id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "FlowVerifyView.tsx",
+    "line": 185,
+    "request": "fetch('/api/flow/audits')"
+  },
+  {
+    "file": "FlowVerifyView.tsx",
+    "line": 199,
+    "request": "fetch('/api/flow/models')"
+  },
+  {
+    "file": "FlowVerifyView.tsx",
+    "line": 336,
+    "request": "fetch('/api/flow/audits/action', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          id: row.id,\n          action,\n          opinion: opinion || (action === 'approve' ? '同意正式发布生产环境' : '驳回修改'),\n          effectiveDate: effectiveDate || new Date().toISOString().slice(0, 10),\n        }),\n      })"
+  },
+  {
+    "file": "FlowVerifyView.tsx",
+    "line": 381,
+    "request": "fetch('/api/flow/audits/batch-action', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          ids: pendingIds,\n          action,\n          opinion: batchActionModal.opinion || (action === 'approve' ? '批量合规审核通过，准予发布' : '批量驳回修改'),\n        }),\n      })"
+  },
+  {
+    "file": "FlowVerifyView.tsx",
+    "line": 417,
+    "request": "fetch('/api/flow/audits/apply', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          modelId: applyModal.modelId,\n          versionNo: applyModal.versionNo,\n          urgency: applyModal.urgency,\n          changeType: applyModal.changeType,\n          changeSummary: applyModal.changeSummary || '提交新版流程合规发布申请',\n          effectiveDate: applyModal.effectiveDate || new Date().toISOString().slice(0, 10),\n        }),\n      })"
+  },
+  {
+    "file": "FlowVerifyView.tsx",
+    "line": 456,
+    "request": "fetch('/api/flow/audits/batch-delete', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ ids: selectedIds }),\n        })"
+  },
+  {
+    "file": "FlowVerifyView.tsx",
+    "line": 467,
+    "request": "fetch(`/api/flow/audits/${deleteConfirmModal.row.id}`, {\n          method: 'DELETE',\n        })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 162,
+    "request": "fetch('/api/system/forms')"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 285,
+    "request": "fetch(`/api/system/forms/${currentForm.formKey}/fields`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify(updated),\n      })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 313,
+    "request": "fetch(`/api/system/forms/${currentForm.formKey}/fields/sort`, {\n        method: 'PUT',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ fieldIds }),\n      })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 338,
+    "request": "fetch(`/api/system/forms/${currentForm.formKey}/fields`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify(cloned),\n      })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 361,
+    "request": "fetch(`/api/system/forms/${currentForm.formKey}/fields/${field.id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 378,
+    "request": "fetch('/api/system/forms/reset', { method: 'POST' })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 443,
+    "request": "fetch(`/api/system/forms/${currentForm.formKey}/fields`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify(payload),\n      })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 476,
+    "request": "fetch('/api/ai/form-fields-generate', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          prompt: aiPrompt,\n          formKey: currentForm?.formKey,\n          formName: currentForm?.formName,\n          moduleDomain: currentForm?.moduleDomain,\n        }),\n      })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 510,
+    "request": "fetch(`/api/system/forms/${currentForm.formKey}/import`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ fields: selected, mode: 'append' }),\n      })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 544,
+    "request": "fetch(`/api/system/forms/${currentForm.formKey}/import`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ fields: parsed.fields, mode: 'replace' }),\n      })"
+  },
+  {
+    "file": "FormEngineView.tsx",
+    "line": 568,
+    "request": "fetch('/api/system/forms', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify(createModelData),\n      })"
+  },
+  {
+    "file": "MyResponsibleView.tsx",
+    "line": 205,
+    "request": "fetch('/api/flow/fullSimpleModels')"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 207,
+    "request": "fetch('/api/org/bundle')"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 278,
+    "request": "fetch('/api/org/depts', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 303,
+    "request": "fetch(`/api/org/depts/${data.id}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 326,
+    "request": "fetch(`/api/org/depts/${deleteDeptConfirm.dept.id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 345,
+    "request": "fetch('/api/org/depts/batch-delete', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ ids: selectedDeptIds }),\n      })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 370,
+    "request": "fetch('/api/org/depts/import', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ items: importDeptPreviewList }),\n      })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 390,
+    "request": "fetch('/api/org/depts/reset', { method: 'POST' })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 500,
+    "request": "fetch(`/api/org/users/${user.id}/change-status`, {\n        method: 'PUT',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ status: nextStatus }),\n      })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 538,
+    "request": "fetch('/api/org/users', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 552,
+    "request": "fetch(`/api/org/users/${data.id}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 581,
+    "request": "fetch(`/api/org/users/${user.id}/reset-password`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ newPassword: newPassword.trim() }),\n      })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 608,
+    "request": "fetch(`/api/org/users/${user.id}`, {\n        method: 'PUT',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ roleNames: selectedRoles }),\n      })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 631,
+    "request": "fetch('/api/org/users/batch-delete', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ ids: selectedUserIds }),\n        })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 646,
+    "request": "fetch(`/api/org/users/${user.id}`, { method: 'DELETE' })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 743,
+    "request": "fetch('/api/org/users/import', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ items: previewList, updateExisting }),\n      })"
+  },
+  {
+    "file": "OrgManageView.tsx",
+    "line": 764,
+    "request": "fetch('/api/org/users/reset', { method: 'POST' })"
+  },
+  {
+    "file": "PersonSelectModal.tsx",
+    "line": 95,
+    "request": "fetch('/api/org/bundle')"
+  },
+  {
+    "file": "ProcessMiningView.tsx",
+    "line": 358,
+    "request": "fetch('/api/mining/overview')"
+  },
+  {
+    "file": "ProcessMiningView.tsx",
+    "line": 402,
+    "request": "fetch('/api/mining/switch-dataset', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ datasetKey: key }),\n      })"
+  },
+  {
+    "file": "ProcessMiningView.tsx",
+    "line": 469,
+    "request": "fetch('/api/mining/extract', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({}),\n      })"
+  },
+  {
+    "file": "ProcessMiningView.tsx",
+    "line": 525,
+    "request": "fetch('/api/mining/import-logs', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ rawData: importRawText, sourceSystem: importSelectedSystem }),\n      })"
+  },
+  {
+    "file": "ProcessMiningView.tsx",
+    "line": 545,
+    "request": "fetch('/api/mining/ai-diagnose', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ datasetKey: activeDatasetKey, prompt: aiUserPrompt }),\n      })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 544,
+    "request": "fetch('/api/build/role-categories')"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 570,
+    "request": "fetch(`/api/build/roles?${params.toString()}`)"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 591,
+    "request": "fetch('/api/org/bundle')"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 655,
+    "request": "fetch(`/api/build/roles/${role.id}/change-status`, {\n        method: 'PUT',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ status: nextStatus }),\n      })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 735,
+    "request": "fetch('/api/build/roles', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 750,
+    "request": "fetch(`/api/build/roles/${data.id}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(data),\n        })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 774,
+    "request": "fetch('/api/build/roles/batch-delete', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ ids: selectedIds }),\n        })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 790,
+    "request": "fetch(`/api/build/roles/${deleteConfirm.role.id}`, {\n          method: 'DELETE',\n        })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 832,
+    "request": "fetch(\n        `/api/build/roles/${assignUserModal.role.id}/assign-users`,\n        {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ assignedUsers: chosenUsers }),\n        }\n      )"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 993,
+    "request": "fetch('/api/build/roles/batch-import', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          items: importModal.previewList,\n          overwrite: importModal.overwrite,\n        }),\n      })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 1118,
+    "request": "fetch(`/api/build/role-categories/${categoryModal.id}`, {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            name: categoryModal.name.trim(),\n            code: categoryModal.code.trim(),\n            parentId: categoryModal.parentId,\n            description: categoryModal.description.trim(),\n          }),\n        })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 1138,
+    "request": "fetch('/api/build/role-categories', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            name: categoryModal.name.trim(),\n            code: categoryModal.code.trim(),\n            parentId: categoryModal.parentId,\n            description: categoryModal.description.trim(),\n          }),\n        })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 1170,
+    "request": "fetch(`/api/build/role-categories/${deleteCatModal.cat.id}`, {\n        method: 'DELETE',\n      })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 1194,
+    "request": "fetch('/api/build/role-categories/reset', { method: 'POST' })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 1347,
+    "request": "fetch('/api/build/roles/reset-presets', { method: 'POST' })"
+  },
+  {
+    "file": "ProcessRoleLibraryView.tsx",
+    "line": 2912,
+    "request": "fetch(\n                `/api/build/roles/${assignUserModal.role.id}/assign-users`,\n                {\n                  method: 'POST',\n                  headers: { 'Content-Type': 'application/json' },\n                  body: JSON.stringify({ assignedUsers: chosenUsers }),\n                }\n              )"
+  },
+  {
+    "file": "PropertyOverviewView.tsx",
+    "line": 272,
+    "request": "fetch('/api/flow/fulltypes')"
+  },
+  {
+    "file": "PropertyOverviewView.tsx",
+    "line": 273,
+    "request": "fetch('/api/flow/fullSimpleModels')"
+  },
+  {
+    "file": "PropertyOverviewView.tsx",
+    "line": 274,
+    "request": "fetch('/api/dict/bundle')"
+  },
+  {
+    "file": "PropertyOverviewView.tsx",
+    "line": 275,
+    "request": "fetch('/api/flow/repeals')"
+  },
+  {
+    "file": "PropertyOverviewView.tsx",
+    "line": 392,
+    "request": "fetch(`/api/flow/model/refs?id=${selectedNode.id}&tab=${flowTab}`)"
+  },
+  {
+    "file": "PropertyOverviewView.tsx",
+    "line": 400,
+    "request": "fetch(`/api/flow/type/refs?id=${selectedNode.id}&tab=${archTab}`)"
+  },
+  {
+    "file": "PropertyOverviewView.tsx",
+    "line": 481,
+    "request": "fetch(url)"
+  },
+  {
+    "file": "PropertyOverviewView.tsx",
+    "line": 514,
+    "request": "fetch('/api/flow/repeal/apply', {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          modelId: repealModal.flow.id,\n          mode: repealModal.applyMode,\n          reasonType: repealModal.reasonType,\n          reason: repealModal.reason.trim(),\n          replaceFlowName: repealModal.replaceFlowName.trim(),\n          impactScope: repealModal.impactScope.trim(),\n          applicant: '当前登录人',\n        }),\n      })"
+  },
+  {
+    "file": "SysDocRiskModuleView.tsx",
+    "line": 466,
+    "request": "fetch('/api/system/forms/form_sysdoc')"
+  },
+  {
+    "file": "SysDocRiskModuleView.tsx",
+    "line": 610,
+    "request": "fetch('/api/dict/tree', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        treeType: isRisk ? 'risk' : 'sysDoc',\n        action: folderModal.mode,\n        id: folderModal.targetId,\n        parentId: folderModal.targetId,\n        label: folderModal.label.trim(),\n      }),\n    })"
+  },
+  {
+    "file": "SysDocRiskModuleView.tsx",
+    "line": 627,
+    "request": "fetch('/api/dict/tree', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        treeType: isRisk ? 'risk' : 'sysDoc',\n        action: 'delete',\n        id,\n      }),\n    })"
+  },
+  {
+    "file": "SysDocRiskModuleView.tsx",
+    "line": 688,
+    "request": "fetch('/api/dict/item', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        itemType: isRisk ? 'risk' : 'sysDoc',\n        action: itemModal.isEdit ? 'update' : 'create',\n        item: {\n          ...f,\n          category: categoryPath,\n        },\n      }),\n    })"
+  },
+  {
+    "file": "SysDocRiskModuleView.tsx",
+    "line": 706,
+    "request": "fetch('/api/dict/item', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        itemType: isRisk ? 'risk' : 'sysDoc',\n        action: 'approve',\n        id,\n      }),\n    })"
+  },
+  {
+    "file": "SysDocRiskModuleView.tsx",
+    "line": 720,
+    "request": "fetch('/api/dict/item', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        itemType: isRisk ? 'risk' : 'sysDoc',\n        action: 'delete',\n        id,\n      }),\n    })"
+  }
+]

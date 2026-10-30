@@ -1,0 +1,35 @@
+# Use with: docker compose -p qingprocess -f compose.yml -f compose.local.yml ...
+services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+  api:
+    build:
+      args:
+        NODE_IMAGE: node:22-alpine
+    environment:
+      NODE_ENV: development
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+  tools:
+    profiles: [tools]
+    build:
+      context: .
+      target: tooling
+      args:
+        NODE_IMAGE: node:22-alpine
+    environment:
+      DATABASE_URL: postgresql://qingprocess:${POSTGRES_PASSWORD}@db:5432/qingprocess
+      TEST_DATABASE_URL: postgresql://qingprocess:${POSTGRES_PASSWORD}@db:5432/qingprocess
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      BOOTSTRAP_USER: ${BOOTSTRAP_USER:-admin}
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:?Set BOOTSTRAP_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy

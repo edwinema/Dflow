@@ -1,0 +1,14 @@
+# Include these locations in an existing HTTPS server serving the built React frontend.
+# Replace the upstream address if nginx is running in a different container/network.
+client_max_body_size 8m;
+location /api/ {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_read_timeout 35s;
+}
+location / {
+    try_files $uri $uri/ /index.html;
+}
