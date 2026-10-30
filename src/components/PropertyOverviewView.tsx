@@ -44,13 +44,15 @@ import {
   downloadDocumentFile,
   getDocumentFormat,
 } from './OnlineDocumentPreviewModal';
-import { FlowPageStandardHeader } from './FlowPageStandardHeader';
+import { FlowPageStandardHeader, getArchHierarchyPath } from './FlowPageStandardHeader';
+import { UnifiedCardDetailView } from './UnifiedCardDetailView';
 
 interface PropertyOverviewViewProps {
   initialSelectedFlowId?: string | null;
   mode?: 'overview' | 'repealList';
+  currentUser?: any;
   onNavigate?: (path: string, flowId?: string) => void;
-  showToast: (msg: string, type?: 'success' | 'warning' | 'error') => void;
+  showToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
 // 颜色主题生成工具，为各层级架构与流程卡片提供丰富、高对比度的彩色视觉标识（支持向下穿透）
@@ -164,6 +166,7 @@ const ARCH_PALETTES = [
 export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
   initialSelectedFlowId,
   mode = 'overview',
+  currentUser,
   onNavigate,
   showToast,
 }) => {
@@ -967,21 +970,19 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
 
               {/* Process Tab Contents */}
               <div className="flex-1 flex flex-col min-h-0 overflow-y-auto relative">
-                {flowTab !== 'flow' && currentFlow && (
+                {!['flow', 'jbzl'].includes(flowTab) && currentFlow && (
                   <FlowPageStandardHeader
-                    archName={
-                      currentFlow.archName ||
-                      archList.find((a: any) => a.id === currentFlow.parentId)?.label ||
-                      '测试集团有限公司流程管理体系'
-                    }
+                    archName={getArchHierarchyPath(currentFlow.id, true, archList, flowList)}
                     name={currentFlow.label}
                     nameLabel="流程名称"
-                    ownerName={currentFlow.ownerName || '系统管理员(E0004)'}
+                    deptName={currentFlow.deptName || currentFlow.applicableScope}
+                    ownerName={currentFlow.ownerName || '流程管理员(E0002)'}
+                    collaborators={currentFlow.collaborators}
                     applicableScope={
                       currentFlow.applicableScope ||
                       currentFlow.adaptScope ||
                       currentFlow.deptName ||
-                      '结构开发部'
+                      '系统管理部,流程管理部,权责管理部'
                     }
                   />
                 )}
@@ -1023,43 +1024,27 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                   </div>
                 )}
 
-                {flowTab === 'jbzl' && (
-                  <div className="px-5 pb-5 max-w-4xl space-y-4 text-xs">
-                    <div className="grid grid-cols-2 border border-[#ebeef5] rounded overflow-hidden shadow-2xs bg-white">
-                      <div className="flex border-b border-r border-[#ebeef5]">
-                        <div className="w-32 bg-[#f5f7fa] px-3.5 py-3 text-[#606266] font-medium shrink-0">
-                          流程名称
-                        </div>
-                        <div className="px-3.5 py-3 text-[#303133] font-semibold">{currentFlow.label}</div>
-                      </div>
-                      <div className="flex border-b border-[#ebeef5]">
-                        <div className="w-32 bg-[#f5f7fa] px-3.5 py-3 text-[#606266] font-medium shrink-0">
-                          流程编码
-                        </div>
-                        <div className="px-3.5 py-3 text-[#303133] font-mono-tabular font-medium">
-                          {currentFlow.flowNo}
-                        </div>
-                      </div>
-                      <div className="flex border-b border-r border-[#ebeef5]">
-                        <div className="w-32 bg-[#f5f7fa] px-3.5 py-3 text-[#606266] font-medium shrink-0">
-                          所属架构
-                        </div>
-                        <div className="px-3.5 py-3 text-[#303133]">{currentFlow.archName}</div>
-                      </div>
-                      <div className="flex border-b border-[#ebeef5]">
-                        <div className="w-32 bg-[#f5f7fa] px-3.5 py-3 text-[#606266] font-medium shrink-0">
-                          责任人
-                        </div>
-                        <div className="px-3.5 py-3 text-[#303133]">{currentFlow.ownerName}</div>
-                      </div>
-                      <div className="col-span-2 flex border-b border-[#ebeef5]">
-                        <div className="w-32 bg-[#f5f7fa] px-3.5 py-3 text-[#606266] font-medium shrink-0">
-                          目的说明
-                        </div>
-                        <div className="px-3.5 py-3 text-[#303133]">{currentFlow.purpose || '暂无说明'}</div>
-                      </div>
-                    </div>
-                  </div>
+                {flowTab === 'jbzl' && currentFlow && (
+                  <UnifiedCardDetailView
+                    type="flow"
+                    data={currentFlow}
+                    archList={archList}
+                    flowList={flowList}
+                    currentUser={currentUser}
+                    onSave={async (updated) => {
+                      setCurrentFlow(updated);
+                      setFlowList((prev) =>
+                        prev.map((f) => (f.id === updated.id ? { ...f, ...updated } : f))
+                      );
+                      await fetch('/api/flow/model/full', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updated),
+                      });
+                      showToast('流程基本资料保存成功', 'success');
+                    }}
+                    showToast={showToast}
+                  />
                 )}
 
                 {flowTab === 'jxzb' && (
@@ -1428,21 +1413,20 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
 
               {/* Architecture Tab Contents */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                {['typecard', 'zdwj', 'fxhg', 'xgfj'].includes(archTab) && currentArch && (
+                {['zdwj', 'fxhg', 'xgfj'].includes(archTab) && currentArch && (
                   <FlowPageStandardHeader
                     className="mx-0 mt-0 mb-4"
-                    archName={
-                      archList.find((a: any) => a.id === currentArch.parentId)?.label ||
-                      (currentArch.parentId === 'arch_root' ? '企业流程架构全景' : '测试集团有限公司流程管理体系')
-                    }
+                    archName={getArchHierarchyPath(currentArch.id, false, archList, flowList)}
                     name={currentArch.label}
-                    nameLabel="流程名称"
-                    ownerName={currentArch.ownerName || '系统管理员(E0004)'}
+                    nameLabel="架构名称"
+                    deptName={currentArch.deptName || currentArch.applicableScope}
+                    ownerName={currentArch.ownerName || '流程管理员(E0002)'}
+                    collaborators={currentArch.collaborators}
                     applicableScope={
                       currentArch.applicableScope ||
                       currentArch.adaptScope ||
                       currentArch.deptName ||
-                      '结构开发部'
+                      '系统管理部,流程管理部,权责管理部'
                     }
                   />
                 )}
@@ -1698,98 +1682,29 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                 {/* ============================================================== */}
                 {/* 2. 架构卡片 (Architecture Properties Specification Table)        */}
                 {/* ============================================================== */}
-                {archTab === 'typecard' && (
-                  <div className="space-y-4 max-w-4xl text-xs">
-                    <div className="border border-[#ebeef5] rounded-lg overflow-hidden bg-white shadow-2xs">
-                      <div className="px-4 py-3 bg-[#fafafa] border-b border-[#ebeef5] font-bold text-xs text-[#1f2733] flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-[#409eff]" />
-                        <span>架构属性与规范卡片 · {currentArch.label}</span>
-                      </div>
-                      <table className="w-full border-collapse text-xs table-fixed">
-                        <tbody>
-                          <tr className="border-b border-[#ebeef5]">
-                            <th className="w-36 bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                              架构名称
-                            </th>
-                            <td className="px-4 py-3 text-[#1f2733] border-r border-[#ebeef5] font-bold break-words">
-                              {currentArch.label || ''}
-                            </td>
-                            <th className="w-36 bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                              架构编号
-                            </th>
-                            <td className="px-4 py-3 text-[#1f2733] font-mono-tabular font-medium break-words">
-                              {currentArch.archNo || '-'}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-[#ebeef5]">
-                            <th className="bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                              负责人
-                            </th>
-                            <td className="px-4 py-3 text-[#1f2733] border-r border-[#ebeef5] break-words">
-                              {currentArch.ownerName || '系统管理员'}
-                            </td>
-                            <th className="bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                              归口部门
-                            </th>
-                            <td className="px-4 py-3 text-[#1f2733] break-words">
-                              {currentArch.deptName || '运营管理部'}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-[#ebeef5]">
-                            <th className="bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                              流程级别
-                            </th>
-                            <td className="px-4 py-3 text-[#1f2733] font-mono-tabular font-bold text-[#409eff] border-r border-[#ebeef5]">
-                              {currentArch.level || 'L1'}
-                            </td>
-                            <th className="bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                              前置流程架构
-                            </th>
-                            <td className="px-4 py-3 text-[#1f2733] break-words">
-                              {currentArch.prevArch || '-'}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-[#ebeef5]">
-                            <th className="bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3.5 text-left border-r border-[#ebeef5] align-top">
-                              流程定义
-                            </th>
-                            <td colSpan={3} className="px-4 py-3.5 text-[#1f2733] whitespace-pre-wrap leading-relaxed">
-                              {currentArch.flowDefine || '统筹企业端到端业务主干'}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-[#ebeef5]">
-                            <th className="bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3.5 text-left border-r border-[#ebeef5] align-top">
-                              业务目的
-                            </th>
-                            <td colSpan={3} className="px-4 py-3.5 text-[#1f2733] whitespace-pre-wrap leading-relaxed">
-                              {currentArch.flowPurpose || '实现企业高效数字化业务治理'}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-[#ebeef5]">
-                            <th className="bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3.5 text-left border-r border-[#ebeef5] align-top">
-                              风险与合规
-                            </th>
-                            <td colSpan={3} className="px-4 py-3.5 text-[#1f2733] whitespace-pre-wrap leading-relaxed">
-                              {currentArch.riskCompliance || '严格遵循内控合规要求与KCP节点'}
-                            </td>
-                          </tr>
-                          <tr>
-                            <th className="bg-[#f8fafc] text-[#64748b] font-medium px-4 py-3.5 text-left border-r border-[#ebeef5]">
-                              发布版本与时间
-                            </th>
-                            <td colSpan={3} className="px-4 py-3.5 text-[#1f2733] font-mono-tabular">
-                              版本：<strong>{currentArch.versionNo || 'V1'}</strong> · 发布时间：<strong>{currentArch.publishTime || '2026-03-20'}</strong> · 发布人：{currentArch.publishUserName || '系统管理员'}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                {archTab === 'typecard' && currentArch && (
+                  <UnifiedCardDetailView
+                    type="arch"
+                    data={currentArch}
+                    archList={archList}
+                    flowList={flowList}
+                    currentUser={currentUser}
+                    onSave={async (updated) => {
+                      setCurrentArch(updated);
+                      setArchList((prev) =>
+                        prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+                      );
+                      await fetch('/api/flow/type/full', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updated),
+                      });
+                      showToast('架构卡片保存成功', 'success');
+                    }}
+                    showToast={showToast}
+                  />
                 )}
 
-                {/* ============================================================== */}
-                {/* 3. 制度文件 / 风险合规 / 相关附件                              */}
-                {/* ============================================================== */}
                 {['zdwj', 'fxhg', 'xgfj'].includes(archTab) && (() => {
                   const currentTab = archTab as 'zdwj' | 'fxhg' | 'xgfj';
                   const boundItems = resolveBoundItems(currentTab, archRefs);

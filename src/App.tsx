@@ -599,6 +599,7 @@ export default function App() {
             <PropertyOverviewView
               initialSelectedFlowId={selectedFlowId}
               mode="overview"
+              currentUser={currentUser}
               onNavigate={handleNavigate}
               showToast={showToast}
             />
@@ -606,12 +607,14 @@ export default function App() {
             <PropertyOverviewView
               initialSelectedFlowId={selectedFlowId}
               mode="repealList"
+              currentUser={currentUser}
               onNavigate={handleNavigate}
               showToast={showToast}
             />
           ) : currentPath === '/build/design' ? (
             <FlowDesignView
               initialSelectedFlowId={selectedFlowId}
+              currentUser={currentUser}
               onEnterDesigner={handleEnterDesigner}
               onNavigate={handleNavigate}
               onSelectNodeId={(id) => {

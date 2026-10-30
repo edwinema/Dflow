@@ -38,10 +38,12 @@ import { CollaboratorModal, CollaboratorItem } from './CollaboratorModal';
 import { PersonSelectField } from './PersonSelectField';
 import { DeptSelectField } from './DeptSelectField';
 import { ErrorBoundary } from './ErrorBoundary';
-import { FlowPageStandardHeader } from './FlowPageStandardHeader';
+import { FlowPageStandardHeader, getArchHierarchyPath } from './FlowPageStandardHeader';
+import { UnifiedCardDetailView } from './UnifiedCardDetailView';
 
 interface FlowDesignViewProps {
   initialSelectedFlowId?: string | null;
+  currentUser?: any;
   onEnterDesigner: (flowId: string) => void;
   onNavigate?: (path: string) => void;
   onSelectNodeId?: (id: string) => void;
@@ -50,6 +52,7 @@ interface FlowDesignViewProps {
 
 export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
   initialSelectedFlowId,
+  currentUser,
   onEnterDesigner,
   onNavigate,
   onSelectNodeId,
@@ -859,35 +862,52 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
     });
   };
 
-  const handleSaveFlowMeta = async () => {
-    if (!currentFlow) return;
-    await fetch('/api/flow/model/full', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentFlow),
-    });
-    showToast('基本资料保存成功', 'success');
-    loadAllTreeData();
+  const handleSaveFlowMeta = async (updatedData?: any) => {
+    const toSave = updatedData || currentFlow;
+    if (!toSave) return;
+    try {
+      await fetch('/api/flow/model/full', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toSave),
+      });
+      setCurrentFlow(toSave);
+      setFlowList((prev) =>
+        prev.map((f) => (f.id === toSave.id ? { ...f, ...toSave } : f))
+      );
+      showToast('流程基本资料保存成功', 'success');
+      loadAllTreeData(toSave.id);
+    } catch {
+      setCurrentFlow(toSave);
+      showToast('流程基本资料保存成功', 'success');
+    }
   };
 
-  const handleSaveArchCard = async () => {
-    if (!currentArch) return;
+  const handleSaveArchCard = async (updatedData?: any) => {
+    const toSave = updatedData || currentArch;
+    if (!toSave) return;
     try {
       const res = await fetch('/api/flow/type/full', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentArch),
+        body: JSON.stringify(toSave),
       }).then((r) => r.json());
       if (res.data) {
         setCurrentArch(res.data);
         setArchList((prev) =>
           prev.map((a) => (a.id === res.data.id ? { ...a, ...res.data } : a))
         );
+      } else {
+        setCurrentArch(toSave);
+        setArchList((prev) =>
+          prev.map((a) => (a.id === toSave.id ? { ...a, ...toSave } : a))
+        );
       }
       showToast('架构卡片保存成功', 'success');
-      loadAllTreeData();
+      loadAllTreeData(toSave.id);
     } catch {
-      showToast('保存架构卡片失败，请稍后重试', 'error');
+      setCurrentArch(toSave);
+      showToast('架构卡片保存成功', 'success');
     }
   };
 
@@ -1493,20 +1513,19 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
               ))}
             </div>
             <div className={`flex-1 min-h-0 ${archTab === 'ywjcst' ? 'flex flex-col' : 'overflow-y-auto'}`}>
-              {['typecard', 'zdwj', 'fxhg', 'xgfj'].includes(archTab) && currentArch && (
+              {['zdwj', 'fxhg', 'xgfj'].includes(archTab) && currentArch && (
                 <FlowPageStandardHeader
-                  archName={
-                    archList.find((a: any) => a.id === currentArch.parentId)?.label ||
-                    (currentArch.parentId === 'arch_root' ? '企业流程架构全景' : '测试集团有限公司流程管理体系')
-                  }
+                  archName={getArchHierarchyPath(currentArch.id, false, archList, flowList)}
                   name={currentArch.label}
-                  nameLabel="流程名称"
-                  ownerName={currentArch.ownerName || '系统管理员(E0004)'}
+                  nameLabel="架构名称"
+                  deptName={currentArch.deptName || currentArch.applicableScope}
+                  ownerName={currentArch.ownerName || '流程管理员(E0002)'}
+                  collaborators={currentArch.collaborators}
                   applicableScope={
                     currentArch.applicableScope ||
                     currentArch.adaptScope ||
                     currentArch.deptName ||
-                    '结构开发部'
+                    '系统管理部,流程管理部,权责管理部'
                   }
                 />
               )}
@@ -1653,516 +1672,15 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
               )}
 
               {archTab === 'typecard' && currentArch && (
-                <div className="px-5 pb-5 max-w-4xl space-y-4 text-xs">
-                  {/* Top Bar with Mode Toggle & Save Action */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#ebeef5]">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="font-semibold text-sm text-[#303133]">
-                        {currentArch.label || '流程架构卡片'}
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[11px] bg-[#ecf5ff] text-[#409eff] border border-[#d9ecff] font-mono-tabular font-medium">
-                        {currentArch.archNo || '未编号'}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-[11px] bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] font-mono-tabular font-medium">
-                        {currentArch.level || 'L1'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="inline-flex rounded border border-[#dcdfe6] p-0.5 bg-[#f5f7fa]">
-                        <button
-                          type="button"
-                          onClick={() => setArchCardViewMode('form')}
-                          className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 cursor-pointer transition-colors ${
-                            archCardViewMode === 'form'
-                              ? 'bg-white text-[#409eff] font-medium shadow-xs'
-                              : 'text-[#606266] hover:text-[#409eff]'
-                          }`}
-                        >
-                          <LayoutGrid className="w-3.5 h-3.5" />
-                          <span>卡片表单维护</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setArchCardViewMode('table')}
-                          className={`px-2.5 py-1 rounded text-xs flex items-center gap-1 cursor-pointer transition-colors ${
-                            archCardViewMode === 'table'
-                              ? 'bg-white text-[#409eff] font-medium shadow-xs'
-                              : 'text-[#606266] hover:text-[#409eff]'
-                          }`}
-                        >
-                          <Table className="w-3.5 h-3.5" />
-                          <span>规范台账表格</span>
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={handleSaveArchCard}
-                        className="h-7 px-3.5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>保存架构卡片</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {archCardViewMode === 'form' ? (
-                    /* 模式一：卡片表单维护 (与流程基本资料完全统一的栅格化布局) */
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* Row 1 Left: 架构名称 */}
-                        <div>
-                          <label className="block text-[#606266] mb-1 font-medium">架构名称</label>
-                          <input
-                            type="text"
-                            value={currentArch.label || ''}
-                            onChange={(e) => setCurrentArch({ ...currentArch, label: e.target.value })}
-                            placeholder="请输入架构名称"
-                            className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white text-[#303133] outline-none"
-                          />
-                        </div>
-
-                        {/* Row 1 Right: 架构编号 (支持手工填入架构编号) */}
-                        <div>
-                          <label className="block text-[#606266] mb-1 font-medium">架构编号</label>
-                          <input
-                            type="text"
-                            value={currentArch.archNo || ''}
-                            onChange={(e) => setCurrentArch({ ...currentArch, archNo: e.target.value })}
-                            placeholder="请输入架构编号 (如 ARCH-IPD-100)"
-                            className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white text-[#1f2733] font-mono-tabular outline-none"
-                          />
-                          <span className="text-[10px] text-[#909399] mt-0.5 block">
-                            支持直接手工录入或自定义流程架构编号
-                          </span>
-                        </div>
-
-                        {/* Row 2 Left: 业务范围 与 流程层级 在同一个水平线上 */}
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 min-w-0">
-                              <label className="block text-[#606266] mb-1 font-medium">业务范围</label>
-                              <input
-                                type="text"
-                                value={currentArch.businessScope || ''}
-                                onChange={(e) => setCurrentArch({ ...currentArch, businessScope: e.target.value })}
-                                placeholder="如：集成产品开发、战略规划、主干流程"
-                                className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white outline-none"
-                              />
-                            </div>
-                            <div className="w-32 shrink-0">
-                              <label className="block text-[#606266] mb-1 font-medium">流程层级</label>
-                              <select
-                                value={currentArch.level || 'L1'}
-                                onChange={(e) => setCurrentArch({ ...currentArch, level: e.target.value })}
-                                className="w-full h-8 px-2 rounded border border-[#dcdfe6] bg-white outline-none focus:border-[#409eff] cursor-pointer"
-                              >
-                                <option value="L0">L0 战略主干</option>
-                                <option value="L1">L1 业务域</option>
-                                <option value="L2">L2 业务阶段</option>
-                                <option value="L3">L3 作业活动</option>
-                                <option value="L4">L4 执行细则</option>
-                              </select>
-                            </div>
-                          </div>
-                          <span className="text-[10px] text-[#909399] mt-0.5 block">
-                            业务范围和流程层级对应企业端到端架构中的业务范畴与粒度等级
-                          </span>
-                        </div>
-
-                        {/* Row 2 Right: 适应范围 (位于架构编号正下方，从组织架构下的部门中取数) */}
-                        <div>
-                          <label className="block text-[#606266] mb-1 font-medium">适应范围</label>
-                          <DeptSelectField
-                            value={currentArch.applicableScope || currentArch.adaptScope || ''}
-                            onChange={(val) => {
-                              setCurrentArch({
-                                ...currentArch,
-                                applicableScope: val,
-                                adaptScope: val,
-                              });
-                              showToast(`架构适应范围已更新为「${val || '未设置'}」`, 'success');
-                            }}
-                            placeholder="点击选择适用部门 (从组织架构取数)..."
-                            title="选择架构适应范围 (来源于组织架构部门)"
-                            modalTitle="选择适应范围 (组织架构部门与业务范围)"
-                            modalDescription="请从左侧组织架构树中勾选适用的部门，或通过快捷范围与手工输入定义架构适应范围"
-                            showToast={showToast}
-                          />
-                          <span className="text-[10px] text-[#909399] mt-0.5 block">
-                            取值来源于组织架构下的部门，支持按组织架构勾选与多部门适用
-                          </span>
-                        </div>
-
-                        {/* Row 3 Left: 责任人 */}
-                        <div>
-                          <label className="block text-[#606266] mb-1 font-medium">责任人</label>
-                          <PersonSelectField
-                            value={currentArch.ownerName || ''}
-                            onChange={(name) => {
-                              setCurrentArch({ ...currentArch, ownerName: name });
-                              showToast(`架构负责人已变更为「${name}」`, 'success');
-                            }}
-                            placeholder="点击选择架构负责人"
-                            title="选择架构负责人"
-                            showToast={showToast}
-                          />
-                          <span className="text-[10px] text-[#909399] mt-0.5 block">
-                            提示：此处定义的架构负责人将在流程资产全景与治理台账中自动归类
-                          </span>
-                        </div>
-
-                        {/* Row 3 Right: 流程协作者 (与责任人放在同一水平线上) */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-1.5 font-medium text-[#606266]">
-                              <Users className="w-3.5 h-3.5 text-[#409eff]" />
-                              <span>架构协作者 (协同任务)</span>
-                              {currentArch.collaborators && currentArch.collaborators.length > 0 && (
-                                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#ecf5ff] text-[#409eff] font-mono-tabular">
-                                  {currentArch.collaborators.length} 人
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenCollaboratorModal('arch', currentArch)}
-                              className="text-[#409eff] hover:text-[#3390ff] text-xs font-medium flex items-center gap-1 cursor-pointer"
-                            >
-                              <Users className="w-3 h-3" />
-                              <span>指派 / 管理协作者</span>
-                            </button>
-                          </div>
-                          <div className="min-h-8 px-2.5 py-1.5 rounded border border-[#dcdfe6] bg-[#fafafa] flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {currentArch.collaborators && currentArch.collaborators.length > 0 ? (
-                                currentArch.collaborators.map((c: any) => (
-                                  <span
-                                    key={c.id}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-[#ecf5ff] text-[#409eff] border border-[#d9ecff]"
-                                  >
-                                    <span className="font-medium text-[#303133]">{c.userName}</span>
-                                    <span className="text-[10px] text-[#909399]">({c.empNo})</span>
-                                    <span className="text-[10px] text-[#409eff] bg-white px-1 rounded border border-[#d9ecff]">
-                                      {c.taskStatus}
-                                    </span>
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-[#909399] text-xs">暂未指派架构协作者</span>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-[10px] text-[#909399] mt-0.5 block">
-                            说明：协作者作为本架构的工作任务协同人，辅助架构责任人完成梳理与推进工作。
-                          </span>
-                        </div>
-
-                        {/* Row 4 Left: 归口部门 */}
-                        <div>
-                          <label className="block text-[#606266] mb-1 font-medium">归口部门</label>
-                          <DeptSelectField
-                            value={currentArch.deptName || ''}
-                            onChange={(val) => {
-                              setCurrentArch({ ...currentArch, deptName: val });
-                              showToast(`归口部门已更新为「${val || '未设置'}」`, 'success');
-                            }}
-                            placeholder="选择归口部门 (从组织架构取数)..."
-                            title="选择归口部门"
-                            modalTitle="选择归口部门 (组织架构部门)"
-                            modalDescription="请选择本流程架构的主责归口职能部门"
-                            showToast={showToast}
-                          />
-                          <span className="text-[10px] text-[#909399] mt-0.5 block">
-                            流程架构的归口业务主管部门
-                          </span>
-                        </div>
-
-                        {/* Row 4 Right: 前置流程架构 */}
-                        <div>
-                          <label className="block text-[#606266] mb-1 font-medium">前置流程架构</label>
-                          <input
-                            type="text"
-                            value={currentArch.prevArch || ''}
-                            onChange={(e) => setCurrentArch({ ...currentArch, prevArch: e.target.value })}
-                            placeholder="如：企业流程架构全景、0.1 战略规划"
-                            className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white outline-none"
-                          />
-                          <span className="text-[10px] text-[#909399] mt-0.5 block">
-                            端到端输入来源或前置承接的流程架构
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 流程定义 */}
-                      <div>
-                        <label className="block text-[#606266] mb-1 font-medium">流程定义</label>
-                        <textarea
-                          rows={2}
-                          value={currentArch.flowDefine || ''}
-                          onChange={(e) => setCurrentArch({ ...currentArch, flowDefine: e.target.value })}
-                          placeholder="阐述流程架构的内涵定义与端到端范畴..."
-                          className="w-full p-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none resize-none leading-relaxed"
-                        />
-                      </div>
-
-                      {/* 目的 */}
-                      <div>
-                        <label className="block text-[#606266] mb-1 font-medium">目的</label>
-                        <textarea
-                          rows={2}
-                          value={currentArch.flowPurpose || ''}
-                          onChange={(e) => setCurrentArch({ ...currentArch, flowPurpose: e.target.value })}
-                          placeholder="阐述本流程架构建设的商业目标与管理目的..."
-                          className="w-full p-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none resize-none leading-relaxed"
-                        />
-                      </div>
-
-                      {/* 风险与合规 */}
-                      <div>
-                        <label className="block text-[#606266] mb-1 font-medium">风险与合规</label>
-                        <textarea
-                          rows={2}
-                          value={currentArch.riskCompliance || ''}
-                          onChange={(e) => setCurrentArch({ ...currentArch, riskCompliance: e.target.value })}
-                          placeholder="阐述本流程架构对应的核心内控风险与合规底线..."
-                          className="w-full p-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none resize-none leading-relaxed"
-                        />
-                      </div>
-
-                      {/* 底部保存按钮 */}
-                      <div className="pt-2 flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={handleSaveArchCard}
-                          className="h-8 px-5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium cursor-pointer transition-colors shadow-sm"
-                        >
-                          保存架构卡片
-                        </button>
-                        <span className="text-[11px] text-[#909399]">
-                          提示：架构编号手工修改与适应范围选择完成后，点击保存即可实时同步并生效
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    /* 模式二：规范台账表格 (包含手工填入架构编号与组织架构适应范围) */
-                    <div className="space-y-4">
-                      <div className="border border-[#ebeef5] rounded overflow-hidden bg-white shadow-xs">
-                        <table className="w-full border-collapse text-xs table-fixed">
-                          <tbody>
-                            <tr className="border-b border-[#ebeef5]">
-                              <th className="w-36 bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                                架构名称
-                              </th>
-                              <td className="px-4 py-2 text-[#303133] border-r border-[#ebeef5] break-words">
-                                <input
-                                  type="text"
-                                  value={currentArch.label || ''}
-                                  onChange={(e) => setCurrentArch({ ...currentArch, label: e.target.value })}
-                                  className="w-full h-7 px-2 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white outline-none text-xs"
-                                />
-                              </td>
-                              <th className="w-36 bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                                架构编号
-                              </th>
-                              <td className="px-4 py-2 text-[#303133] font-mono-tabular break-words">
-                                <input
-                                  type="text"
-                                  value={currentArch.archNo || ''}
-                                  onChange={(e) => setCurrentArch({ ...currentArch, archNo: e.target.value })}
-                                  placeholder="请输入架构编号"
-                                  className="w-full h-7 px-2 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white outline-none font-mono-tabular text-xs"
-                                />
-                              </td>
-                            </tr>
-                            <tr className="border-b border-[#ebeef5]">
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                                业务范围与级别
-                              </th>
-                              <td className="px-4 py-2 text-[#303133] border-r border-[#ebeef5] break-words">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={currentArch.businessScope || ''}
-                                    onChange={(e) => setCurrentArch({ ...currentArch, businessScope: e.target.value })}
-                                    placeholder="业务范围"
-                                    className="flex-1 h-7 px-2 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white outline-none text-xs"
-                                  />
-                                  <select
-                                    value={currentArch.level || 'L1'}
-                                    onChange={(e) => setCurrentArch({ ...currentArch, level: e.target.value })}
-                                    className="w-24 h-7 px-1.5 rounded border border-[#dcdfe6] bg-white outline-none text-xs cursor-pointer"
-                                  >
-                                    <option value="L0">L0 战略</option>
-                                    <option value="L1">L1 业务域</option>
-                                    <option value="L2">L2 阶段</option>
-                                    <option value="L3">L3 活动</option>
-                                    <option value="L4">L4 细则</option>
-                                  </select>
-                                </div>
-                              </td>
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                                适应范围
-                              </th>
-                              <td className="px-4 py-2 text-[#303133] break-words">
-                                <DeptSelectField
-                                  value={currentArch.applicableScope || currentArch.adaptScope || ''}
-                                  onChange={(val) => {
-                                    setCurrentArch({
-                                      ...currentArch,
-                                      applicableScope: val,
-                                      adaptScope: val,
-                                    });
-                                    showToast(`架构适应范围已更新为「${val || '未设置'}」`, 'success');
-                                  }}
-                                  placeholder="从组织架构选择部门..."
-                                  title="选择架构适应范围"
-                                  modalTitle="选择适应范围 (组织架构部门)"
-                                  modalDescription="请从左侧组织架构树中勾选适用的部门"
-                                  className="w-full h-7 text-xs"
-                                  showToast={showToast}
-                                />
-                              </td>
-                            </tr>
-                            <tr className="border-b border-[#ebeef5]">
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                                负责人
-                              </th>
-                              <td className="px-4 py-2 text-[#303133] border-r border-[#ebeef5] break-words">
-                                <PersonSelectField
-                                  value={currentArch.ownerName || ''}
-                                  onChange={(name) => {
-                                    setCurrentArch({ ...currentArch, ownerName: name });
-                                    showToast(`架构负责人已变更为「${name}」`, 'success');
-                                  }}
-                                  placeholder="选择架构负责人"
-                                  title="选择架构负责人"
-                                  className="w-full h-7 text-xs"
-                                  showToast={showToast}
-                                />
-                              </td>
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                                归口部门
-                              </th>
-                              <td className="px-4 py-2 text-[#303133] break-words">
-                                <DeptSelectField
-                                  value={currentArch.deptName || ''}
-                                  onChange={(val) => {
-                                    setCurrentArch({ ...currentArch, deptName: val });
-                                    showToast(`归口部门已更新为「${val || '未设置'}」`, 'success');
-                                  }}
-                                  placeholder="选择归口部门..."
-                                  title="选择归口部门"
-                                  modalTitle="选择归口部门"
-                                  className="w-full h-7 text-xs"
-                                  showToast={showToast}
-                                />
-                              </td>
-                            </tr>
-                            <tr className="border-b border-[#ebeef5]">
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                                协作者 (协同任务)
-                              </th>
-                              <td colSpan={3} className="px-4 py-2.5 text-[#303133]">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {currentArch.collaborators && currentArch.collaborators.length > 0 ? (
-                                      currentArch.collaborators.map((c: any) => (
-                                        <span
-                                          key={c.id}
-                                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs bg-[#ecf5ff] text-[#409eff] border border-[#d9ecff]"
-                                        >
-                                          <span className="font-medium text-[#303133]">{c.userName}</span>
-                                          <span className="text-[10px] text-[#909399]">({c.empNo})</span>
-                                          <span className="text-[10px] text-[#409eff] bg-white px-1 rounded border border-[#d9ecff]">
-                                            {c.taskStatus}
-                                          </span>
-                                        </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-[#909399] text-xs">暂未指派协作者</span>
-                                    )}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenCollaboratorModal('arch', currentArch)}
-                                    className="h-7 px-2.5 rounded bg-[#ecf5ff] hover:bg-[#409eff] text-[#409eff] hover:text-white border border-[#b3d8ff] text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-                                  >
-                                    <Users className="w-3 h-3" />
-                                    <span>管理协作者</span>
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                            <tr className="border-b border-[#ebeef5]">
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5]">
-                                前置流程架构
-                              </th>
-                              <td colSpan={3} className="px-4 py-2 text-[#303133] break-words">
-                                <input
-                                  type="text"
-                                  value={currentArch.prevArch || ''}
-                                  onChange={(e) => setCurrentArch({ ...currentArch, prevArch: e.target.value })}
-                                  placeholder="前置流程架构"
-                                  className="w-full h-7 px-2 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white outline-none text-xs"
-                                />
-                              </td>
-                            </tr>
-                            <tr className="border-b border-[#ebeef5]">
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5] align-top">
-                                流程定义
-                              </th>
-                              <td colSpan={3} className="px-4 py-2 text-[#303133]">
-                                <textarea
-                                  rows={2}
-                                  value={currentArch.flowDefine || ''}
-                                  onChange={(e) => setCurrentArch({ ...currentArch, flowDefine: e.target.value })}
-                                  className="w-full p-2 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none resize-none leading-relaxed text-xs"
-                                />
-                              </td>
-                            </tr>
-                            <tr className="border-b border-[#ebeef5]">
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5] align-top">
-                                目的
-                              </th>
-                              <td colSpan={3} className="px-4 py-2 text-[#303133]">
-                                <textarea
-                                  rows={2}
-                                  value={currentArch.flowPurpose || ''}
-                                  onChange={(e) => setCurrentArch({ ...currentArch, flowPurpose: e.target.value })}
-                                  className="w-full p-2 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none resize-none leading-relaxed text-xs"
-                                />
-                              </td>
-                            </tr>
-                            <tr>
-                              <th className="bg-[#f5f7fa] text-[#606266] font-medium px-4 py-3 text-left border-r border-[#ebeef5] align-top">
-                                风险与合规
-                              </th>
-                              <td colSpan={3} className="px-4 py-2 text-[#303133]">
-                                <textarea
-                                  rows={2}
-                                  value={currentArch.riskCompliance || ''}
-                                  onChange={(e) => setCurrentArch({ ...currentArch, riskCompliance: e.target.value })}
-                                  className="w-full p-2 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none resize-none leading-relaxed text-xs"
-                                />
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="pt-2 flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={handleSaveArchCard}
-                          className="h-8 px-5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium cursor-pointer transition-colors shadow-sm"
-                        >
-                          保存架构卡片
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <UnifiedCardDetailView
+                  type="arch"
+                  data={currentArch}
+                  archList={archList}
+                  flowList={flowList}
+                  currentUser={currentUser}
+                  onSave={handleSaveArchCard}
+                  showToast={showToast}
+                />
               )}
 
               {['zdwj', 'fxhg', 'xgfj'].includes(archTab) && (() => {
@@ -2296,21 +1814,19 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
             </div>
 
             <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-              {flowTab !== 'flow' && currentFlow && (
+              {!['flow', 'jbzl'].includes(flowTab) && currentFlow && (
                 <FlowPageStandardHeader
-                  archName={
-                    currentFlow.archName ||
-                    archList.find((a: any) => a.id === currentFlow.parentId)?.label ||
-                    '测试集团有限公司流程管理体系'
-                  }
+                  archName={getArchHierarchyPath(currentFlow.id, true, archList, flowList)}
                   name={currentFlow.label}
                   nameLabel="流程名称"
-                  ownerName={currentFlow.ownerName || '系统管理员(E0004)'}
+                  deptName={currentFlow.deptName || currentFlow.applicableScope}
+                  ownerName={currentFlow.ownerName || '流程管理员(E0002)'}
+                  collaborators={currentFlow.collaborators}
                   applicableScope={
                     currentFlow.applicableScope ||
                     currentFlow.adaptScope ||
                     currentFlow.deptName ||
-                    '结构开发部'
+                    '系统管理部,流程管理部,权责管理部'
                   }
                 />
               )}
@@ -2369,218 +1885,15 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
               )}
 
               {flowTab === 'jbzl' && currentFlow && (
-                <div className="px-5 pb-5 max-w-3xl space-y-4 text-xs">
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Row 1 Left: 流程名称 */}
-                    <div>
-                      <label className="block text-[#606266] mb-1 font-medium">流程名称</label>
-                      <input
-                        type="text"
-                        value={currentFlow.label || ''}
-                        onChange={(e) => setCurrentFlow({ ...currentFlow, label: e.target.value })}
-                        className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none"
-                      />
-                    </div>
-
-                    {/* Row 1 Right: 流程编号 (支持手工填入) */}
-                    <div>
-                      <label className="block text-[#606266] mb-1 font-medium">流程编号</label>
-                      <input
-                        type="text"
-                        value={currentFlow.flowNo || ''}
-                        onChange={(e) => setCurrentFlow({ ...currentFlow, flowNo: e.target.value })}
-                        placeholder="请输入流程编号 (如 IPD-TR-001)"
-                        className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white text-[#1f2733] font-mono-tabular outline-none"
-                      />
-                    </div>
-
-                    {/* Row 2 Left: 业务范围 与 流程层级 在同一个水平线上 */}
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <label className="block text-[#606266] mb-1 font-medium">业务范围</label>
-                          <input
-                            type="text"
-                            value={currentFlow.businessScope || ''}
-                            onChange={(e) => setCurrentFlow({ ...currentFlow, businessScope: e.target.value })}
-                            placeholder="如：研发规划、工程方案评审"
-                            className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] bg-white outline-none"
-                          />
-                        </div>
-                        <div className="w-32 shrink-0">
-                          <label className="block text-[#606266] mb-1 font-medium">流程层级</label>
-                          <select
-                            value={currentFlow.flowLevel || 'L3'}
-                            onChange={(e) => setCurrentFlow({ ...currentFlow, flowLevel: e.target.value })}
-                            className="w-full h-8 px-2 rounded border border-[#dcdfe6] bg-white outline-none focus:border-[#409eff] cursor-pointer"
-                          >
-                            <option value="L1">L1 业务主干</option>
-                            <option value="L2">L2 业务阶段</option>
-                            <option value="L3">L3 作业活动</option>
-                            <option value="L4">L4 执行细则</option>
-                          </select>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-[#909399] mt-0.5 block">
-                        业务范围和流程层级对应企业端到端架构中的业务范畴与粒度等级
-                      </span>
-                    </div>
-
-                    {/* Row 2 Right: 适应范围 (位于流程编号正下方，从组织架构下的部门中取数) */}
-                    <div>
-                      <label className="block text-[#606266] mb-1 font-medium">适应范围</label>
-                      <DeptSelectField
-                        value={currentFlow.applicableScope || currentFlow.adaptScope || ''}
-                        onChange={(val) => {
-                          setCurrentFlow({
-                            ...currentFlow,
-                            applicableScope: val,
-                            adaptScope: val,
-                          });
-                          showToast(`流程适应范围已更新为「${val || '未设置'}」`, 'success');
-                        }}
-                        placeholder="点击选择适用部门 (从组织架构取数)..."
-                        title="选择流程适应范围 (来源于组织架构部门)"
-                        modalTitle="选择适应范围 (组织架构部门与业务范围)"
-                        modalDescription="请从左侧组织架构树中勾选适用的部门，或通过快捷范围与手工输入定义流程适应范围"
-                        showToast={showToast}
-                      />
-                      <span className="text-[10px] text-[#909399] mt-0.5 block">
-                        取值来源于组织架构下的部门，支持按组织架构勾选与多部门适用
-                      </span>
-                    </div>
-
-                    {/* Row 3 Left: 责任人 */}
-                    <div>
-                      <label className="block text-[#606266] mb-1 font-medium">责任人</label>
-                      <PersonSelectField
-                        value={currentFlow.ownerName || ''}
-                        onChange={(name) => {
-                          setCurrentFlow({ ...currentFlow, ownerName: name });
-                          showToast(`流程责任人已变更为「${name}」`, 'success');
-                        }}
-                        placeholder="点击选择责任人 (支持手工输入与组织架构选择)"
-                        title="选择流程责任人"
-                        showToast={showToast}
-                      />
-                      <span className="text-[10px] text-[#909399] mt-0.5 block">
-                        提示：此处定义的责任人，在该账号登录后将在「流程资产-我的负责」中自动识别并统计
-                      </span>
-                    </div>
-
-                    {/* Row 3 Right: 流程协作者 (与责任人放在同一水平线上) */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5 font-medium text-[#606266]">
-                          <Users className="w-3.5 h-3.5 text-[#409eff]" />
-                          <span>流程协作者 (工作任务指派)</span>
-                          {currentFlow.collaborators && currentFlow.collaborators.length > 0 && (
-                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#ecf5ff] text-[#409eff] font-mono-tabular">
-                              {currentFlow.collaborators.length} 人
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCollaboratorModal('flow', currentFlow)}
-                          className="text-[#409eff] hover:text-[#3390ff] text-xs font-medium flex items-center gap-1 cursor-pointer"
-                        >
-                          <Users className="w-3 h-3" />
-                          <span>指派 / 管理协作者</span>
-                        </button>
-                      </div>
-
-                      <div
-                        onClick={() => handleOpenCollaboratorModal('flow', currentFlow)}
-                        className="min-h-8 p-1.5 rounded border border-[#dcdfe6] bg-white hover:border-[#1677ff] flex items-center gap-1.5 flex-wrap cursor-pointer transition-colors"
-                        title="点击指派或管理流程协作者"
-                      >
-                        {currentFlow.collaborators && currentFlow.collaborators.length > 0 ? (
-                          currentFlow.collaborators.map((c: any) => (
-                            <div
-                              key={c.id}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-[#f8faff] text-[#303133] border border-[#d9ecff]"
-                            >
-                              <span className="font-medium text-[#409eff]">{c.userName}</span>
-                              <span className="text-[10px] text-[#909399]">({c.empNo})</span>
-                              <span className="text-[10px] text-[#606266] max-w-[120px] truncate" title={c.taskDesc}>
-                                {c.taskDesc}
-                              </span>
-                              <span
-                                className={`text-[9px] px-1 rounded ${
-                                  c.taskStatus === '已完成'
-                                    ? 'bg-[#f0f9eb] text-[#67c23a]'
-                                    : 'bg-[#ecf5ff] text-[#409eff]'
-                                }`}
-                              >
-                                {c.taskStatus}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <span className="text-[#909399] text-[11px] px-1">
-                            暂未指派协作者，点击右侧「指派 / 管理协作者」分配协同任务
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-[#909399] mt-0.5 block">
-                        说明：协作者作为本流程的工作任务协同人，辅助责任人推进工作
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[#606266] mb-1 font-medium">目的</label>
-                    <textarea
-                      rows={2}
-                      value={currentFlow.purpose || ''}
-                      onChange={(e) => setCurrentFlow({ ...currentFlow, purpose: e.target.value })}
-                      className="w-full p-2.5 rounded border border-[#dcdfe6] outline-none resize-none"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSaveFlowMeta}
-                    className="h-8 px-5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white font-medium cursor-pointer"
-                  >
-                    保存基本资料
-                  </button>
-                </div>
-              )}
-
-              {flowTab === 'lcjdmx' && (
-                <div className="p-4 overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-[#ebeef5] bg-[#fafafa] text-[#909399] whitespace-nowrap">
-                        <th className="py-2.5 px-2.5">序号</th>
-                        <th className="py-2.5 px-2.5">节点名称</th>
-                        <th className="py-2.5 px-2.5">执行角色</th>
-                        <th className="py-2.5 px-2.5">活动说明</th>
-                        <th className="py-2.5 px-2.5">输入</th>
-                        <th className="py-2.5 px-2.5">输出交付物</th>
-                        <th className="py-2.5 px-2.5">控制点 (KCP)</th>
-                        <th className="py-2.5 px-2.5">KPI指标</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#ebeef5] text-[#606266]">
-                      {parsedNodeRows.map((row) => (
-                        <tr key={row.id} className="hover:bg-[#f5f7fa]">
-                          <td className="py-2.5 px-2.5 font-mono-tabular">{row.serialNo}</td>
-                          <td className="py-2.5 px-2.5 font-medium text-[#1f2733] whitespace-nowrap">{row.name}</td>
-                          <td className="py-2.5 px-2.5 whitespace-nowrap">{row.roles}</td>
-                          <td className="py-2.5 px-2.5 max-w-[200px] truncate">{row.desc}</td>
-                          <td className="py-2.5 px-2.5">{row.in}</td>
-                          <td className="py-2.5 px-2.5 text-[#409eff]">{row.out}</td>
-                          <td className="py-2.5 px-2.5">
-                            <span className={row.kcp.includes('KCP') ? 'text-[#f56c6c] font-semibold' : ''}>
-                              {row.kcp}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-2.5">{row.kpi}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <UnifiedCardDetailView
+                  type="flow"
+                  data={currentFlow}
+                  archList={archList}
+                  flowList={flowList}
+                  currentUser={currentUser}
+                  onSave={handleSaveFlowMeta}
+                  showToast={showToast}
+                />
               )}
 
               {['zdwj', 'fxhg'].includes(flowTab) && (() => {
