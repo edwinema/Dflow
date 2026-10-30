@@ -655,17 +655,24 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
   };
 
   const handlePublishArch = (targetArch?: any) => {
-    const archObj = targetArch || currentArch;
+    const isEvent = targetArch && (targetArch.nativeEvent !== undefined || typeof targetArch.preventDefault === 'function');
+    const archObj = (!isEvent && targetArch) ? targetArch : currentArch;
     if (!archObj) return;
+
+    const matchedArch = archList.find((a: any) => String(a.id) === String(archObj.id));
+    const archName = archObj.label || archObj.name || archObj.archName || matchedArch?.label || matchedArch?.name || '当前架构';
+    const archId = archObj.id || matchedArch?.id;
+    if (!archId) return;
+
     setConfirmModal({
       open: true,
       title: '确认发布架构',
-      content: `确定要发布【${archObj.label}】吗？将生成全新架构版本。`,
+      content: `确定要发布【${archName}】吗？将生成全新架构版本。`,
       onConfirm: async () => {
         const res = await fetch('/api/flow/type/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: archObj.id }),
+          body: JSON.stringify({ id: archId }),
         }).then((r) => r.json());
         setConfirmModal((prev) => ({ ...prev, open: false }));
         showToast(`发布成功，当前版本: ${res.data?.versionNo || 'V2'}`, 'success');
@@ -675,17 +682,24 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
   };
 
   const handlePublishFlow = (audit: boolean, targetFlow?: any) => {
-    const flowObj = targetFlow || currentFlow;
+    const isEvent = targetFlow && (targetFlow.nativeEvent !== undefined || typeof targetFlow.preventDefault === 'function');
+    const flowObj = (!isEvent && targetFlow) ? targetFlow : currentFlow;
     if (!flowObj) return;
+
+    const matchedFlow = flowList.find((f: any) => String(f.id) === String(flowObj.id));
+    const flowName = flowObj.label || flowObj.name || flowObj.flowName || matchedFlow?.label || matchedFlow?.name || '当前流程';
+    const flowId = flowObj.id || matchedFlow?.id;
+    if (!flowId) return;
+
     setConfirmModal({
       open: true,
       title: audit ? '提交发布审核' : '直接发布流程',
-      content: `确定要将流程【${flowObj.label}】${audit ? '提交合规审核' : '直接发布为生产版本'}吗？`,
+      content: `确定要将流程【${flowName}】${audit ? '提交合规审核' : '直接发布为生产版本'}吗？`,
       onConfirm: async () => {
         const res = await fetch('/api/flow/model/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: flowObj.id, audit }),
+          body: JSON.stringify({ id: flowId, audit }),
         }).then((r) => r.json());
         setConfirmModal((prev) => ({ ...prev, open: false }));
         showToast(`操作成功，版本升级为 ${res.data?.versionNo || 'V2'}`, 'success');
@@ -1432,7 +1446,7 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                 )}
               </button>
               <button
-                onClick={handlePublishArch}
+                onClick={() => handlePublishArch()}
                 className="h-8 px-3.5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium cursor-pointer"
               >
                 发布架构
