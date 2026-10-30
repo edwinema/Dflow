@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Layers,
   CheckCircle2,
+  ChevronRight,
 } from 'lucide-react';
 import { matchFlowResponsibleUser } from './MyResponsibleView';
 
@@ -329,24 +330,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-6 border-b border-[#ebeef5] text-xs font-medium">
-              {[
-                { key: 'responsible', label: `我负责的流程 (${responsibleFlows.length})` },
-                { key: 'partake', label: `我参与的流程 (${partakeFlows.length})` },
-                { key: 'public', label: `全部发布流程 (${publicFlows.length})` },
-              ].map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveFlowTab(t.key as any)}
-                  className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
-                    activeFlowTab === t.key
-                      ? 'border-[#409eff] text-[#409eff]'
-                      : 'border-transparent text-[#303133] hover:text-[#409eff]'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="flex items-center justify-between border-b border-[#ebeef5]">
+              <div className="flex items-center gap-6 text-xs font-medium">
+                {[
+                  { key: 'responsible', label: `我负责的流程 (${responsibleFlows.length})` },
+                  { key: 'partake', label: `我参与的流程 (${partakeFlows.length})` },
+                  { key: 'public', label: `全部发布流程 (${publicFlows.length})` },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveFlowTab(t.key as any)}
+                    className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
+                      activeFlowTab === t.key
+                        ? 'border-[#409eff] text-[#409eff]'
+                        : 'border-transparent text-[#303133] hover:text-[#409eff]'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  if (activeFlowTab === 'responsible') onNavigate('/property/verify');
+                  else if (activeFlowTab === 'partake') onNavigate('/property/partake');
+                  else onNavigate('/property/overview');
+                }}
+                className="mb-1.5 h-6 px-2.5 rounded border border-[#E4E7ED] bg-[#FAFAFA] hover:bg-[#ECF5FF] hover:border-[#B3D8FF] hover:text-[#409EFF] text-xs text-[#909399] flex items-center gap-1 cursor-pointer transition-all shadow-2xs group"
+                title="查看更多流程"
+              >
+                <span className="text-[11px] leading-none">more</span>
+                <ChevronRight className="w-3 h-3 text-[#909399] group-hover:text-[#409EFF] transition-colors" />
+              </button>
             </div>
 
             <div className="mt-2 overflow-x-auto">
@@ -401,7 +416,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Card 2: 制度文件速览 */}
           <div className="bg-white rounded border border-[#ebeef5] p-5 shadow-2xs">
-            <div className="text-sm font-semibold text-[#1f2733] mb-3">制度文件列表</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold text-[#1f2733]">制度文件列表</div>
+              <button
+                onClick={() => onNavigate('/sysdoc/indexview')}
+                className="h-6 px-2.5 rounded border border-[#E4E7ED] bg-[#FAFAFA] hover:bg-[#ECF5FF] hover:border-[#B3D8FF] hover:text-[#409EFF] text-xs text-[#909399] flex items-center gap-1 cursor-pointer transition-all shadow-2xs group"
+                title="查看更多制度文件"
+              >
+                <span className="text-[11px] leading-none">more</span>
+                <ChevronRight className="w-3 h-3 text-[#909399] group-hover:text-[#409EFF] transition-colors" />
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
@@ -443,7 +468,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="lg:col-span-4 space-y-4">
           {/* Card 3: 流程动态 */}
           <div className="bg-white rounded border border-[#ebeef5] p-5 shadow-2xs">
-            <div className="text-sm font-semibold text-[#1f2733] mb-3">企业流程动态</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold text-[#1f2733]">企业流程动态</div>
+              <button
+                onClick={() => onNavigate('/property/overview')}
+                className="h-6 px-2.5 rounded border border-[#E4E7ED] bg-[#FAFAFA] hover:bg-[#ECF5FF] hover:border-[#B3D8FF] hover:text-[#409EFF] text-xs text-[#909399] flex items-center gap-1 cursor-pointer transition-all shadow-2xs group"
+                title="查看更多企业流程动态"
+              >
+                <span className="text-[11px] leading-none">more</span>
+                <ChevronRight className="w-3 h-3 text-[#909399] group-hover:text-[#409EFF] transition-colors" />
+              </button>
+            </div>
             <div className="space-y-3">
               {ENTERPRISE_DYNAMICS.map((dyn, idx) => (
                 <div
@@ -467,7 +502,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Card 4: 权责手册 */}
           <div className="bg-white rounded border border-[#ebeef5] p-5 shadow-2xs">
-            <div className="text-sm font-semibold text-[#1f2733] mb-3">常用权责手册与授权规范</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold text-[#1f2733]">常用权责手册与授权规范</div>
+              <button
+                onClick={() => onNavigate('/flowdoc/dutyList')}
+                className="h-6 px-2.5 rounded border border-[#E4E7ED] bg-[#FAFAFA] hover:bg-[#ECF5FF] hover:border-[#B3D8FF] hover:text-[#409EFF] text-xs text-[#909399] flex items-center gap-1 cursor-pointer transition-all shadow-2xs group"
+                title="查看更多权责手册与规范"
+              >
+                <span className="text-[11px] leading-none">more</span>
+                <ChevronRight className="w-3 h-3 text-[#909399] group-hover:text-[#409EFF] transition-colors" />
+              </button>
+            </div>
             <div className="space-y-2">
               {RIGHTS_MANUALS.map((man, idx) => (
                 <div
