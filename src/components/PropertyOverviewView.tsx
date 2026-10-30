@@ -975,14 +975,13 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                     archName={getArchHierarchyPath(currentFlow.id, true, archList, flowList)}
                     name={currentFlow.label}
                     nameLabel="流程名称"
-                    deptName={currentFlow.deptName || currentFlow.applicableScope}
+                    deptName={currentFlow.deptName || '研发管理中心'}
                     ownerName={currentFlow.ownerName || '流程管理员(E0002)'}
                     collaborators={currentFlow.collaborators}
                     applicableScope={
                       currentFlow.applicableScope ||
                       currentFlow.adaptScope ||
-                      currentFlow.deptName ||
-                      '系统管理部,流程管理部,权责管理部'
+                      '结构开发部'
                     }
                   />
                 )}
@@ -1419,14 +1418,13 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                     archName={getArchHierarchyPath(currentArch.id, false, archList, flowList)}
                     name={currentArch.label}
                     nameLabel="架构名称"
-                    deptName={currentArch.deptName || currentArch.applicableScope}
+                    deptName={currentArch.deptName || '研发管理中心'}
                     ownerName={currentArch.ownerName || '流程管理员(E0002)'}
                     collaborators={currentArch.collaborators}
                     applicableScope={
                       currentArch.applicableScope ||
                       currentArch.adaptScope ||
-                      currentArch.deptName ||
-                      '系统管理部,流程管理部,权责管理部'
+                      '结构开发部'
                     }
                   />
                 )}

@@ -81,7 +81,8 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
   useEffect(() => {
     if (!data) return;
     setFormData({
-      deptName: data.deptName || data.applicableScope || data.adaptScope || '系统管理部,流程管理部,权责管理部',
+      deptName: data.deptName || '研发管理中心',
+      applicableScope: data.applicableScope || data.adaptScope || '结构开发部',
       ownerName: data.ownerName || '流程管理员(E0002)',
       collaborators: data.collaborators || [],
       level: data.level || data.flowLevel || 'L3',
@@ -103,7 +104,7 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
     return <div className="p-8 text-center text-xs text-[#909399]">未选择有效的数据节点</div>;
   }
 
-  // 计算树层级所属架构全链路
+  // 计算树层级所属架构全链路 (仅显示直接上一层架构名称)
   const fullArchPath = getArchHierarchyPath(data.id, type === 'flow', archList, flowList);
 
   // 权限检查
@@ -113,7 +114,8 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
     const updated = {
       ...data,
       deptName: formData.deptName,
-      applicableScope: formData.deptName,
+      applicableScope: formData.applicableScope,
+      adaptScope: formData.applicableScope,
       ownerName: formData.ownerName,
       collaborators: formData.collaborators,
       level: formData.level,
@@ -142,7 +144,8 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
   const handleCancel = () => {
     // 恢复数据
     setFormData({
-      deptName: data.deptName || data.applicableScope || data.adaptScope || '系统管理部,流程管理部,权责管理部',
+      deptName: data.deptName || '研发管理中心',
+      applicableScope: data.applicableScope || data.adaptScope || '结构开发部',
       ownerName: data.ownerName || '流程管理员(E0002)',
       collaborators: data.collaborators || [],
       level: data.level || data.flowLevel || 'L3',
@@ -162,7 +165,7 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
 
   return (
     <div className="flex flex-col min-h-0 w-full text-xs">
-      {/* 1. 顶部标准卡片表头 (编辑模式下负责部门、负责人、协作者支持从组织架构中选择) */}
+      {/* 1. 顶部标准卡片表头 (编辑模式下负责部门、负责人、协作者、适用范围均支持从组织架构中选择) */}
       <FlowPageStandardHeader
         archName={fullArchPath}
         name={data.label || data.name}
@@ -170,11 +173,15 @@ export const UnifiedCardDetailView: React.FC<UnifiedCardDetailViewProps> = ({
         deptName={formData.deptName}
         ownerName={formData.ownerName}
         collaborators={formData.collaborators}
+        applicableScope={formData.applicableScope}
         isEditing={isEditing}
         onDeptChange={(newDept) => setFormData((prev: any) => ({ ...prev, deptName: newDept }))}
         onOwnerChange={(newOwner) => setFormData((prev: any) => ({ ...prev, ownerName: newOwner }))}
         onCollaboratorsChange={(newCollabs) =>
           setFormData((prev: any) => ({ ...prev, collaborators: newCollabs }))
+        }
+        onApplicableScopeChange={(newScope) =>
+          setFormData((prev: any) => ({ ...prev, applicableScope: newScope }))
         }
         showToast={showToast}
       />

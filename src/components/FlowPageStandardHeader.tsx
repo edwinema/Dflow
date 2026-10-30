@@ -12,13 +12,16 @@ export interface FlowPageStandardHeaderProps {
   ownerName?: string;
   collaborators?: any[] | string;
   applicableScope?: string;
+  adaptScope?: string;
+  scopeLabel?: string;
   className?: string;
 
-  // 编辑模式支持属性 (对应需求：负责部门和负责人，协作者都要支持从组织架构中选择)
+  // 编辑模式支持属性 (负责部门、负责人、协作者、适用范围均支持从组织架构中选择)
   isEditing?: boolean;
   onDeptChange?: (val: string) => void;
   onOwnerChange?: (val: string) => void;
   onCollaboratorsChange?: (collaborators: any[]) => void;
+  onApplicableScopeChange?: (val: string) => void;
   showToast?: (msg: string, type?: any) => void;
 }
 
@@ -87,11 +90,11 @@ export const getArchHierarchyPath = (
 
 /**
  * 统一标准页面表头 (流程类型与流程架构类型公共固定表头)
- * 严格按照设计稿 image_75b205eb.png 与 image_b7c3316f.png 样式与布局：
+ * 严格按照设计稿 image_75b205eb.png、image_b7c3316f.png 与 image_4faf9917.png 样式与布局：
  * 浅米黄质感背景 (#FAF7F0)、网格化对齐布局：
  * [所属架构]  [架构名称 / 流程名称]
  * [负责部门]  [负责人]  <-- 编辑状态下支持从组织架构中选择
- * [协作者]              <-- 编辑状态下支持从组织架构中选择
+ * [协作者]    [适用范围] <-- 支持从组织架构中选择，支持多选
  */
 export const FlowPageStandardHeader: React.FC<FlowPageStandardHeaderProps> = ({
   archName = '企业流程架构全景',
@@ -100,15 +103,20 @@ export const FlowPageStandardHeader: React.FC<FlowPageStandardHeaderProps> = ({
   deptName,
   ownerName = '流程管理员(E0002)',
   collaborators,
-  applicableScope = '系统管理部,流程管理部,权责管理部',
+  applicableScope,
+  adaptScope,
+  scopeLabel = '适用范围',
   className = '',
   isEditing = false,
   onDeptChange,
   onOwnerChange,
   onCollaboratorsChange,
+  onApplicableScopeChange,
   showToast,
 }) => {
-  const displayDept = deptName || applicableScope || '系统管理部,流程管理部,权责管理部';
+  const displayDept = deptName || '研发管理中心';
+  const currentScope = applicableScope || adaptScope || '';
+  const displayScope = currentScope || '结构开发部';
   const displayCollabs = formatCollaborators(collaborators);
 
   // 协作者弹窗状态 (用于在编辑模式下从组织架构多选协作者)
@@ -182,7 +190,7 @@ export const FlowPageStandardHeader: React.FC<FlowPageStandardHeaderProps> = ({
           {isEditing ? (
             <div className="flex-1 min-w-0">
               <DeptSelectField
-                value={deptName || applicableScope}
+                value={deptName}
                 onChange={(val) => onDeptChange?.(val)}
                 multiSelect={true}
                 placeholder="从组织架构选择负责部门..."
@@ -225,24 +233,17 @@ export const FlowPageStandardHeader: React.FC<FlowPageStandardHeaderProps> = ({
         </div>
 
         {/* Row 3 Left: 协作者 (编辑状态下支持从组织架构中选择) */}
-        <div
-          className={`flex items-start md:items-center gap-3 min-w-0 ${
-            isEditing ? 'col-span-1 md:col-span-2' : ''
-          }`}
-        >
-          <span className="text-[#606266] shrink-0 min-w-[56px] text-xs pt-1.5 md:pt-0">协作者</span>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-[#606266] shrink-0 min-w-[56px] text-xs">协作者</span>
           {isEditing ? (
-            <div className="flex-1 flex flex-wrap items-center gap-2 min-w-0">
+            <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
               {normalizedCollaborators.length > 0 ? (
                 normalizedCollaborators.map((c) => (
                   <span
                     key={c.id || c.userName}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-[#dcdfe6] text-[#1F2733] text-xs shadow-2xs group"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-[#dcdfe6] text-[#1F2733] text-[11px] shadow-2xs group"
                   >
-                    <div className="w-4 h-4 rounded-full bg-[#ecf5ff] text-[#1677ff] flex items-center justify-center text-[10px] font-medium shrink-0">
-                      {c.userName.slice(0, 1)}
-                    </div>
-                    <span className="font-medium text-[#1f2733] text-xs">
+                    <span className="font-medium text-[#1f2733] truncate max-w-[100px]">
                       {c.userName}
                       {c.empNo ? <span className="text-[#909399] ml-0.5 font-normal">({c.empNo})</span> : ''}
                     </span>
@@ -262,17 +263,17 @@ export const FlowPageStandardHeader: React.FC<FlowPageStandardHeaderProps> = ({
                   </span>
                 ))
               ) : (
-                <span className="text-xs text-[#909399] py-1">暂未指派协作者</span>
+                <span className="text-xs text-[#909399]">暂未指派协作者</span>
               )}
 
               <button
                 type="button"
                 onClick={() => setCollabModalOpen(true)}
-                className="h-7 px-2.5 rounded-md border border-dashed border-[#409eff] bg-[#ecf5ff]/60 hover:bg-[#ecf5ff] text-[#409eff] hover:text-[#3390ff] text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                className="h-7 px-2 rounded border border-dashed border-[#409eff] bg-[#ecf5ff]/60 hover:bg-[#ecf5ff] text-[#409eff] hover:text-[#3390ff] text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors shrink-0"
                 title="点击从企业组织架构体系中选择协作者"
               >
-                <Users className="w-3.5 h-3.5" />
-                <span>从组织架构选择协作者</span>
+                <Users className="w-3 h-3" />
+                <span>从组织架构选择</span>
               </button>
 
               {collabModalOpen && (
@@ -315,8 +316,30 @@ export const FlowPageStandardHeader: React.FC<FlowPageStandardHeaderProps> = ({
           )}
         </div>
 
-        {/* Row 3 Right: 对齐占位 (非编辑状态下保留网格对齐) */}
-        {!isEditing && <div className="hidden md:block" />}
+        {/* Row 3 Right: 适用范围 (对应需求：增加“适应范围”，支持从组织架构中选择，支持多选) */}
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-[#606266] shrink-0 min-w-[56px] text-xs">{scopeLabel}</span>
+          {isEditing ? (
+            <div className="flex-1 min-w-0">
+              <DeptSelectField
+                value={currentScope}
+                onChange={(val) => onApplicableScopeChange?.(val)}
+                multiSelect={true}
+                placeholder="从组织架构选择适用范围(多选)..."
+                className="bg-white border-[#dcdfe6] text-xs h-8 min-h-[32px] py-0.5"
+                showToast={showToast}
+                title="选择适用范围 (从组织架构选择，支持多选)"
+              />
+            </div>
+          ) : (
+            <span
+              className="text-[#1F2733] text-xs truncate font-medium"
+              title={displayScope}
+            >
+              {displayScope}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
