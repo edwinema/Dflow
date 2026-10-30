@@ -43,9 +43,9 @@ export const formatCollaborators = (collabs: any): string => {
 };
 
 /**
- * 递归计算指定架构或流程节点在左侧架构树中的完整层级归属关系链路
- * 对应需求：点击左侧流程架构树中的某个架构，就显示选中的架构层级关系
- * 示例输出：测试集团有限公司流程管理体系 > 9.0 跨国多组织多集团管理体系 > 9.1 第一产业集团
+ * 获取指定架构或流程节点在左侧架构树中的直接上一层架构名称
+ * 用户明确要求：所属架构，只显示所选择的这个架构的上一层架构名称，不需要把全部架构层级显示出来
+ * 示例：选中 "0.1 战略规划 (SP)"，所属架构仅显示其直接上一层架构 "dste 战略管理"
  */
 export const getArchHierarchyPath = (
   nodeId: string,
@@ -54,45 +54,35 @@ export const getArchHierarchyPath = (
   flowList: any[] = []
 ): string => {
   if (!nodeId || !archList || archList.length === 0) {
-    return '测试集团有限公司流程管理体系';
+    return '企业流程架构全景';
   }
 
   // 1. 如果是流程节点，其所属架构上级为其直属的 parentId
   let parentId: string | undefined;
+  let selfNode: any;
   if (isFlow) {
-    const flow = flowList.find((f: any) => f.id === nodeId);
-    parentId = flow?.parentId;
+    selfNode = flowList.find((f: any) => f.id === nodeId);
+    parentId = selfNode?.parentId;
   } else {
-    const arch = archList.find((a: any) => a.id === nodeId);
-    parentId = arch?.parentId;
+    selfNode = archList.find((a: any) => a.id === nodeId);
+    parentId = selfNode?.parentId;
   }
 
   if (!parentId || parentId === 'arch_root') {
-    return '测试集团有限公司流程管理体系';
+    return '企业流程架构全景';
   }
 
-  // 2. 向上回溯父级祖先节点链
-  const pathParts: string[] = [];
-  const visited = new Set<string>();
-  let curId: string | undefined = parentId;
-
-  while (curId && !visited.has(curId)) {
-    visited.add(curId);
-    const node = archList.find((a: any) => a.id === curId);
-    if (node) {
-      if (node.id !== 'arch_root' && node.label !== '企业流程架构全景') {
-        pathParts.unshift(node.label);
-      }
-      curId = node.parentId;
-    } else {
-      break;
-    }
+  // 2. 找到上一层架构节点，直接返回其名称
+  const parentNode = archList.find((a: any) => a.id === parentId);
+  if (parentNode) {
+    return parentNode.label || '企业流程架构全景';
   }
 
-  // 3. 根节点统称 "测试集团有限公司流程管理体系"
-  pathParts.unshift('测试集团有限公司流程管理体系');
+  if (selfNode?.prevArch) {
+    return selfNode.prevArch;
+  }
 
-  return pathParts.join(' > ');
+  return '企业流程架构全景';
 };
 
 /**
@@ -104,7 +94,7 @@ export const getArchHierarchyPath = (
  * [协作者]              <-- 编辑状态下支持从组织架构中选择
  */
 export const FlowPageStandardHeader: React.FC<FlowPageStandardHeaderProps> = ({
-  archName = '测试集团有限公司流程管理体系',
+  archName = '企业流程架构全景',
   name = '',
   nameLabel = '架构名称',
   deptName,
