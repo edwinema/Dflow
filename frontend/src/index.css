@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background-color: #f5f7fa;
+    color: #1f2733;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .font-mono-tabular {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c0c4cc;
+}
+
+/* Sidebar scrollbar set to completely transparent */
+aside,
+aside nav,
+.sidebar-transparent-scroll {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+aside ::-webkit-scrollbar,
+aside nav::-webkit-scrollbar,
+.sidebar-transparent-scroll::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
+}
+
+aside ::-webkit-scrollbar-track,
+aside nav::-webkit-scrollbar-track,
+.sidebar-transparent-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+aside ::-webkit-scrollbar-thumb,
+aside nav::-webkit-scrollbar-thumb,
+.sidebar-transparent-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+}

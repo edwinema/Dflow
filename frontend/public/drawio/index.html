@@ -1,0 +1,2669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>draw.io v32 Engine - 全源流程资产管理平台 dflow</title>
+  <style>
+    * { box-sizing: border-box; user-select: none; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f8f9fb;
+      color: #303133;
+    }
+    /* Canvas Viewport */
+    #canvasContainer {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      cursor: default;
+      background-color: #f8f9fb;
+      background-image:
+        linear-gradient(to right, rgba(220, 223, 230, 0.45) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(220, 223, 230, 0.45) 1px, transparent 1px),
+        linear-gradient(to right, rgba(200, 205, 215, 0.75) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(200, 205, 215, 0.75) 1px, transparent 1px);
+      background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+    }
+    #canvasContainer.nogrid {
+      background-image: none;
+      background-color: #ffffff;
+    }
+    #canvasContainer.pan-mode {
+      cursor: grab;
+    }
+    #canvasContainer.panning {
+      cursor: grabbing !important;
+    }
+    #canvasContainer.connecting {
+      cursor: crosshair;
+    }
+    #svgStage {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .mx-node {
+      cursor: move;
+    }
+    .readonly .mx-node {
+      cursor: pointer;
+    }
+    .mx-node:hover .node-hover-halo {
+      opacity: 1;
+    }
+    .node-hover-halo {
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: none;
+    }
+    .node-selected-halo {
+      pointer-events: none;
+    }
+    .port-dot {
+      opacity: 0;
+      cursor: crosshair;
+      transition: opacity 0.15s, r 0.15s;
+    }
+    .mx-node:hover .port-dot, .connecting .port-dot {
+      opacity: 1;
+    }
+    .port-dot:hover {
+      r: 6px;
+      fill: #409eff;
+    }
+    .readonly .port-dot {
+      display: none;
+    }
+    .badge-item {
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+    .badge-item:hover {
+      transform: scale(1.15);
+    }
+    .mx-edge-group {
+      cursor: pointer;
+    }
+    .mx-edge-hit {
+      stroke: transparent;
+      stroke-width: 14px;
+      fill: none;
+    }
+    .mx-edge-path {
+      fill: none;
+      transition: stroke 0.15s;
+    }
+    .mx-edge-group.selected .mx-edge-path {
+      stroke: #1677ff !important;
+      stroke-dasharray: 5, 3;
+    }
+    /* Rubberband Selection Box */
+    #rubberbandBox {
+      position: fixed;
+      display: none;
+      pointer-events: none;
+      border: 1.5px solid #1677ff;
+      background: rgba(22, 119, 255, 0.1);
+      z-index: 90;
+      border-radius: 2px;
+    }
+    /* Inline label editor */
+    #inlineEditor {
+      position: fixed;
+      display: none;
+      z-index: 100;
+      background: #fff;
+      border: 2px solid #1677ff;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 13px;
+      color: #1f2733;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      outline: none;
+      min-width: 90px;
+      text-align: center;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif;
+    }
+    /* Bottom-left hint badge */
+    .canvas-hint {
+      position: fixed;
+      left: 12px;
+      bottom: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #e4e7ed;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: #606266;
+      pointer-events: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    /* ProcessOn Floating Swimlane Context Toolbar */
+    #swimlaneToolbar {
+      position: fixed;
+      display: none;
+      align-items: center;
+      gap: 4px;
+      height: 40px;
+      padding: 0 10px;
+      background: #ffffff;
+      border: 1px solid #e4e7ed;
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.10);
+      z-index: 95;
+      font-size: 12px;
+      color: #303133;
+      user-select: none;
+    }
+    .swim-tb-sep {
+      width: 1px;
+      height: 18px;
+      background: #e4e7ed;
+      margin: 0 4px;
+    }
+    .swim-tb-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: #303133;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.12s, color 0.12s;
+      position: relative;
+    }
+    .swim-tb-btn:hover {
+      background: #f2f4f7;
+    }
+    .swim-tb-btn.active {
+      background: #edeff3;
+      color: #1677ff;
+    }
+    .swim-tb-text-btn {
+      height: 28px;
+      padding: 0 7px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: #303133;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .swim-tb-text-btn:hover {
+      background: #f2f4f7;
+    }
+    .swim-tb-text-btn.active {
+      background: #edeff3;
+      color: #1677ff;
+    }
+    .swim-stepper {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 4px;
+      height: 28px;
+      border-radius: 4px;
+    }
+    .swim-stepper:hover {
+      background: #f5f7fa;
+    }
+    .swim-stepper-val {
+      min-width: 16px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 12px;
+      color: #1f2733;
+    }
+    .swim-stepper-arrows {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .swim-step-arrow {
+      width: 14px;
+      height: 11px;
+      border: none;
+      background: transparent;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #606266;
+      border-radius: 2px;
+    }
+    .swim-step-arrow:hover {
+      background: #e4e7ed;
+      color: #1677ff;
+    }
+    #swimThemePopover {
+      position: absolute;
+      top: 44px;
+      left: 195px;
+      display: none;
+      background: #ffffff;
+      border: 1px solid #e4e7ed;
+      border-radius: 6px;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.14);
+      padding: 8px;
+      gap: 6px;
+      z-index: 99;
+    }
+    .swim-theme-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.12s;
+    }
+    .swim-theme-swatch:hover {
+      transform: scale(1.12);
+    }
+    .swim-theme-swatch.active {
+      border-color: #1677ff;
+    }
+    @keyframes mxFlowDash {
+      from { stroke-dashoffset: 24; }
+      to { stroke-dashoffset: 0; }
+    }
+    .mx-edge-flow-animated {
+      stroke-dasharray: 8, 4 !important;
+      animation: mxFlowDash 0.6s linear infinite !important;
+    }
+    .mx-edge-selection-halo {
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvasContainer">
+    <svg id="svgStage" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow-block" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#333333" />
+        </marker>
+        <marker id="arrow-open" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 1 1.5 L 8.5 5 L 1 8.5" fill="none" stroke="#333333" stroke-width="1.6" />
+        </marker>
+        <marker id="arrow-diamond" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+          <path d="M 1 6 L 6 2 L 11 6 L 6 10 z" fill="#333333" />
+        </marker>
+        <marker id="arrow-selected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#1677ff" />
+        </marker>
+        <filter id="node-shadow" x="-10%" y="-10%" width="120%" height="130%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.06"/>
+        </filter>
+      </defs>
+      <g id="viewportGroup">
+        <g id="edgesLayer"></g>
+        <g id="tempEdgeLayer"></g>
+        <g id="nodesLayer"></g>
+        <g id="multiBoundsLayer"></g>
+      </g>
+    </svg>
+    <div class="canvas-hint" id="canvasHint">
+      按住空格拖拽平移画布 | Shift/Ctrl多选 | 滚轮缩放
+    </div>
+  </div>
+
+  <!-- ProcessOn Floating Swimlane Context Toolbar -->
+  <div id="swimlaneToolbar"></div>
+  <div id="rubberbandBox"></div>
+  <input id="inlineEditor" type="text" />
+
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const isReadOnly = params.get('dflowReadOnly') === '1';
+
+      const container = document.getElementById('canvasContainer');
+      const svgStage = document.getElementById('svgStage');
+      const viewportGroup = document.getElementById('viewportGroup');
+      const nodesLayer = document.getElementById('nodesLayer');
+      const edgesLayer = document.getElementById('edgesLayer');
+      const tempEdgeLayer = document.getElementById('tempEdgeLayer');
+      const multiBoundsLayer = document.getElementById('multiBoundsLayer');
+      const swimlaneToolbar = document.getElementById('swimlaneToolbar');
+      const rubberbandBox = document.getElementById('rubberbandBox');
+      const inlineEditor = document.getElementById('inlineEditor');
+      const canvasHint = document.getElementById('canvasHint');
+
+      if (isReadOnly) {
+        container.classList.add('readonly');
+        container.classList.add('pan-mode');
+        canvasHint.textContent = '只读预览模式 | 按住空格或鼠标拖拽平移 | 滚轮缩放';
+      }
+
+      // Graph model state
+      let cells = [];
+      let selectedIds = new Set();
+      let zoom = 1;
+      let panX = 40;
+      let panY = 40;
+
+      let pointerTool = isReadOnly ? 'pan' : 'select';
+      let spaceKeyDown = false;
+      let isPanning = false;
+      let panStart = { x: 0, y: 0 };
+      let rubberbandState = null;
+      let groupDragState = null;
+      let resizeState = null;
+      let connectFromState = null;
+      let connectModeActive = false;
+      let formatPainterStyle = null;
+      let undoStack = [];
+      let redoStack = [];
+      let shapesCatalog = {};
+      let gridVisible = true;
+      let lastSelectedId = null;
+
+      let defaultNodeStyle = {
+        fontFamily: '微软雅黑',
+        fontSize: '13',
+        fontColor: '#303133',
+        fillColor: '#ffffff',
+        strokeColor: '#303133',
+        strokeWidth: '2',
+        dashed: '0'
+      };
+      let defaultEdgeStyle = {
+        edgeStyle: 'orthogonalEdgeStyle',
+        strokeColor: '#333333',
+        strokeWidth: '2',
+        dashed: '0',
+        endArrow: 'classic',
+        flowAnimation: '0'
+      };
+
+      function getMarkerId(arrowType, color, isSelected) {
+        if (!arrowType || arrowType === 'none') return '';
+        const cleanColor = isSelected ? '#1677ff' : (color || '#333333');
+        const safeId = 'marker_' + (arrowType || 'classic') + '_' + cleanColor.replace(/[^a-zA-Z0-9]/g, '');
+        let m = document.getElementById(safeId);
+        if (!m) {
+          const defs = document.querySelector('defs');
+          if (!defs) return isSelected ? 'arrow-selected' : 'arrow-block';
+          const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+          marker.setAttribute('id', safeId);
+          marker.setAttribute('orient', 'auto-start-reverse');
+          if (arrowType === 'open') {
+            marker.setAttribute('viewBox', '0 0 10 10');
+            marker.setAttribute('refX', '8');
+            marker.setAttribute('refY', '5');
+            marker.setAttribute('markerWidth', '7');
+            marker.setAttribute('markerHeight', '7');
+            marker.innerHTML = `<path d="M 1 1.5 L 8.5 5 L 1 8.5" fill="none" stroke="${cleanColor}" stroke-width="1.8" />`;
+          } else if (arrowType === 'diamond') {
+            marker.setAttribute('viewBox', '0 0 12 12');
+            marker.setAttribute('refX', '10');
+            marker.setAttribute('refY', '6');
+            marker.setAttribute('markerWidth', '7.5');
+            marker.setAttribute('markerHeight', '7.5');
+            marker.innerHTML = `<path d="M 1 6 L 6 2 L 11 6 L 6 10 z" fill="${cleanColor}" />`;
+          } else {
+            // 'block' or 'classic'
+            marker.setAttribute('viewBox', '0 0 10 10');
+            marker.setAttribute('refX', '8');
+            marker.setAttribute('refY', '5');
+            marker.setAttribute('markerWidth', '6.5');
+            marker.setAttribute('markerHeight', '6.5');
+            marker.innerHTML = `<path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="${cleanColor}" />`;
+          }
+          defs.appendChild(marker);
+        }
+        return safeId;
+      }
+
+      function postToHost(payload) {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(JSON.stringify(payload), '*');
+        }
+      }
+
+      function emitCanvasStats() {
+        const vertexCount = cells.filter(c => c.vertex).length;
+        const edgeCount = cells.filter(c => c.edge).length;
+        postToHost({
+          event: 'dflow:stats',
+          zoom: Math.round(zoom * 100),
+          vertexCount,
+          edgeCount,
+          totalCount: vertexCount + edgeCount,
+          selectedCount: selectedIds.size,
+          canUndo: undoStack.length > 0,
+          canRedo: redoStack.length > 0,
+          connectMode: connectModeActive,
+          pointerTool,
+          hasFormatBrush: !!formatPainterStyle,
+          gridVisible
+        });
+      }
+
+      function emitSelectionToHost() {
+        const selectedCells = cells
+          .filter(c => selectedIds.has(c.id))
+          .map(serializeCellForHost);
+        if (selectedCells.length > 0) {
+          lastSelectedId = selectedCells[0].id;
+        }
+        postToHost({
+          event: 'dflow:selection',
+          cells: selectedCells
+        });
+        emitCanvasStats();
+      }
+
+      function saveHistory() {
+        undoStack.push(JSON.stringify(cells));
+        if (undoStack.length > 40) undoStack.shift();
+        redoStack = [];
+        emitCanvasStats();
+      }
+
+      function parseStyle(styleStr) {
+        const map = {};
+        if (!styleStr) return map;
+        styleStr.split(';').forEach(seg => {
+          if (!seg) return;
+          const idx = seg.indexOf('=');
+          if (idx === -1) {
+            map[seg.trim()] = true;
+          } else {
+            map[seg.slice(0, idx).trim()] = seg.slice(idx + 1).trim();
+          }
+        });
+        return map;
+      }
+
+      function stringifyStyle(map) {
+        return Object.entries(map)
+          .filter(([k, v]) => k && v !== undefined && v !== null && v !== false)
+          .map(([k, v]) => (v === true ? k : `${k}=${v}`))
+          .join(';') + ';';
+      }
+
+      function decodeAttrValue(raw) {
+        if (raw === undefined || raw === null) return raw;
+        if (raw === 'true') return true;
+        if (raw === 'false') return false;
+        if ((raw.startsWith('[') && raw.endsWith(']')) || (raw.startsWith('{') && raw.endsWith('}'))) {
+          try { return JSON.parse(raw); } catch (e) { return raw; }
+        }
+        return raw;
+      }
+
+      function encodeAttrValue(val) {
+        if (val === undefined || val === null) return '';
+        if (typeof val === 'object') return JSON.stringify(val);
+        return String(val);
+      }
+
+      function parseXmlToCells(xmlString) {
+        if (!xmlString || !xmlString.trim()) return [];
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlString, 'text/xml');
+        const result = [];
+        const root = doc.querySelector('root');
+        if (!root) return [];
+        Array.from(root.children).forEach(el => {
+          const tag = el.tagName;
+          if (tag === 'UserObject' || tag === 'object') {
+            const id = el.getAttribute('id') || ('cell_' + Math.random().toString(36).slice(2, 8));
+            const label = el.getAttribute('label') || '';
+            const attrs = {};
+            Array.from(el.attributes).forEach(attr => {
+              if (attr.name !== 'id' && attr.name !== 'label') {
+                attrs[attr.name] = decodeAttrValue(attr.value);
+              }
+            });
+            const innerCell = el.querySelector('mxCell');
+            if (innerCell) {
+              const isVertex = innerCell.getAttribute('vertex') === '1';
+              const isEdge = innerCell.getAttribute('edge') === '1';
+              const style = innerCell.getAttribute('style') || '';
+              const geo = innerCell.querySelector('mxGeometry');
+              const x = parseFloat(geo?.getAttribute('x') || '0');
+              const y = parseFloat(geo?.getAttribute('y') || '0');
+              const width = parseFloat(geo?.getAttribute('width') || '100');
+              const height = parseFloat(geo?.getAttribute('height') || '50');
+              result.push({
+                id,
+                value: label,
+                style,
+                vertex: isVertex,
+                edge: isEdge,
+                source: innerCell.getAttribute('source') || '',
+                target: innerCell.getAttribute('target') || '',
+                x, y, width, height,
+                attrs
+              });
+            }
+          } else if (tag === 'mxCell') {
+            const id = el.getAttribute('id');
+            if (id === '0' || id === '1') return;
+            const isVertex = el.getAttribute('vertex') === '1';
+            const isEdge = el.getAttribute('edge') === '1';
+            if (!isVertex && !isEdge) return;
+            const value = el.getAttribute('value') || '';
+            const style = el.getAttribute('style') || '';
+            const geo = el.querySelector('mxGeometry');
+            const x = parseFloat(geo?.getAttribute('x') || '0');
+            const y = parseFloat(geo?.getAttribute('y') || '0');
+            const width = parseFloat(geo?.getAttribute('width') || '100');
+            const height = parseFloat(geo?.getAttribute('height') || '50');
+            const attrs = {};
+            const styleObj = parseStyle(style);
+            if (styleObj.dflowType) attrs.dflowType = styleObj.dflowType;
+            result.push({
+              id: id || ('cell_' + Math.random().toString(36).slice(2, 8)),
+              value,
+              style,
+              vertex: isVertex,
+              edge: isEdge,
+              source: el.getAttribute('source') || '',
+              target: el.getAttribute('target') || '',
+              x, y, width, height,
+              attrs
+            });
+          }
+        });
+        return result;
+      }
+
+      function escapeXml(unsafe) {
+        return String(unsafe ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&apos;');
+      }
+
+      function serializeCellsToXml() {
+        let lines = [
+          '<mxfile host="dflow.local" version="32.1.0">',
+          '  <diagram id="dflow-main" name="主流程图">',
+          '    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200">',
+          '      <root>',
+          '        <mxCell id="0"/>',
+          '        <mxCell id="1" parent="0"/>'
+        ];
+        cells.forEach(c => {
+          if (c.vertex) {
+            const hasAttrs = c.attrs && Object.keys(c.attrs).length > 0;
+            if (hasAttrs) {
+              const attrPairs = Object.entries(c.attrs)
+                .filter(([k, v]) => v !== undefined && v !== null && v !== '')
+                .map(([k, v]) => `${k}="${escapeXml(encodeAttrValue(v))}"`)
+                .join(' ');
+              lines.push(`        <UserObject id="${escapeXml(c.id)}" label="${escapeXml(c.value)}" ${attrPairs}>`);
+              lines.push(`          <mxCell style="${escapeXml(c.style)}" vertex="1" parent="1">`);
+              lines.push(`            <mxGeometry x="${Math.round(c.x)}" y="${Math.round(c.y)}" width="${Math.round(c.width)}" height="${Math.round(c.height)}" as="geometry"/>`);
+              lines.push(`          </mxCell>`);
+              lines.push(`        </UserObject>`);
+            } else {
+              lines.push(`        <mxCell id="${escapeXml(c.id)}" value="${escapeXml(c.value)}" style="${escapeXml(c.style)}" vertex="1" parent="1">`);
+              lines.push(`          <mxGeometry x="${Math.round(c.x)}" y="${Math.round(c.y)}" width="${Math.round(c.width)}" height="${Math.round(c.height)}" as="geometry"/>`);
+              lines.push(`        </mxCell>`);
+            }
+          } else if (c.edge) {
+            lines.push(`        <mxCell id="${escapeXml(c.id)}" value="${escapeXml(c.value || '')}" style="${escapeXml(c.style || 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=2;endArrow=block;')}" edge="1" parent="1" source="${escapeXml(c.source)}" target="${escapeXml(c.target)}">`);
+            lines.push(`          <mxGeometry relative="1" as="geometry"/>`);
+            lines.push(`        </mxCell>`);
+          }
+        });
+        lines.push('      </root>', '    </mxGraphModel>', '  </diagram>', '</mxfile>');
+        return lines.join('\n');
+      }
+
+      function getCellType(cell) {
+        const s = parseStyle(cell.style);
+        return cell.attrs?.dflowType || s.shape || '';
+      }
+
+      function isContainerSwimlane(cell) {
+        const t = getCellType(cell);
+        return t === 'swimlanePoolV' || t === 'swimlaneV' || t === 'swimlanePoolH' || t === 'swimlaneH';
+      }
+
+      function isSwimlaneSeparator(cell) {
+        const t = getCellType(cell);
+        return t === 'swimlaneSepH' || t === 'swimlaneSepV';
+      }
+
+      function isBusinessNode(cell) {
+        const t = getCellType(cell);
+        return t.startsWith('node') || t === 'startEnd' || t.startsWith('evc');
+      }
+
+      const SWIMLANE_THEMES = [
+        { name: '经典黑灰', headerFill: '#ffffff', subFill: '#f8f9fb', zebraFill: 'rgba(240,242,245,0.55)', stroke: '#1f2733', text: '#1f2733', swatch: '#ffffff' },
+        { name: '科技深蓝', headerFill: '#1677ff', subFill: '#ecf5ff', zebraFill: 'rgba(22,119,255,0.05)', stroke: '#1677ff', text: '#ffffff', subText: '#1f2733', swatch: '#1677ff' },
+        { name: '活力淡蓝', headerFill: '#d9ecff', subFill: '#f0f7ff', zebraFill: 'rgba(64,158,255,0.06)', stroke: '#409eff', text: '#1f2733', swatch: '#79bbff' },
+        { name: '清新草绿', headerFill: '#e1f3d8', subFill: '#f0f9eb', zebraFill: 'rgba(103,194,58,0.06)', stroke: '#67c23a', text: '#1f2733', swatch: '#67c23a' },
+        { name: '商务橙黄', headerFill: '#fde2b8', subFill: '#fdf6ec', zebraFill: 'rgba(230,162,60,0.06)', stroke: '#e6a23c', text: '#1f2733', swatch: '#e6a23c' },
+        { name: '雅致紫罗兰', headerFill: '#f3e8ff', subFill: '#faf5ff', zebraFill: 'rgba(147,51,234,0.05)', stroke: '#9333ea', text: '#1f2733', swatch: '#a855f7' }
+      ];
+
+      function renderVerticalTextSvg(text, cx, cy, fontColor, fontSize) {
+        const chars = String(text || '').split('');
+        const lineH = (parseInt(fontSize, 10) || 12) + 3;
+        const startY = cy - ((chars.length - 1) * lineH) / 2;
+        return chars.map((ch, i) =>
+          `<text x="${cx}" y="${startY + i * lineH + 4}" text-anchor="middle" font-size="${fontSize}" font-weight="600" fill="${escapeXml(fontColor)}" pointer-events="none">${escapeXml(ch)}</text>`
+        ).join('');
+      }
+
+      function renderHeaderLabelSvg(text, cx, cy, fontColor, fontSize, isVerticalText) {
+        if (!text) return '';
+        if (isVerticalText) {
+          return renderVerticalTextSvg(text, cx, cy, fontColor, fontSize);
+        }
+        return `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="${fontSize}" font-weight="600" fill="${escapeXml(fontColor)}" pointer-events="none">${escapeXml(text)}</text>`;
+      }
+
+      function getSwimlaneConfig(cell) {
+        const typeKey = getCellType(cell);
+        const a = cell.attrs || {};
+        const isDefaultHorizontal = typeKey === 'swimlanePoolH' || typeKey === 'swimlaneH';
+        const isDefaultPool = typeKey === 'swimlanePoolV' || typeKey === 'swimlanePoolH';
+        const orientation = a.orientation || (isDefaultHorizontal ? 'horizontal' : 'vertical');
+
+        const rawParts = String(cell.value ?? '').split('|').map(p => p.trim());
+        const poolTitle = rawParts[0] !== undefined ? rawParts[0] : (isDefaultPool ? (orientation === 'horizontal' ? '横向泳道池' : '纵向泳道池') : '');
+        let laneCount = a.laneCount !== undefined ? Number(a.laneCount) : (isDefaultPool ? Math.max(2, rawParts.length - 1) : 0);
+        if (isNaN(laneCount) || laneCount < 0) laneCount = 0;
+
+        const lanes = [];
+        for (let i = 0; i < laneCount; i++) {
+          lanes.push(rawParts[i + 1] || `泳道 ${i + 1}`);
+        }
+
+        const stageCount = Math.max(0, Number(a.stageCount || 0));
+        const rawStages = Array.isArray(a.stages) ? a.stages : [];
+        const stages = [];
+        for (let i = 0; i < stageCount; i++) {
+          stages.push(rawStages[i] || `阶段 ${i + 1}`);
+        }
+
+        const textDir = a.textDir || (orientation === 'horizontal' ? 'vertical' : 'horizontal');
+        const headerFlipped = !!a.headerFlipped;
+        const showPoolHeader = a.showPoolHeader !== undefined ? !!a.showPoolHeader : true;
+        const laneStriped = !!a.laneStriped;
+        const innerDashed = !!a.innerDashed;
+        const themeIndex = Number(a.themeIndex || 0) % SWIMLANE_THEMES.length;
+
+        return {
+          orientation,
+          poolTitle,
+          laneCount,
+          lanes,
+          stageCount,
+          stages,
+          textDir,
+          headerFlipped,
+          showPoolHeader,
+          laneStriped,
+          innerDashed,
+          themeIndex,
+          theme: SWIMLANE_THEMES[themeIndex] || SWIMLANE_THEMES[0]
+        };
+      }
+
+      function renderSwimlaneContainerSvg(cell, isSelected) {
+        const s = parseStyle(cell.style);
+        const w = cell.width || 280;
+        const h = cell.height || 540;
+        const cfg = getSwimlaneConfig(cell);
+        const theme = cfg.theme;
+        const stroke = isSelected ? '#1677ff' : (s.strokeColor || theme.stroke || '#1f2733');
+        const strokeWidth = isSelected ? '2.0' : (s.strokeWidth || '1.6');
+        const outerDash = s.dashed === '1' ? 'stroke-dasharray="5,3"' : '';
+        const innerDash = (cfg.innerDashed || s.dashed === '1') ? 'stroke-dasharray="6,4"' : '';
+
+        const headerFill = (s.fillColor && s.fillColor !== '#ffffff' && cfg.themeIndex === 0)
+          ? s.fillColor
+          : (cfg.showPoolHeader ? theme.headerFill : '#f2f4f8');
+        const subHeaderFill = cfg.laneStriped ? '#eef2f8' : theme.subFill;
+        const mainTextColor = s.fontColor || theme.text || '#1f2733';
+        const subTextColor = s.fontColor || theme.subText || '#1f2733';
+        const fontSize = s.fontSize || '13';
+        const isVertText = cfg.textDir === 'vertical';
+
+        let parts = [];
+        parts.push(`<rect x="0" y="0" width="${w}" height="${h}" fill="rgba(255,255,255,0.45)" stroke="none" pointer-events="none"/>`);
+
+        if (cfg.orientation === 'vertical') {
+          const mainHeaderH = cfg.laneCount === 0 ? 44 : (cfg.showPoolHeader ? 34 : 0);
+          const subHeaderH = cfg.laneCount > 0 ? 30 : 0;
+          const totalHeaderH = mainHeaderH + subHeaderH;
+          const stageBarW = cfg.stageCount > 0 ? 34 : 0;
+          const contentX = stageBarW;
+          const contentW = Math.max(40, w - stageBarW);
+          const headerY = cfg.headerFlipped ? (h - totalHeaderH) : 0;
+          const bodyY = cfg.headerFlipped ? 0 : totalHeaderH;
+          const bodyH = Math.max(40, h - totalHeaderH);
+
+          if (cfg.stageCount > 0) {
+            const stageH = bodyH / cfg.stageCount;
+            cfg.stages.forEach((stLabel, sIdx) => {
+              const sy = bodyY + sIdx * stageH;
+              if (cfg.laneStriped && sIdx % 2 === 1) {
+                parts.push(`<rect x="${contentX}" y="${sy}" width="${contentW}" height="${stageH}" fill="${theme.zebraFill}" stroke="none" pointer-events="none"/>`);
+              }
+              parts.push(`
+                <rect data-swim-edit="stage:${sIdx}" x="0" y="${sy}" width="${stageBarW}" height="${stageH}" fill="${subHeaderFill}" stroke="${stroke}" stroke-width="1.3" pointer-events="all"/>
+                ${renderHeaderLabelSvg(stLabel, stageBarW / 2, sy + stageH / 2, subTextColor, '11', true)}
+              `);
+              if (sIdx > 0) {
+                parts.push(`
+                  <line x1="${stageBarW}" y1="${sy}" x2="${w}" y2="${sy}" stroke="${stroke}" stroke-width="1.2" ${innerDash} pointer-events="none"/>
+                  <line x1="${stageBarW}" y1="${sy}" x2="${w}" y2="${sy}" stroke="transparent" stroke-width="10" pointer-events="stroke"/>
+                `);
+              }
+            });
+            if (totalHeaderH > 0) {
+              parts.push(`<rect x="0" y="${headerY}" width="${stageBarW}" height="${totalHeaderH}" fill="${headerFill}" stroke="${stroke}" stroke-width="1.3" pointer-events="all"/>`);
+            }
+          }
+
+          if (mainHeaderH > 0) {
+            const my = cfg.headerFlipped ? (h - mainHeaderH) : 0;
+            const headerShade = (!cfg.showPoolHeader && cfg.laneCount === 0) ? '#eef1f6' : headerFill;
+            parts.push(`
+              <rect data-swim-edit="pool" x="${contentX}" y="${my}" width="${contentW}" height="${mainHeaderH}" fill="${headerShade}" stroke="${stroke}" stroke-width="${strokeWidth}" pointer-events="all"/>
+              ${renderHeaderLabelSvg(cfg.poolTitle, contentX + contentW / 2, my + mainHeaderH / 2, mainTextColor, fontSize, isVertText)}
+            `);
+          }
+
+          if (cfg.laneCount > 0) {
+            const colW = contentW / cfg.laneCount;
+            const subY = cfg.headerFlipped ? (h - totalHeaderH) : mainHeaderH;
+            cfg.lanes.forEach((lnLabel, idx) => {
+              const lx = contentX + idx * colW;
+              if (cfg.laneStriped && idx % 2 === 1 && cfg.stageCount === 0) {
+                parts.push(`<rect x="${lx}" y="${bodyY}" width="${colW}" height="${bodyH}" fill="${theme.zebraFill}" stroke="none" pointer-events="none"/>`);
+              }
+              parts.push(`
+                <rect data-swim-edit="lane:${idx}" x="${lx}" y="${subY}" width="${colW}" height="${subHeaderH}" fill="${subHeaderFill}" stroke="${stroke}" stroke-width="1.3" pointer-events="all"/>
+                ${renderHeaderLabelSvg(lnLabel, lx + colW / 2, subY + subHeaderH / 2, subTextColor, '12', isVertText)}
+              `);
+              if (idx > 0) {
+                parts.push(`
+                  <line x1="${lx}" y1="${ cfg.headerFlipped ? 0 : subY }" x2="${lx}" y2="${ cfg.headerFlipped ? h - mainHeaderH : h }" stroke="${stroke}" stroke-width="1.3" ${innerDash} pointer-events="none"/>
+                  <line x1="${lx}" y1="${ cfg.headerFlipped ? 0 : subY }" x2="${lx}" y2="${ cfg.headerFlipped ? h - mainHeaderH : h }" stroke="transparent" stroke-width="10" pointer-events="stroke"/>
+                `);
+              }
+            });
+          }
+        } else {
+          const mainHeaderW = cfg.laneCount === 0 ? 46 : (cfg.showPoolHeader ? 36 : 0);
+          const subHeaderW = cfg.laneCount > 0 ? 32 : 0;
+          const totalHeaderW = mainHeaderW + subHeaderW;
+          const stageBarH = cfg.stageCount > 0 ? 30 : 0;
+          const contentY = stageBarH;
+          const contentH = Math.max(40, h - stageBarH);
+          const headerX = cfg.headerFlipped ? (w - totalHeaderW) : 0;
+          const bodyX = cfg.headerFlipped ? 0 : totalHeaderW;
+          const bodyW = Math.max(40, w - totalHeaderW);
+
+          if (cfg.stageCount > 0) {
+            const stageW = bodyW / cfg.stageCount;
+            cfg.stages.forEach((stLabel, sIdx) => {
+              const sx = bodyX + sIdx * stageW;
+              if (cfg.laneStriped && sIdx % 2 === 1) {
+                parts.push(`<rect x="${sx}" y="${contentY}" width="${stageW}" height="${contentH}" fill="${theme.zebraFill}" stroke="none" pointer-events="none"/>`);
+              }
+              parts.push(`
+                <rect data-swim-edit="stage:${sIdx}" x="${sx}" y="0" width="${stageW}" height="${stageBarH}" fill="${subHeaderFill}" stroke="${stroke}" stroke-width="1.3" pointer-events="all"/>
+                ${renderHeaderLabelSvg(stLabel, sx + stageW / 2, stageBarH / 2, subTextColor, '11', false)}
+              `);
+              if (sIdx > 0) {
+                parts.push(`
+                  <line x1="${sx}" y1="${stageBarH}" x2="${sx}" y2="${h}" stroke="${stroke}" stroke-width="1.2" ${innerDash} pointer-events="none"/>
+                  <line x1="${sx}" y1="${stageBarH}" x2="${sx}" y2="${h}" stroke="transparent" stroke-width="10" pointer-events="stroke"/>
+                `);
+              }
+            });
+            if (totalHeaderW > 0) {
+              parts.push(`<rect x="${headerX}" y="0" width="${totalHeaderW}" height="${stageBarH}" fill="${headerFill}" stroke="${stroke}" stroke-width="1.3" pointer-events="all"/>`);
+            }
+          }
+
+          if (mainHeaderW > 0) {
+            const mx = cfg.headerFlipped ? (w - mainHeaderW) : 0;
+            const headerShade = (!cfg.showPoolHeader && cfg.laneCount === 0) ? '#eef1f6' : headerFill;
+            parts.push(`
+              <rect data-swim-edit="pool" x="${mx}" y="${contentY}" width="${mainHeaderW}" height="${contentH}" fill="${headerShade}" stroke="${stroke}" stroke-width="${strokeWidth}" pointer-events="all"/>
+              ${renderHeaderLabelSvg(cfg.poolTitle, mx + mainHeaderW / 2, contentY + contentH / 2, mainTextColor, fontSize, isVertText)}
+            `);
+          }
+
+          if (cfg.laneCount > 0) {
+            const rowH = contentH / cfg.laneCount;
+            const subX = cfg.headerFlipped ? (w - totalHeaderW) : mainHeaderW;
+            cfg.lanes.forEach((lnLabel, idx) => {
+              const ly = contentY + idx * rowH;
+              if (cfg.laneStriped && idx % 2 === 1 && cfg.stageCount === 0) {
+                parts.push(`<rect x="${bodyX}" y="${ly}" width="${bodyW}" height="${rowH}" fill="${theme.zebraFill}" stroke="none" pointer-events="none"/>`);
+              }
+              parts.push(`
+                <rect data-swim-edit="lane:${idx}" x="${subX}" y="${ly}" width="${subHeaderW}" height="${rowH}" fill="${subHeaderFill}" stroke="${stroke}" stroke-width="1.3" pointer-events="all"/>
+                ${renderHeaderLabelSvg(lnLabel, subX + subHeaderW / 2, ly + rowH / 2, subTextColor, '12', isVertText)}
+              `);
+              if (idx > 0) {
+                parts.push(`
+                  <line x1="${ cfg.headerFlipped ? 0 : subX }" y1="${ly}" x2="${ cfg.headerFlipped ? w - mainHeaderW : w }" y2="${ly}" stroke="${stroke}" stroke-width="1.3" ${innerDash} pointer-events="none"/>
+                  <line x1="${ cfg.headerFlipped ? 0 : subX }" y1="${ly}" x2="${ cfg.headerFlipped ? w - mainHeaderW : w }" y2="${ly}" stroke="transparent" stroke-width="10" pointer-events="stroke"/>
+                `);
+              }
+            });
+          }
+        }
+
+        parts.push(`
+          <rect x="0" y="0" width="${w}" height="${h}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" ${outerDash} pointer-events="none"/>
+          <rect x="0" y="0" width="${w}" height="${h}" fill="none" stroke="transparent" stroke-width="12" pointer-events="stroke"/>
+        `);
+        return parts.join('');
+      }
+
+      function createShapeSvgElement(cell, isSelected) {
+        const s = parseStyle(cell.style);
+        const w = cell.width || 100;
+        const h = cell.height || 50;
+        const dflowType = cell.attrs?.dflowType || '';
+        const shape = s.shape || (s.rhombus ? 'rhombus' : (s.ellipse ? 'ellipse' : 'rect'));
+        const typeKey = dflowType || shape;
+
+        let fill = s.fillColor || '#ffffff';
+        let stroke = s.strokeColor || '#333333';
+        let strokeWidth = s.strokeWidth || '1.6';
+        let dashArray = '';
+        if (s.dashed === '1') {
+          if (s.dashPattern) {
+            dashArray = `stroke-dasharray="${s.dashPattern.replace(/\s+/g, ',')}"`;
+          } else {
+            dashArray = 'stroke-dasharray="6,3"';
+          }
+        }
+
+        if (!s.fillColor) {
+          if (dflowType === 'nodeRoleName' || dflowType === 'nodeVirtualRoleName') {
+            fill = '#FACD91';
+          } else if (dflowType === 'nodeActiveJudge' || s.rhombus) {
+            fill = '#eef6ff';
+            if (!s.strokeColor) stroke = '#409eff';
+          } else if (dflowType === 'startEnd') {
+            fill = '#f0f9eb';
+            if (!s.strokeColor) stroke = '#67c23a';
+          } else if (dflowType === 'defaultNote') {
+            fill = '#fff9db';
+            if (!s.strokeColor) stroke = '#e6a23c';
+          } else if (typeKey.startsWith('evc')) {
+            fill = '#ecf5ff';
+            if (!s.strokeColor) stroke = '#409eff';
+          }
+        }
+
+        if (typeKey === 'evcChevronRight') {
+          const notch = Math.min(20, Math.round(w * 0.16));
+          const pts = `0,0 ${w - notch},0 ${w},${h / 2} ${w - notch},${h} 0,${h} ${notch},${h / 2}`;
+          return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        }
+        if (typeKey === 'evcChevronLeft') {
+          const notch = Math.min(20, Math.round(w * 0.16));
+          const pts = `${notch},0 ${w},0 ${w - notch},${h / 2} ${w},${h} ${notch},${h} 0,${h / 2}`;
+          return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        }
+        if (typeKey === 'evcPentagonRight') {
+          const notch = Math.min(20, Math.round(w * 0.16));
+          const pts = `0,0 ${w - notch},0 ${w},${h / 2} ${w - notch},${h} 0,${h}`;
+          return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        }
+        if (typeKey === 'evcPentagonLeft') {
+          const notch = Math.min(20, Math.round(w * 0.16));
+          const pts = `${notch},0 ${w},0 ${w},${h} ${notch},${h} 0,${h / 2}`;
+          return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        }
+        if (typeKey === 'evcPentagonUp') {
+          const roof = Math.min(18, Math.round(h * 0.28));
+          const pts = `0,${h} 0,${roof} ${w / 2},0 ${w},${roof} ${w},${h}`;
+          return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        }
+        if (typeKey === 'evcPentagonDown') {
+          const roof = Math.min(18, Math.round(h * 0.28));
+          const pts = `0,0 ${w},0 ${w},${h - roof} ${w / 2},${h} 0,${h - roof}`;
+          return `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        }
+
+        if (isContainerSwimlane(cell)) {
+          return renderSwimlaneContainerSvg(cell, isSelected);
+        }
+        if (typeKey === 'swimlaneSepH') {
+          return `
+            <line x1="0" y1="${h / 2}" x2="${w}" y2="${h / 2}" stroke="transparent" stroke-width="14" pointer-events="stroke"/>
+            <line x1="0" y1="${h / 2}" x2="${w}" y2="${h / 2}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} pointer-events="none"/>
+          `;
+        }
+        if (typeKey === 'swimlaneSepV') {
+          return `
+            <line x1="${w / 2}" y1="0" x2="${w / 2}" y2="${h}" stroke="transparent" stroke-width="14" pointer-events="stroke"/>
+            <line x1="${w / 2}" y1="0" x2="${w / 2}" y2="${h}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} pointer-events="none"/>
+          `;
+        }
+
+        let shapeMarkup = '';
+        if (shape === 'rhombus' || dflowType === 'nodeActiveJudge' || dflowType === 'defaultDiamond') {
+          const pts = `${w/2},0 ${w},${h/2} ${w/2},${h} 0,${h/2}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'ellipse' || dflowType === 'defaultOval') {
+          shapeMarkup = `<ellipse cx="${w/2}" cy="${h/2}" rx="${w/2}" ry="${h/2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (dflowType === 'startEnd' || (s.rounded === '1' && parseInt(s.arcSize || '0') >= 40)) {
+          const r = Math.min(w, h) / 2;
+          shapeMarkup = `<rect x="0" y="0" width="${w}" height="${h}" rx="${r}" ry="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'document' || dflowType === 'nodeFile') {
+          const d = `M 0 0 L ${w} 0 L ${w} ${h - 9} Q ${w * 0.75} ${h - 18} ${w / 2} ${h - 9} T 0 ${h - 9} Z`;
+          shapeMarkup = `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'process' || dflowType === 'nodeActiveSubFlow') {
+          shapeMarkup = `
+            <rect x="0" y="0" width="${w}" height="${h}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>
+            <line x1="10" y1="0" x2="10" y2="${h}" stroke="${stroke}" stroke-width="1.3"/>
+            <line x1="${w - 10}" y1="0" x2="${w - 10}" y2="${h}" stroke="${stroke}" stroke-width="1.3"/>
+          `;
+        } else if (shape === 'cylinder3' || dflowType === 'nodeActiveDataBase') {
+          const ry = 8;
+          shapeMarkup = `
+            <path d="M 0 ${ry} A ${w/2} ${ry} 0 0 1 ${w} ${ry} L ${w} ${h - ry} A ${w/2} ${ry} 0 0 1 0 ${h - ry} Z" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>
+            <ellipse cx="${w/2}" cy="${ry}" rx="${w/2}" ry="${ry}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
+          `;
+        } else if (shape === 'hexagon' || dflowType === 'nodeActiveReady' || dflowType === 'defaultHexagon') {
+          const pts = `14,0 ${w-14},0 ${w},${h/2} ${w-14},${h} 14,${h} 0,${h/2}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'triangle' || dflowType === 'defaultTriangle') {
+          const pts = `${w/2},0 ${w},${h} 0,${h}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'pentagon' || dflowType === 'defaultPentagon') {
+          const pts = `${w/2},0 ${w},${h*0.38} ${w*0.82},${h} ${w*0.18},${h} 0,${h*0.38}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'octagon' || dflowType === 'defaultOctagon') {
+          const c = Math.min(w, h) * 0.28;
+          const pts = `${c},0 ${w-c},0 ${w},${c} ${w},${h-c} ${w-c},${h} ${c},${h} 0,${h-c} 0,${c}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'star' || dflowType === 'defaultFivePointedStar') {
+          const pts = `${w*0.5},0 ${w*0.63},${h*0.35} ${w},${h*0.38} ${w*0.71},${h*0.62} ${w*0.81},${h} ${w*0.5},${h*0.78} ${w*0.19},${h} ${w*0.29},${h*0.62} 0,${h*0.38} ${w*0.37},${h*0.35}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'cloud' || dflowType === 'defaultCloud') {
+          const d = `M ${w*0.25} ${h*0.8} C ${w*0.08} ${h*0.8} ${w*0.05} ${h*0.5} ${w*0.2} ${h*0.42} C ${w*0.22} ${h*0.18} ${w*0.48} ${h*0.12} ${w*0.58} ${h*0.28} C ${w*0.75} ${h*0.18} ${w*0.92} ${h*0.35} ${w*0.86} ${h*0.55} C ${w*0.96} ${h*0.68} ${w*0.88} ${h*0.8} ${w*0.75} ${h*0.8} Z`;
+          shapeMarkup = `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'note' || dflowType === 'nodeActiveNotes' || dflowType === 'defaultNote') {
+          const fold = 14;
+          const d = `M 0 0 L ${w - fold} 0 L ${w} ${fold} L ${w} ${h} L 0 ${h} Z`;
+          const foldPath = `M ${w - fold} 0 L ${w - fold} ${fold} L ${w} ${fold}`;
+          shapeMarkup = `
+            <path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>
+            <path d="${foldPath}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}"/>
+          `;
+        } else if (shape === 'manualInput' || dflowType === 'nodeActivePersonInput') {
+          const pts = `0,14 ${w},0 ${w},${h} 0,${h}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'trapezoid' || dflowType === 'nodeActivePersonOpe') {
+          const pts = `0,0 ${w},0 ${w-14},${h} 14,${h}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (shape === 'internalStorage' || dflowType === 'nodeActiveInsideData') {
+          shapeMarkup = `
+            <rect x="0" y="0" width="${w}" height="${h}" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>
+            <line x1="12" y1="0" x2="12" y2="${h}" stroke="${stroke}" stroke-width="1.2"/>
+            <line x1="0" y1="12" x2="${w}" y2="12" stroke="${stroke}" stroke-width="1.2"/>
+          `;
+        } else if (dflowType === 'nodeActiveData' || shape === 'parallelogram') {
+          const pts = `14,0 ${w},0 ${w-14},${h} 0,${h}`;
+          shapeMarkup = `<polygon points="${pts}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        } else if (dflowType === 'nodeActiveSerialRect') {
+          shapeMarkup = `
+            <rect x="0" y="0" width="${w}" height="${h}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>
+            <rect x="0" y="0" width="${w}" height="22" rx="4" fill="#ecf5ff" stroke="${stroke}" stroke-width="1"/>
+          `;
+        } else if (dflowType === 'defaultText' || s.text) {
+          shapeMarkup = `<rect x="0" y="0" width="${w}" height="${h}" fill="transparent" stroke="${isSelected ? '#1677ff' : 'transparent'}" stroke-dasharray="3,2"/>`;
+        } else {
+          const rx = s.rounded === '1' ? 8 : 4;
+          shapeMarkup = `<rect x="0" y="0" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" ${dashArray} filter="url(#node-shadow)"/>`;
+        }
+        return shapeMarkup;
+      }
+
+      function computeNodeBadges(cell) {
+        if (!isBusinessNode(cell)) return [];
+        const a = cell.attrs || {};
+        const w = cell.width || 100;
+        const h = cell.height || 50;
+        const dflowType = cell.attrs?.dflowType || '';
+        const badges = [];
+
+        if (a.kcp === true || a.kcp === 'true') {
+          badges.push({ key: 'kcp', kind: 'risk', x: w / 2 - 11, y: -12, w: 22, h: 16, bg: '#f56c6c', text: 'KCP' });
+        }
+        if ((a.in && String(a.in).trim()) || (Array.isArray(a.inFileList) && a.inFileList.length > 0)) {
+          badges.push({ key: 'in', kind: 'in', x: -8, y: -10, w: 18, h: 15, bg: '#409eff', text: 'IN' });
+        }
+        if ((a.out && String(a.out).trim()) || (Array.isArray(a.outFileList) && a.outFileList.length > 0)) {
+          badges.push({ key: 'out', kind: 'out', x: w - 16, y: -10, w: 24, h: 15, bg: '#67c23a', text: 'OUT' });
+        }
+        if (Array.isArray(a.rights) && a.rights.length > 0) {
+          badges.push({ key: 'qz', kind: 'qz', x: w / 2 - 10, y: h - 6, w: 20, h: 15, bg: '#e6a23c', text: '权' });
+        }
+        const targetNum = Number(a.target || 0);
+        if (targetNum > 0) {
+          const unit = a.timeType || '天';
+          badges.push({ key: 'run', kind: 'info', x: w / 2 + 14, y: -12, w: 30, h: 15, bg: '#909399', text: `${targetNum}${unit}` });
+        }
+        const hasRaci =
+          (Array.isArray(a.raciR) && a.raciR.length > 0) ||
+          (typeof a.raciA === 'string' && a.raciA.trim().length > 0) ||
+          (Array.isArray(a.raciA) && a.raciA.length > 0) ||
+          (Array.isArray(a.raciC) && a.raciC.length > 0) ||
+          (Array.isArray(a.raciI) && a.raciI.length > 0);
+        if (hasRaci) {
+          badges.push({ key: 'raci', kind: 'raci', x: 14, y: h - 8, w: 28, h: 15, bg: '#7c3aed', text: 'RACI' });
+        }
+        const hasAnyLink =
+          hasRaci ||
+          (Array.isArray(a.rights) && a.rights.length > 0) ||
+          (Array.isArray(a.riskIds) && a.riskIds.length > 0) ||
+          (Array.isArray(a.docclass) && a.docclass.length > 0) ||
+          (Array.isArray(a.roles) && a.roles.length > 0) ||
+          !!a.roleId;
+        if (hasAnyLink) {
+          badges.push({ key: 'link', kind: 'link', x: -8, y: h - 8, w: 18, h: 15, bg: '#79bbff', text: '联' });
+        }
+        if (dflowType !== 'startEnd' && !dflowType.startsWith('evc')) {
+          badges.push({ key: 'info', kind: 'info', x: w - 10, y: h - 8, w: 16, h: 15, bg: '#409eff', text: 'i' });
+        }
+        return badges;
+      }
+
+      function computeEdgeGeometry(src, tgt, edgeStyleStr) {
+        const s = parseStyle(edgeStyleStr);
+        const edgeStyle = s.edgeStyle || 'orthogonalEdgeStyle';
+        const sx = src.x + src.width / 2;
+        const sy = src.y + src.height / 2;
+        const tx = tgt.x + tgt.width / 2;
+        const ty = tgt.y + tgt.height / 2;
+        const dx = tx - sx;
+        const dy = ty - sy;
+        let p1, p2;
+
+        if (Math.abs(dy) >= Math.abs(dx) * 0.65) {
+          if (dy >= 0) {
+            p1 = { x: sx, y: src.y + src.height };
+            p2 = { x: tx, y: tgt.y };
+          } else {
+            p1 = { x: sx, y: src.y };
+            p2 = { x: tx, y: tgt.y + tgt.height };
+          }
+        } else {
+          if (dx >= 0) {
+            p1 = { x: src.x + src.width, y: sy };
+            p2 = { x: tgt.x, y: ty };
+          } else {
+            p1 = { x: src.x, y: sy };
+            p2 = { x: tgt.x + tgt.width, y: ty };
+          }
+        }
+
+        if (edgeStyle === 'straight') {
+          return {
+            d: `M ${Math.round(p1.x)} ${Math.round(p1.y)} L ${Math.round(p2.x)} ${Math.round(p2.y)}`,
+            labelPos: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+          };
+        } else if (edgeStyle === 'curved') {
+          const cx1 = (p1.x + p2.x) / 2;
+          const cy1 = p1.y;
+          const cx2 = (p1.x + p2.x) / 2;
+          const cy2 = p2.y;
+          return {
+            d: `M ${Math.round(p1.x)} ${Math.round(p1.y)} C ${Math.round(cx1)} ${Math.round(cy1)}, ${Math.round(cx2)} ${Math.round(cy2)}, ${Math.round(p2.x)} ${Math.round(p2.y)}`,
+            labelPos: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+          };
+        } else {
+          let midPoints = [];
+          if (Math.abs(dy) >= Math.abs(dx) * 0.65) {
+            const my = (p1.y + p2.y) / 2;
+            midPoints = [{ x: p1.x, y: my }, { x: p2.x, y: my }];
+          } else {
+            const mx = (p1.x + p2.x) / 2;
+            midPoints = [{ x: mx, y: p1.y }, { x: mx, y: p2.y }];
+          }
+          const pts = [p1, ...midPoints, p2];
+          const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${Math.round(p.x)} ${Math.round(p.y)}`).join(' ');
+          return {
+            d,
+            labelPos: { x: (pts[1].x + pts[2].x) / 2, y: (pts[1].y + pts[2].y) / 2 }
+          };
+        }
+      }
+
+      function render() {
+        viewportGroup.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoom})`);
+        const vertexMap = {};
+        cells.forEach(c => { if (c.vertex) vertexMap[c.id] = c; });
+
+        edgesLayer.innerHTML = '';
+        cells.filter(c => c.edge).forEach(edge => {
+          const src = vertexMap[edge.source];
+          const tgt = vertexMap[edge.target];
+          if (!src || !tgt) return;
+          const { d, labelPos } = computeEdgeGeometry(src, tgt, edge.style);
+          const isSel = selectedIds.has(edge.id);
+          const s = parseStyle(edge.style);
+          const stroke = s.strokeColor || '#333333';
+          const strokeW = s.strokeWidth || '1.8';
+          let dashAttr = '';
+          if (s.dashed === '1') {
+            if (s.dashPattern) {
+              dashAttr = `stroke-dasharray="${s.dashPattern.replace(/\s+/g, ',')}"`;
+            } else {
+              dashAttr = 'stroke-dasharray="6,3"';
+            }
+          }
+          const endArrow = s.endArrow || 'classic';
+          const markerId = getMarkerId(endArrow, stroke, isSel);
+          const isAnimated = s.flowAnimation === '1';
+
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', `mx-edge-group ${isSel ? 'selected' : ''}`);
+          g.dataset.id = edge.id;
+
+          let labelMarkup = '';
+          if (edge.value) {
+            const fontFam = s.fontFamily || 'Plus Jakarta Sans';
+            const fSize = s.fontSize || '11';
+            const fontCol = s.fontColor || '#303133';
+            const fStyleNum = parseInt(s.fontStyle || '0', 10);
+            const isB = (fStyleNum & 1) === 1;
+            const isI = (fStyleNum & 2) === 2;
+            const isU = (fStyleNum & 4) === 4;
+            const textWidth = Math.max(36, edge.value.length * parseInt(fSize, 10) + 12);
+            const labelBg = s.labelBackgroundColor || '#ffffff';
+            const labelBorder = s.labelBorderColor || '#dcdfe6';
+            labelMarkup = `
+              <rect x="${labelPos.x - textWidth / 2}" y="${labelPos.y - 10}" width="${textWidth}" height="20" rx="3" fill="${labelBg}" stroke="${labelBorder}" stroke-width="1"/>
+              <text x="${labelPos.x}" y="${labelPos.y + 4}" text-anchor="middle" style="font-family: ${escapeXml(fontFam)}, sans-serif; font-size: ${fSize}px; fill: ${fontCol}; font-weight: ${isB ? '700' : 'normal'}; font-style: ${isI ? 'italic' : 'normal'}; text-decoration: ${isU ? 'underline' : 'none'};">${escapeXml(edge.value)}</text>
+            `;
+          }
+
+          const haloMarkup = isSel
+            ? `<path class="mx-edge-selection-halo" d="${d}" stroke="#1677ff" stroke-width="${Math.max(5, parseFloat(strokeW) + 4)}" stroke-opacity="0.35" fill="none" stroke-linecap="round" pointer-events="none"/>`
+            : '';
+
+          g.innerHTML = `
+            ${haloMarkup}
+            <path class="mx-edge-hit" d="${d}" />
+            <path class="mx-edge-path ${isAnimated ? 'mx-edge-flow-animated' : ''}" d="${d}" stroke="${stroke}" stroke-width="${strokeW}" ${dashAttr} ${endArrow === 'none' || !markerId ? '' : `marker-end="url(#${markerId})"`} />
+            ${labelMarkup}
+          `;
+
+          g.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            if (e.shiftKey || e.metaKey || e.ctrlKey) {
+              if (selectedIds.has(edge.id)) selectedIds.delete(edge.id);
+              else selectedIds.add(edge.id);
+            } else {
+              selectedIds = new Set([edge.id]);
+            }
+            lastSelectedId = edge.id;
+            render();
+            emitSelectionToHost();
+          });
+
+          g.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            selectedIds = new Set([edge.id]);
+            lastSelectedId = edge.id;
+            render();
+            emitSelectionToHost();
+            postToHost({ event: 'dflow:openProps', cell: serializeCellForHost(edge) });
+          });
+
+          edgesLayer.appendChild(g);
+        });
+
+        nodesLayer.innerHTML = '';
+        const sortedVertices = cells
+          .filter(c => c.vertex)
+          .sort((a, b) => {
+            const aSwim = isContainerSwimlane(a) ? 0 : 1;
+            const bSwim = isContainerSwimlane(b) ? 0 : 1;
+            return aSwim - bSwim;
+          });
+
+        sortedVertices.forEach(node => {
+          const isSel = selectedIds.has(node.id);
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'mx-node');
+          g.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+          g.dataset.id = node.id;
+          const w = node.width || 100;
+          const h = node.height || 50;
+
+          const shapeSvg = createShapeSvgElement(node, isSel);
+          const dflowType = node.attrs?.dflowType || '';
+          const isSwim = isContainerSwimlane(node) || isSwimlaneSeparator(node);
+
+          const s = parseStyle(node.style);
+          const fontFamily = s.fontFamily || 'Plus Jakarta Sans';
+          const fontSize = s.fontSize || '12';
+          const fontColor = s.fontColor || '#1f2733';
+          const fontStyleNum = parseInt(s.fontStyle || '0', 10);
+          const isBold = (fontStyleNum & 1) === 1 || s.bold === '1';
+          const isItalic = (fontStyleNum & 2) === 2 || s.italic === '1';
+          const isUnderline = (fontStyleNum & 4) === 4 || s.underline === '1';
+          const align = s.align || 'center';
+          const textAnchor = align === 'left' ? 'start' : align === 'right' ? 'end' : 'middle';
+          const textX = align === 'left' ? 10 : align === 'right' ? w - 10 : w / 2;
+          const extraTextStyle = `font-family: ${escapeXml(fontFamily)}, 'Microsoft YaHei', -apple-system, sans-serif; font-size: ${escapeXml(fontSize)}px; fill: ${escapeXml(fontColor)}; font-weight: ${isBold ? '700' : '500'}; font-style: ${isItalic ? 'italic' : 'normal'}; text-decoration: ${isUnderline ? 'underline' : 'none'};`;
+
+          const lines = String(node.value || '').split('\n');
+          let textSvg = '';
+          if (isSwim) {
+            textSvg = '';
+          } else if (dflowType === 'nodeActiveSerialRect' && lines.length >= 2) {
+            textSvg = `
+              <text x="${w/2}" y="15" text-anchor="middle" font-size="11" font-weight="600" fill="#409eff" pointer-events="none">${escapeXml(lines[0])}</text>
+              <text x="${textX}" y="${22 + (h - 22)/2 + 4}" text-anchor="${textAnchor}" style="${extraTextStyle}" pointer-events="none">${escapeXml(lines.slice(1).join(' '))}</text>
+            `;
+          } else if (lines.length > 1) {
+            const startY = h / 2 - ((lines.length - 1) * 8);
+            textSvg = lines.map((ln, idx) =>
+              `<text x="${textX}" y="${startY + idx * 16 + 4}" text-anchor="${textAnchor}" style="${extraTextStyle}" pointer-events="none">${escapeXml(ln)}</text>`
+            ).join('');
+          } else {
+            textSvg = `<text x="${textX}" y="${h/2 + 4}" text-anchor="${textAnchor}" style="${extraTextStyle}" pointer-events="none">${escapeXml(node.value || '')}</text>`;
+          }
+
+          const badges = computeNodeBadges(node);
+          const badgesSvg = badges.map(b => `
+            <g class="badge-item" data-badge="${b.key}" data-kind="${b.kind}" transform="translate(${b.x}, ${b.y})">
+              <rect x="0" y="0" width="${b.w}" height="${b.h}" rx="3" fill="${b.bg}" stroke="#ffffff" stroke-width="1"/>
+              <text x="${b.w/2}" y="${b.h - 4}" text-anchor="middle" font-size="9" font-weight="700" fill="#ffffff">${escapeXml(b.text)}</text>
+            </g>
+          `).join('');
+
+          const ports = isSwim ? [] : [
+            { cx: w / 2, cy: 0 },
+            { cx: w, cy: h / 2 },
+            { cx: w / 2, cy: h },
+            { cx: 0, cy: h / 2 }
+          ];
+          const portsSvg = ports.map(p =>
+            `<circle class="port-dot" cx="${p.cx}" cy="${p.cy}" r="4.5" fill="#ffffff" stroke="#1677ff" stroke-width="1.8" data-port="1"/>`
+          ).join('');
+
+          const resizeHandles = [
+            { dir: 'nw', x: -5, y: -5, cursor: 'nwse-resize' },
+            { dir: 'n', x: w / 2 - 4, y: -5, cursor: 'ns-resize' },
+            { dir: 'ne', x: w - 3, y: -5, cursor: 'nesw-resize' },
+            { dir: 'e', x: w - 3, y: h / 2 - 4, cursor: 'ew-resize' },
+            { dir: 'se', x: w - 3, y: h - 3, cursor: 'nwse-resize' },
+            { dir: 's', x: w / 2 - 4, y: h - 3, cursor: 'ns-resize' },
+            { dir: 'sw', x: -5, y: h - 3, cursor: 'nesw-resize' },
+            { dir: 'w', x: -5, y: h / 2 - 4, cursor: 'ew-resize' }
+          ];
+
+          const selectedFrameSvg = isSel ? `
+            <rect class="node-selected-halo" x="-3" y="-3" width="${w+6}" height="${h+6}" rx="4" fill="none" stroke="#1677ff" stroke-width="1.6" stroke-dasharray="4,2" pointer-events="none"/>
+            ${resizeHandles.map(rh => `
+              <rect class="resize-handle" data-resize="${rh.dir}" x="${rh.x}" y="${rh.y}" width="8" height="8" rx="1.5" fill="#ffffff" stroke="#1677ff" stroke-width="1.6" style="cursor:${rh.cursor}" pointer-events="all"/>
+            `).join('')}
+          ` : '';
+
+          g.innerHTML = `
+            <rect class="node-hover-halo" x="-4" y="-4" width="${w+8}" height="${h+8}" rx="6" fill="none" stroke="#a0cfff" stroke-width="1.5" stroke-dasharray="3,2" pointer-events="none"/>
+            ${shapeSvg}
+            ${textSvg}
+            ${selectedFrameSvg}
+            ${badgesSvg}
+            ${portsSvg}
+          `;
+
+          g.querySelectorAll('.badge-item').forEach(bEl => {
+            bEl.addEventListener('mousedown', (ev) => ev.stopPropagation());
+            bEl.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              const badge = bEl.getAttribute('data-badge');
+              const kind = bEl.getAttribute('data-kind');
+              selectedIds = new Set([node.id]);
+              render();
+              emitSelectionToHost();
+              postToHost({
+                event: 'dflow:badge',
+                badge,
+                kind,
+                cell: serializeCellForHost(node)
+              });
+            });
+          });
+
+          if (!isReadOnly) {
+            g.querySelectorAll('.resize-handle').forEach(rhEl => {
+              rhEl.addEventListener('mousedown', (ev) => {
+                if (ev.button !== 0) return;
+                ev.stopPropagation();
+                const dir = rhEl.getAttribute('data-resize') || 'se';
+                const pt = clientToGraph(ev.clientX, ev.clientY);
+                resizeState = {
+                  cell: node,
+                  dir,
+                  startGraphX: pt.x,
+                  startGraphY: pt.y,
+                  origX: node.x,
+                  origY: node.y,
+                  origW: node.width || 100,
+                  origH: node.height || 50,
+                  moved: false
+                };
+              });
+            });
+
+            g.querySelectorAll('.port-dot').forEach(portEl => {
+              portEl.addEventListener('mousedown', (ev) => {
+                ev.stopPropagation();
+                const pt = clientToGraph(ev.clientX, ev.clientY);
+                connectFromState = {
+                  sourceId: node.id,
+                  startX: pt.x,
+                  startY: pt.y
+                };
+              });
+            });
+          }
+
+          g.addEventListener('mousedown', (ev) => {
+            if (ev.button !== 0) return;
+            ev.stopPropagation();
+
+            if (!isReadOnly && formatPainterStyle) {
+              saveHistory();
+              node.style = formatPainterStyle;
+              formatPainterStyle = null;
+              selectedIds = new Set([node.id]);
+              render();
+              emitSelectionToHost();
+              notifyAutosave();
+              return;
+            }
+
+            const firstSelId = Array.from(selectedIds)[0];
+            if (!isReadOnly && connectModeActive && firstSelId && firstSelId !== node.id) {
+              const srcCell = cells.find(c => c.id === firstSelId && c.vertex);
+              if (srcCell) {
+                createEdgeBetween(srcCell.id, node.id);
+                setConnectMode(false);
+                return;
+              }
+            }
+
+            if (ev.shiftKey || ev.ctrlKey || ev.metaKey) {
+              if (selectedIds.has(node.id)) {
+                selectedIds.delete(node.id);
+              } else {
+                selectedIds.add(node.id);
+              }
+              render();
+              emitSelectionToHost();
+            } else {
+              if (!selectedIds.has(node.id)) {
+                selectedIds = new Set([node.id]);
+                render();
+                emitSelectionToHost();
+              }
+            }
+
+            if (isReadOnly) return;
+            const pt = clientToGraph(ev.clientX, ev.clientY);
+            const dragMap = new Map();
+            cells.filter(c => c.vertex && selectedIds.has(c.id)).forEach(v => {
+              dragMap.set(v.id, { cell: v, origX: v.x, origY: v.y });
+              if (isContainerSwimlane(v)) {
+                cells.forEach(inner => {
+                  if (inner.vertex && inner.id !== v.id && !isContainerSwimlane(inner)) {
+                    const cx = inner.x + (inner.width || 100) / 2;
+                    const cy = inner.y + (inner.height || 50) / 2;
+                    if (cx >= v.x && cx <= v.x + v.width && cy >= v.y && cy <= v.y + v.height) {
+                      dragMap.set(inner.id, { cell: inner, origX: inner.x, origY: inner.y });
+                    }
+                  }
+                });
+              }
+            });
+
+            groupDragState = {
+              startGraphX: pt.x,
+              startGraphY: pt.y,
+              items: Array.from(dragMap.values()),
+              moved: false
+            };
+          });
+
+          g.addEventListener('dblclick', (ev) => {
+            ev.stopPropagation();
+            selectedIds = new Set([node.id]);
+            render();
+            emitSelectionToHost();
+            postToHost({ event: 'dflow:openProps', cell: serializeCellForHost(node) });
+            if (!isReadOnly) {
+              const swimEditTarget = ev.target?.closest?.('[data-swim-edit]')?.getAttribute('data-swim-edit') || null;
+              openInlineEditor(node, ev.clientX, ev.clientY, swimEditTarget);
+            }
+          });
+
+          nodesLayer.appendChild(g);
+        });
+
+        multiBoundsLayer.innerHTML = '';
+        const selVertices = cells.filter(c => c.vertex && selectedIds.has(c.id));
+        if (selVertices.length > 1) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          selVertices.forEach(v => {
+            minX = Math.min(minX, v.x);
+            minY = Math.min(minY, v.y);
+            maxX = Math.max(maxX, v.x + (v.width || 100));
+            maxY = Math.max(maxY, v.y + (v.height || 50));
+          });
+          const pad = 8;
+          multiBoundsLayer.innerHTML = `
+            <rect x="${minX - pad}" y="${minY - pad}" width="${maxX - minX + pad * 2}" height="${maxY - minY + pad * 2}" rx="6" fill="rgba(22, 119, 255, 0.03)" stroke="#1677ff" stroke-width="1.5" stroke-dasharray="6,4" pointer-events="none"/>
+            <rect x="${minX - pad}" y="${minY - pad - 20}" width="84" height="18" rx="3" fill="#1677ff" pointer-events="none"/>
+            <text x="${minX - pad + 42}" y="${minY - pad - 8}" text-anchor="middle" font-size="10" font-weight="600" fill="#ffffff" pointer-events="none">已选中 ${selVertices.length} 项</text>
+          `;
+        }
+
+        updateSwimlaneToolbar();
+        emitCanvasStats();
+      }
+
+      let swimThemePopoverOpen = false;
+
+      function syncSwimlaneValueFromConfig(cell, cfg) {
+        if (!cell.attrs) cell.attrs = {};
+        cell.attrs.orientation = cfg.orientation;
+        cell.attrs.laneCount = cfg.laneCount;
+        cell.attrs.stageCount = cfg.stageCount;
+        cell.attrs.stages = cfg.stages;
+        cell.attrs.textDir = cfg.textDir;
+        cell.attrs.headerFlipped = cfg.headerFlipped;
+        cell.attrs.showPoolHeader = cfg.showPoolHeader;
+        cell.attrs.laneStriped = cfg.laneStriped;
+        cell.attrs.innerDashed = cfg.innerDashed;
+        cell.attrs.themeIndex = cfg.themeIndex;
+
+        if (cfg.laneCount > 0) {
+          cell.value = [cfg.poolTitle, ...cfg.lanes.slice(0, cfg.laneCount)].join('|');
+        } else {
+          cell.value = cfg.poolTitle || '单泳道';
+        }
+        cell.attrs.name = cell.value;
+      }
+
+      function updateSwimlaneToolbar() {
+        if (isReadOnly || selectedIds.size !== 1) {
+          swimlaneToolbar.style.display = 'none';
+          swimThemePopoverOpen = false;
+          return;
+        }
+        const selId = Array.from(selectedIds)[0];
+        const cell = cells.find(c => c.id === selId && c.vertex);
+        if (!cell || !isContainerSwimlane(cell)) {
+          swimlaneToolbar.style.display = 'none';
+          swimThemePopoverOpen = false;
+          return;
+        }
+        const cfg = getSwimlaneConfig(cell);
+        const screenX = panX + cell.x * zoom;
+        const screenY = panY + cell.y * zoom;
+        const rect = container.getBoundingClientRect();
+        const tbTop = Math.max(10, Math.min(rect.height - 54, screenY - 48));
+        const tbLeft = Math.max(10, Math.min(rect.width - 390, screenX));
+
+        swimlaneToolbar.style.display = 'flex';
+        swimlaneToolbar.style.left = `${Math.round(tbLeft)}px`;
+        swimlaneToolbar.style.top = `${Math.round(tbTop)}px`;
+
+        const isHoriz = cfg.orientation === 'horizontal';
+        const isVertText = cfg.textDir === 'vertical';
+
+        swimlaneToolbar.innerHTML = `
+          <span style="font-weight:600;font-size:11px;color:#606266;margin-right:2px;">道数:</span>
+          <div class="swim-stepper" title="调整泳道数量 (0=单泳道模式)">
+            <span class="swim-stepper-val">${cfg.laneCount}</span>
+            <div class="swim-stepper-arrows">
+              <button type="button" class="swim-step-arrow" data-swim-act="laneInc" title="增加泳道">
+                <svg width="8" height="6" viewBox="0 0 8 6"><path d="M4 1L7 5H1L4 1Z" fill="currentColor"/></svg>
+              </button>
+              <button type="button" class="swim-step-arrow" data-swim-act="laneDec" title="减少泳道">
+                <svg width="8" height="6" viewBox="0 0 8 6"><path d="M4 5L1 1H7L4 5Z" fill="currentColor"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="swim-tb-sep"></div>
+          <button type="button" class="swim-tb-btn ${isHoriz ? 'active' : ''}" data-swim-act="toggleOrientation" title="切换泳道方向 (${isHoriz ? '当前:横向' : '当前:纵向'})">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="1.5" y="2.5" width="13" height="11" rx="1" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="5" y1="2.5" x2="5" y2="13.5" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="1.5" y1="8" x2="14.5" y2="8" stroke="currentColor" stroke-width="1.1"/>
+            </svg>
+          </button>
+          <button type="button" class="swim-tb-btn ${isVertText ? 'active' : ''}" data-swim-act="toggleTextDir" title="切换文字朝向 (${isVertText ? '当前:竖排' : '当前:横排'})">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 3.5H9.5M6.25 3.5V12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M12.2 4V12M12.2 12L10.3 10M12.2 12L14.1 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button type="button" class="swim-tb-btn ${cfg.headerFlipped ? 'active' : ''}" data-swim-act="toggleHeaderFlip" title="翻转泳池标题位置 (左/右 或 上/下)">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
+              <rect x="2" y="2" width="3.5" height="12" fill="currentColor" fill-opacity="0.25"/>
+              <line x1="5.5" y1="2" x2="5.5" y2="14" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M7.5 8H12M12 8L10.2 6.2M12 8L10.2 9.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="swim-tb-sep"></div>
+          <button type="button" class="swim-tb-btn ${cfg.showPoolHeader ? 'active' : ''}" data-swim-act="togglePoolHeader" title="显示/隐藏母泳池标题栏">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
+              <rect x="2" y="2" width="12" height="4" fill="currentColor" fill-opacity="0.28"/>
+              <line x1="2" y1="6" x2="14" y2="6" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+          </button>
+          <button type="button" class="swim-tb-btn ${cfg.laneStriped ? 'active' : ''}" data-swim-act="toggleLaneStriped" title="切换斑马条纹背景">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.3"/>
+              <rect x="2" y="6" width="6" height="8" fill="currentColor" fill-opacity="0.22"/>
+              <line x1="2" y1="6" x2="14" y2="6" stroke="currentColor" stroke-width="1.2"/>
+              <line x1="8" y1="6" x2="8" y2="14" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+          </button>
+          <div class="swim-tb-sep"></div>
+          <button type="button" class="swim-tb-btn ${swimThemePopoverOpen ? 'active' : ''}" data-swim-act="toggleThemePopover" title="快速主题配色 (${cfg.theme.name})">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/>
+              <circle cx="6" cy="6" r="1.3" fill="#f56c6c"/>
+              <circle cx="10" cy="6" r="1.3" fill="#409eff"/>
+              <circle cx="6" cy="10" r="1.3" fill="#67c23a"/>
+              <circle cx="10" cy="10" r="1.3" fill="#e6a23c"/>
+            </svg>
+          </button>
+          <button type="button" class="swim-tb-btn ${cfg.innerDashed ? 'active' : ''}" data-swim-act="toggleInnerDashed" title="切换内部隔离虚线/实线">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.5,2"/>
+            </svg>
+          </button>
+          <div class="swim-tb-sep"></div>
+          <div style="display:inline-flex;align-items:center;gap:2px;">
+            <button type="button" class="swim-tb-text-btn ${cfg.stageCount > 0 ? 'active' : ''}" data-swim-act="stageAddOrToggle" title="跨泳道阶段划分 (${cfg.stageCount > 0 ? '已划分 ' + cfg.stageCount + ' 阶段' : '添加跨道阶段'})">
+              <span>阶段 ${cfg.stageCount > 0 ? ' ' + cfg.stageCount : ''}</span>
+            </button>
+            ${cfg.stageCount > 0 ? `
+              <div class="swim-stepper-arrows" style="margin-right:2px;">
+                <button type="button" class="swim-step-arrow" data-swim-act="stageInc" title="增加阶段">
+                  <svg width="8" height="6" viewBox="0 0 8 6"><path d="M4 1L7 5H1L4 1Z" fill="currentColor"/></svg>
+                </button>
+                <button type="button" class="swim-step-arrow" data-swim-act="stageDec" title="减少阶段">
+                  <svg width="8" height="6" viewBox="0 0 8 6"><path d="M4 5L1 1H7L4 5Z" fill="currentColor"/></svg>
+                </button>
+              </div>
+            ` : ''}
+          </div>
+          <div class="swim-tb-sep"></div>
+          <button type="button" class="swim-tb-btn" data-swim-act="autoFitSwimlane" title="自动契合内部所有活动节点边界">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2.5 5.5V2.5H5.5M10.5 2.5H13.5V5.5M13.5 10.5V13.5H10.5M5.5 13.5H2.5V10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="5.5" y="5.5" width="5" height="5" rx="0.8" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+          </button>
+          <div id="swimThemePopover" style="display:${swimThemePopoverOpen ? 'flex' : 'none'}">
+            ${SWIMLANE_THEMES.map((t, idx) => `
+              <div class="swim-theme-swatch ${cfg.themeIndex === idx ? 'active' : ''}" data-swim-theme="${idx}" title="${t.name}" style="background:${t.swatch};border:1px solid ${t.stroke};"></div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      swimlaneToolbar.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      swimlaneToolbar.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (selectedIds.size !== 1) return;
+        const selId = Array.from(selectedIds)[0];
+        const cell = cells.find(c => c.id === selId && c.vertex);
+        if (!cell || !isContainerSwimlane(cell)) return;
+
+        const themeEl = ev.target.closest('[data-swim-theme]');
+        if (themeEl) {
+          saveHistory();
+          const idx = Number(themeEl.getAttribute('data-swim-theme') || 0);
+          const cfg = getSwimlaneConfig(cell);
+          cfg.themeIndex = idx;
+          syncSwimlaneValueFromConfig(cell, cfg);
+          swimThemePopoverOpen = false;
+          render();
+          emitSelectionToHost();
+          notifyAutosave();
+          return;
+        }
+
+        const btn = ev.target.closest('[data-swim-act]');
+        if (!btn) return;
+        const act = btn.getAttribute('data-swim-act');
+        const cfg = getSwimlaneConfig(cell);
+
+        if (act === 'toggleThemePopover') {
+          swimThemePopoverOpen = !swimThemePopoverOpen;
+          updateSwimlaneToolbar();
+          return;
+        }
+
+        saveHistory();
+        if (act === 'laneInc') {
+          const prevCount = cfg.laneCount;
+          cfg.laneCount = Math.min(12, prevCount + 1);
+          if (cfg.lanes.length < cfg.laneCount) {
+            cfg.lanes.push(`泳道 ${cfg.laneCount}`);
+          }
+          if (prevCount >= 1) {
+            if (cfg.orientation === 'vertical') {
+              const singleW = Math.max(160, Math.round(cell.width / prevCount));
+              cell.width = Math.round((cell.width + singleW) / 10) * 10;
+            } else {
+              const singleH = Math.max(140, Math.round(cell.height / prevCount));
+              cell.height = Math.round((cell.height + singleH) / 10) * 10;
+            }
+          }
+        } else if (act === 'laneDec') {
+          if (cfg.laneCount > 0) {
+            const prevCount = cfg.laneCount;
+            cfg.laneCount = prevCount - 1;
+            if (prevCount > 1) {
+              if (cfg.orientation === 'vertical') {
+                const singleW = Math.round(cell.width / prevCount);
+                cell.width = Math.max(240, Math.round((cell.width - singleW) / 10) * 10);
+              } else {
+                const singleH = Math.round(cell.height / prevCount);
+                cell.height = Math.max(180, Math.round((cell.height - singleH) / 10) * 10);
+              }
+            }
+          }
+        } else if (act === 'toggleOrientation') {
+          const nextOrient = cfg.orientation === 'vertical' ? 'horizontal' : 'vertical';
+          cfg.orientation = nextOrient;
+          cfg.textDir = nextOrient === 'horizontal' ? 'vertical' : 'horizontal';
+          const oldW = cell.width;
+          cell.width = Math.max(240, cell.height);
+          cell.height = Math.max(220, oldW);
+          if (cell.attrs) {
+            cell.attrs.dflowType = cfg.laneCount > 0
+              ? (nextOrient === 'horizontal' ? 'swimlanePoolH' : 'swimlanePoolV')
+              : (nextOrient === 'horizontal' ? 'swimlaneH' : 'swimlaneV');
+          }
+        } else if (act === 'toggleTextDir') {
+          cfg.textDir = cfg.textDir === 'vertical' ? 'horizontal' : 'vertical';
+        } else if (act === 'toggleHeaderFlip') {
+          cfg.headerFlipped = !cfg.headerFlipped;
+        } else if (act === 'togglePoolHeader') {
+          cfg.showPoolHeader = !cfg.showPoolHeader;
+        } else if (act === 'toggleLaneStriped') {
+          cfg.laneStriped = !cfg.laneStriped;
+        } else if (act === 'toggleInnerDashed') {
+          cfg.innerDashed = !cfg.innerDashed;
+        } else if (act === 'stageAddOrToggle') {
+          if (cfg.stageCount === 0) {
+            cfg.stageCount = 2;
+            cfg.stages = ['阶段 1', '阶段 2'];
+          } else {
+            cfg.stageCount = 0;
+          }
+        } else if (act === 'stageInc') {
+          cfg.stageCount = Math.min(8, cfg.stageCount + 1);
+          while (cfg.stages.length < cfg.stageCount) {
+            cfg.stages.push(`阶段 ${cfg.stages.length + 1}`);
+          }
+        } else if (act === 'stageDec') {
+          cfg.stageCount = Math.max(0, cfg.stageCount - 1);
+        } else if (act === 'autoFitSwimlane') {
+          const innerNodes = cells.filter(n => {
+            if (!n.vertex || n.id === cell.id || isContainerSwimlane(n)) return false;
+            const cx = n.x + (n.width || 100) / 2;
+            const cy = n.y + (n.height || 50) / 2;
+            return cx >= cell.x - 40 && cx <= cell.x + cell.width + 40 && cy >= cell.y - 40 && cy <= cell.y + cell.height + 40;
+          });
+          if (innerNodes.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            innerNodes.forEach(n => {
+              minX = Math.min(minX, n.x);
+              minY = Math.min(minY, n.y);
+              maxX = Math.max(maxX, n.x + (n.width || 100));
+              maxY = Math.max(maxY, n.y + (n.height || 50));
+            });
+            const padLeft = cfg.orientation === 'horizontal' ? 88 : 48;
+            const padTop = cfg.orientation === 'vertical' ? 84 : 48;
+            cell.x = Math.round((minX - padLeft) / 10) * 10;
+            cell.y = Math.round((minY - padTop) / 10) * 10;
+            cell.width = Math.max(280, Math.round((maxX - cell.x + 56) / 10) * 10);
+            cell.height = Math.max(240, Math.round((maxY - cell.y + 56) / 10) * 10);
+          }
+        }
+
+        syncSwimlaneValueFromConfig(cell, cfg);
+        render();
+        emitSelectionToHost();
+        notifyAutosave();
+      });
+
+      function serializeCellForHost(cell) {
+        if (!cell) return null;
+        return {
+          id: cell.id,
+          value: cell.value || '',
+          style: cell.style || '',
+          styleMap: parseStyle(cell.style || ''),
+          vertex: !!cell.vertex,
+          edge: !!cell.edge,
+          geometry: { x: cell.x, y: cell.y, width: cell.width, height: cell.height },
+          attrs: { ...(cell.attrs || {}), label: cell.value || '' }
+        };
+      }
+
+      function clientToGraph(clientX, clientY) {
+        const rect = svgStage.getBoundingClientRect();
+        return {
+          x: (clientX - rect.left - panX) / zoom,
+          y: (clientY - rect.top - panY) / zoom
+        };
+      }
+
+      function createEdgeBetween(sourceId, targetId) {
+        if (!sourceId || !targetId || sourceId === targetId) return;
+        const exists = cells.some(c => c.edge && c.source === sourceId && c.target === targetId);
+        if (exists) return;
+        saveHistory();
+        const edgeStyleMap = {
+          edgeStyle: defaultEdgeStyle.edgeStyle || 'orthogonalEdgeStyle',
+          rounded: '0',
+          orthogonalLoop: '1',
+          jettySize: 'auto',
+          html: '1',
+          strokeColor: defaultEdgeStyle.strokeColor || '#333333',
+          strokeWidth: defaultEdgeStyle.strokeWidth || '2',
+          dashed: defaultEdgeStyle.dashed || '0',
+          dashPattern: defaultEdgeStyle.dashPattern || '',
+          endArrow: defaultEdgeStyle.endArrow || 'classic',
+          flowAnimation: defaultEdgeStyle.flowAnimation || '0'
+        };
+        const newEdge = {
+          id: 'edge_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+          value: '',
+          style: stringifyStyle(edgeStyleMap),
+          vertex: false,
+          edge: true,
+          source: sourceId,
+          target: targetId,
+          x: 0, y: 0, width: 0, height: 0,
+          attrs: {}
+        };
+        cells.push(newEdge);
+        selectedIds = new Set([newEdge.id]);
+        lastSelectedId = newEdge.id;
+        render();
+        emitSelectionToHost();
+        notifyAutosave();
+      }
+
+      function notifyAutosave() {
+        const xml = serializeCellsToXml();
+        postToHost({ event: 'autosave', xml });
+      }
+
+      function fitViewport(opts = {}) {
+        const vertices = cells.filter(c => c.vertex);
+        const rect = container.getBoundingClientRect();
+        if (vertices.length === 0 || rect.width === 0 || rect.height === 0) {
+          zoom = 1;
+          panX = 60;
+          panY = 40;
+          render();
+          return;
+        }
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        vertices.forEach(v => {
+          minX = Math.min(minX, v.x);
+          minY = Math.min(minY, v.y);
+          maxX = Math.max(maxX, v.x + (v.width || 100));
+          maxY = Math.max(maxY, v.y + (v.height || 50));
+        });
+        const border = opts.border || 56;
+        const maxScale = opts.maxScale || 1.15;
+        const contentW = Math.max(120, maxX - minX);
+        const contentH = Math.max(80, maxY - minY);
+        const scaleX = (rect.width - border * 2) / contentW;
+        const scaleY = (rect.height - border * 2) / contentH;
+        zoom = Math.max(0.35, Math.min(maxScale, Math.min(scaleX, scaleY)));
+        panX = Math.round((rect.width - contentW * zoom) / 2 - minX * zoom);
+        panY = Math.round((rect.height - contentH * zoom) / 2 - minY * zoom);
+        render();
+      }
+
+      function autoLayoutGraph() {
+        const vertices = cells.filter(c => c.vertex && !isContainerSwimlane(c));
+        if (vertices.length === 0) return;
+        saveHistory();
+        const cols = Math.min(4, Math.max(1, Math.ceil(Math.sqrt(vertices.length))));
+        vertices.forEach((v, idx) => {
+          const col = idx % cols;
+          const row = Math.floor(idx / cols);
+          v.x = 120 + col * 200;
+          v.y = 80 + row * 120;
+        });
+        fitViewport();
+        notifyAutosave();
+      }
+
+      function alignSelectedVertices(mode) {
+        const selVertices = cells.filter(c => c.vertex && selectedIds.has(c.id));
+        if (selVertices.length === 0 && lastSelectedId) {
+          const last = cells.find(c => c.id === lastSelectedId && c.vertex);
+          if (last) selVertices.push(last);
+        }
+        if (selVertices.length === 0) return;
+
+        saveHistory();
+        if (selVertices.length === 1) {
+          const v = selVertices[0];
+          const s = parseStyle(v.style);
+          if (mode === 'left') s.align = 'left';
+          else if (mode === 'centerH') s.align = 'center';
+          else if (mode === 'right') s.align = 'right';
+          else if (mode === 'top') s.verticalAlign = 'top';
+          else if (mode === 'centerV') s.verticalAlign = 'middle';
+          else if (mode === 'bottom') s.verticalAlign = 'bottom';
+          v.style = stringifyStyle(s);
+          render();
+          notifyAutosave();
+          emitSelectionToHost();
+          return;
+        }
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        selVertices.forEach(v => {
+          minX = Math.min(minX, v.x);
+          maxX = Math.max(maxX, v.x + (v.width || 100));
+          minY = Math.min(minY, v.y);
+          maxY = Math.max(maxY, v.y + (v.height || 50));
+        });
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        if (mode === 'left') {
+          selVertices.forEach(v => { v.x = Math.round(minX / 10) * 10; });
+        } else if (mode === 'right') {
+          selVertices.forEach(v => { v.x = Math.round((maxX - (v.width || 100)) / 10) * 10; });
+        } else if (mode === 'centerH') {
+          selVertices.forEach(v => { v.x = Math.round((centerX - (v.width || 100) / 2) / 10) * 10; });
+        } else if (mode === 'top') {
+          selVertices.forEach(v => { v.y = Math.round(minY / 10) * 10; });
+        } else if (mode === 'bottom') {
+          selVertices.forEach(v => { v.y = Math.round((maxY - (v.height || 50)) / 10) * 10; });
+        } else if (mode === 'centerV') {
+          selVertices.forEach(v => { v.y = Math.round((centerY - (v.height || 50) / 2) / 10) * 10; });
+        } else if (mode === 'distributeH' && selVertices.length >= 3) {
+          const sorted = [...selVertices].sort((a, b) => a.x - b.x);
+          const first = sorted[0].x;
+          const last = sorted[sorted.length - 1].x;
+          const step = (last - first) / (sorted.length - 1);
+          sorted.forEach((v, i) => { v.x = Math.round((first + i * step) / 10) * 10; });
+        } else if (mode === 'distributeV' && selVertices.length >= 3) {
+          const sorted = [...selVertices].sort((a, b) => a.y - b.y);
+          const first = sorted[0].y;
+          const last = sorted[sorted.length - 1].y;
+          const step = (last - first) / (sorted.length - 1);
+          sorted.forEach((v, i) => { v.y = Math.round((first + i * step) / 10) * 10; });
+        }
+        render();
+        notifyAutosave();
+        emitSelectionToHost();
+      }
+
+      function openInlineEditor(cell, clientX, clientY, swimEditTarget = null) {
+        inlineEditor.style.display = 'block';
+
+        const isSwim = isContainerSwimlane(cell);
+        const cfg = isSwim ? getSwimlaneConfig(cell) : null;
+        const dflowType = cell.attrs?.dflowType || '';
+        const lines = String(cell.value || '').split('\n');
+
+        if (cell.vertex && !isSwim) {
+          const rect = svgStage.getBoundingClientRect();
+          const nodeScreenX = rect.left + panX + cell.x * zoom;
+          const nodeScreenY = rect.top + panY + cell.y * zoom;
+          const nodeScreenW = (cell.width || 100) * zoom;
+          const nodeScreenH = (cell.height || 50) * zoom;
+
+          const editorW = Math.max(90, Math.min(nodeScreenW - 4, 260));
+          const editorH = Math.max(26, Math.min(30 * zoom, 34));
+          const editorLeft = Math.round(nodeScreenX + (nodeScreenW - editorW) / 2);
+          let editorTop;
+          if (dflowType === 'nodeActiveSerialRect' && lines.length >= 2) {
+            const headerH = 22 * zoom;
+            editorTop = Math.round(nodeScreenY + headerH + ((nodeScreenH - headerH) - editorH) / 2);
+          } else {
+            editorTop = Math.round(nodeScreenY + (nodeScreenH - editorH) / 2);
+          }
+
+          inlineEditor.style.left = `${editorLeft}px`;
+          inlineEditor.style.top = `${editorTop}px`;
+          inlineEditor.style.width = `${Math.round(editorW)}px`;
+          inlineEditor.style.height = `${Math.round(editorH)}px`;
+          inlineEditor.style.fontSize = `${Math.max(12, Math.round(13 * zoom))}px`;
+        } else {
+          inlineEditor.style.left = `${(clientX || 100) - 60}px`;
+          inlineEditor.style.top = `${(clientY || 100) - 16}px`;
+          inlineEditor.style.width = '140px';
+          inlineEditor.style.height = '30px';
+          inlineEditor.style.fontSize = '13px';
+        }
+
+        if (isSwim && cfg && swimEditTarget) {
+          if (swimEditTarget === 'pool') {
+            inlineEditor.value = cfg.poolTitle || '';
+          } else if (swimEditTarget.startsWith('lane:')) {
+            const idx = Number(swimEditTarget.split(':')[1] || 0);
+            inlineEditor.value = cfg.lanes[idx] || '';
+          } else if (swimEditTarget.startsWith('stage:')) {
+            const idx = Number(swimEditTarget.split(':')[1] || 0);
+            inlineEditor.value = cfg.stages[idx] || '';
+          } else {
+            inlineEditor.value = cell.value || '';
+          }
+        } else if (dflowType === 'nodeActiveSerialRect' && lines.length >= 2) {
+          inlineEditor.value = cell.attrs?.name || lines.slice(1).join(' ') || '';
+        } else {
+          inlineEditor.value = cell.attrs?.name || cell.value || '';
+        }
+
+        setTimeout(() => {
+          inlineEditor.focus();
+          inlineEditor.select();
+        }, 20);
+
+        const commit = () => {
+          if (inlineEditor.style.display === 'none') return;
+          inlineEditor.style.display = 'none';
+          const newVal = inlineEditor.value.trim();
+
+          if (isSwim && cfg && swimEditTarget) {
+            saveHistory();
+            if (swimEditTarget === 'pool') {
+              cfg.poolTitle = newVal || '泳池';
+            } else if (swimEditTarget.startsWith('lane:')) {
+              const idx = Number(swimEditTarget.split(':')[1] || 0);
+              cfg.lanes[idx] = newVal || `泳道 ${idx + 1}`;
+            } else if (swimEditTarget.startsWith('stage:')) {
+              const idx = Number(swimEditTarget.split(':')[1] || 0);
+              cfg.stages[idx] = newVal || `阶段 ${idx + 1}`;
+            }
+            syncSwimlaneValueFromConfig(cell, cfg);
+            render();
+            emitSelectionToHost();
+            postToHost({ event: 'dflow:openProps', cell: serializeCellForHost(cell) });
+            notifyAutosave();
+          } else if (newVal !== '') {
+            saveHistory();
+            if (dflowType === 'nodeActiveSerialRect' && lines.length >= 2) {
+              const serial = lines[0];
+              cell.value = `${serial}\n${newVal}`;
+              if (!cell.attrs) cell.attrs = {};
+              cell.attrs.name = newVal;
+            } else {
+              cell.value = newVal;
+              if (!cell.attrs) cell.attrs = {};
+              cell.attrs.name = newVal;
+            }
+            render();
+            emitSelectionToHost();
+            postToHost({ event: 'dflow:openProps', cell: serializeCellForHost(cell) });
+            notifyAutosave();
+          }
+        };
+
+        inlineEditor.onblur = commit;
+        inlineEditor.onkeydown = (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            inlineEditor.style.display = 'none';
+          }
+        };
+        inlineEditor.onmousedown = (e) => e.stopPropagation();
+        inlineEditor.onclick = (e) => e.stopPropagation();
+        inlineEditor.ondblclick = (e) => e.stopPropagation();
+      }
+
+      function setConnectMode(active) {
+        connectModeActive = active;
+        if (active) {
+          container.classList.add('connecting');
+        } else {
+          container.classList.remove('connecting');
+        }
+        emitCanvasStats();
+      }
+
+      function setPointerTool(tool) {
+        pointerTool = tool;
+        if (tool === 'pan') {
+          container.classList.add('pan-mode');
+        } else {
+          container.classList.remove('pan-mode');
+        }
+        emitCanvasStats();
+      }
+
+      container.addEventListener('contextmenu', (ev) => ev.preventDefault());
+
+      container.addEventListener('mousedown', (ev) => {
+        if (ev.target !== svgStage && ev.target !== container) return;
+
+        if (ev.button === 1 || ev.button === 2 || spaceKeyDown || pointerTool === 'pan' || isReadOnly) {
+          isPanning = true;
+          container.classList.add('panning');
+          panStart = { x: ev.clientX - panX, y: ev.clientY - panY };
+          return;
+        }
+
+        if (ev.button === 0) {
+          const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+          if (!additive) {
+            selectedIds.clear();
+            render();
+            emitSelectionToHost();
+          }
+          rubberbandState = {
+            startClientX: ev.clientX,
+            startClientY: ev.clientY,
+            additive,
+            baseSelected: new Set(selectedIds)
+          };
+          rubberbandBox.style.left = `${ev.clientX}px`;
+          rubberbandBox.style.top = `${ev.clientY}px`;
+          rubberbandBox.style.width = '0px';
+          rubberbandBox.style.height = '0px';
+          rubberbandBox.style.display = 'block';
+        }
+      });
+
+      container.addEventListener('dblclick', (ev) => {
+        if (ev.target === svgStage || ev.target === container) {
+          postToHost({ event: 'dflow:openProps', cell: null });
+        }
+      });
+
+      window.addEventListener('mousemove', (ev) => {
+        if (isPanning) {
+          panX = ev.clientX - panStart.x;
+          panY = ev.clientY - panStart.y;
+          render();
+        } else if (resizeState) {
+          const pt = clientToGraph(ev.clientX, ev.clientY);
+          const dx = pt.x - resizeState.startGraphX;
+          const dy = pt.y - resizeState.startGraphY;
+          if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+            if (!resizeState.moved) {
+              saveHistory();
+              resizeState.moved = true;
+            }
+            const dir = resizeState.dir;
+            let nx = resizeState.origX;
+            let ny = resizeState.origY;
+            let nw = resizeState.origW;
+            let nh = resizeState.origH;
+            const minW = isSwimlaneSeparator(resizeState.cell) ? 16 : 40;
+            const minH = isSwimlaneSeparator(resizeState.cell) ? 16 : 30;
+
+            if (dir.includes('e')) {
+              nw = Math.max(minW, Math.round((resizeState.origW + dx) / 10) * 10);
+            }
+            if (dir.includes('s')) {
+              nh = Math.max(minH, Math.round((resizeState.origH + dy) / 10) * 10);
+            }
+            if (dir.includes('w')) {
+              const candidateW = Math.max(minW, Math.round((resizeState.origW - dx) / 10) * 10);
+              nx = resizeState.origX + (resizeState.origW - candidateW);
+              nw = candidateW;
+            }
+            if (dir.includes('n')) {
+              const candidateH = Math.max(minH, Math.round((resizeState.origH - dy) / 10) * 10);
+              ny = resizeState.origY + (resizeState.origH - candidateH);
+              nh = candidateH;
+            }
+            resizeState.cell.x = nx;
+            resizeState.cell.y = ny;
+            resizeState.cell.width = nw;
+            resizeState.cell.height = nh;
+            render();
+          }
+        } else if (rubberbandState) {
+          const x1 = Math.min(rubberbandState.startClientX, ev.clientX);
+          const y1 = Math.min(rubberbandState.startClientY, ev.clientY);
+          const x2 = Math.max(rubberbandState.startClientX, ev.clientX);
+          const y2 = Math.max(rubberbandState.startClientY, ev.clientY);
+          rubberbandBox.style.left = `${x1}px`;
+          rubberbandBox.style.top = `${y1}px`;
+          rubberbandBox.style.width = `${x2 - x1}px`;
+          rubberbandBox.style.height = `${y2 - y1}px`;
+
+          const gStart = clientToGraph(x1, y1);
+          const gEnd = clientToGraph(x2, y2);
+          const nextSel = new Set(rubberbandState.baseSelected);
+
+          cells.forEach(c => {
+            if (c.vertex) {
+              const cx1 = c.x;
+              const cy1 = c.y;
+              const cx2 = c.x + (c.width || 100);
+              const cy2 = c.y + (c.height || 50);
+              if (isContainerSwimlane(c)) {
+                const enclosed = gStart.x <= cx1 + 20 && gEnd.x >= cx2 - 20 && gStart.y <= cy1 + 20 && gEnd.y >= cy2 - 20;
+                if (enclosed) nextSel.add(c.id);
+              } else {
+                const intersects = !(cx2 < gStart.x || cx1 > gEnd.x || cy2 < gStart.y || cy1 > gEnd.y);
+                if (intersects) nextSel.add(c.id);
+              }
+            }
+          });
+          cells.forEach(c => {
+            if (c.edge && nextSel.has(c.source) && nextSel.has(c.target)) {
+              nextSel.add(c.id);
+            }
+          });
+          selectedIds = nextSel;
+          render();
+        } else if (groupDragState) {
+          const pt = clientToGraph(ev.clientX, ev.clientY);
+          const dx = pt.x - groupDragState.startGraphX;
+          const dy = pt.y - groupDragState.startGraphY;
+          if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+            if (!groupDragState.moved) {
+              saveHistory();
+              groupDragState.moved = true;
+            }
+            groupDragState.items.forEach(item => {
+              item.cell.x = Math.round((item.origX + dx) / 10) * 10;
+              item.cell.y = Math.round((item.origY + dy) / 10) * 10;
+            });
+            render();
+          }
+        } else if (connectFromState) {
+          const pt = clientToGraph(ev.clientX, ev.clientY);
+          tempEdgeLayer.innerHTML = `<line x1="${connectFromState.startX}" y1="${connectFromState.startY}" x2="${pt.x}" y2="${pt.y}" stroke="#1677ff" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#arrow-selected)"/>`;
+        }
+      });
+
+      window.addEventListener('mouseup', (ev) => {
+        if (isPanning) {
+          isPanning = false;
+          container.classList.remove('panning');
+        }
+        if (resizeState) {
+          if (resizeState.moved) {
+            notifyAutosave();
+            emitSelectionToHost();
+          }
+          resizeState = null;
+        }
+        if (rubberbandState) {
+          rubberbandBox.style.display = 'none';
+          rubberbandState = null;
+          emitSelectionToHost();
+        }
+        if (groupDragState) {
+          if (groupDragState.moved) notifyAutosave();
+          groupDragState = null;
+        }
+        if (connectFromState) {
+          tempEdgeLayer.innerHTML = '';
+          const nodeEl = ev.target?.closest?.('.mx-node');
+          if (nodeEl && nodeEl.dataset.id && nodeEl.dataset.id !== connectFromState.sourceId) {
+            createEdgeBetween(connectFromState.sourceId, nodeEl.dataset.id);
+          }
+          connectFromState = null;
+        }
+      });
+
+      container.addEventListener('wheel', (ev) => {
+        ev.preventDefault();
+        const factor = ev.deltaY < 0 ? 1.1 : 0.9;
+        zoom = Math.max(0.25, Math.min(2.5, zoom * factor));
+        render();
+      }, { passive: false });
+
+      window.addEventListener('dragover', (ev) => {
+        ev.preventDefault();
+        if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'copy';
+      });
+
+      window.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        if (isReadOnly) return;
+        const raw = ev.dataTransfer?.getData('application/dflow-shape') || ev.dataTransfer?.getData('text/plain');
+        if (!raw) return;
+        try {
+          const shape = JSON.parse(raw);
+          if (shape && shape.type) {
+            insertShapeAtClientPoint(shape, ev.clientX, ev.clientY, false);
+          }
+        } catch (e) {}
+      });
+
+      function insertShapeAtClientPoint(msg, clientX, clientY, autoOffset) {
+        saveHistory();
+        const rect = container.getBoundingClientRect();
+        const targetClientX = clientX !== undefined ? clientX : (rect.left + rect.width / 2);
+        const targetClientY = clientY !== undefined ? clientY : (rect.top + rect.height / 2);
+        const pt = clientToGraph(targetClientX, targetClientY);
+        const w = msg.w || 100;
+        const h = msg.h || 50;
+        const offset = autoOffset ? (cells.filter(c => c.vertex).length % 5) * 16 : 0;
+        const baseStyle = parseStyle(msg.style || 'rounded=0;whiteSpace=wrap;html=1;');
+        Object.keys(defaultNodeStyle).forEach(k => {
+          if (!baseStyle[k]) baseStyle[k] = defaultNodeStyle[k];
+        });
+        const finalStyle = stringifyStyle(baseStyle);
+
+        const newCell = {
+          id: 'node_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+          value: msg.label || '节点',
+          style: finalStyle,
+          vertex: true,
+          edge: false,
+          x: Math.round((pt.x - w / 2 + offset) / 10) * 10,
+          y: Math.round((pt.y - h / 2 + offset) / 10) * 10,
+          width: w,
+          height: h,
+          attrs: {
+            dflowType: msg.type || 'nodeActiveFlow',
+            name: msg.label || '节点',
+            target: 0,
+            timeType: '天'
+          }
+        };
+        cells.push(newCell);
+        selectedIds = new Set([newCell.id]);
+        lastSelectedId = newCell.id;
+        render();
+        emitSelectionToHost();
+        notifyAutosave();
+        const hostCell = serializeCellForHost(newCell);
+        postToHost({ event: 'dflow:inserted', cell: hostCell });
+      }
+
+      window.addEventListener('keydown', (ev) => {
+        if (document.activeElement === inlineEditor) return;
+        if (ev.code === 'Space' && !spaceKeyDown) {
+          spaceKeyDown = true;
+          container.classList.add('pan-mode');
+        }
+        if (isReadOnly) return;
+        if ((ev.key === 'Delete' || ev.key === 'Backspace') && selectedIds.size > 0) {
+          deleteSelected();
+        } else if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'a') {
+          ev.preventDefault();
+          selectAllCells();
+        } else if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z') {
+          ev.preventDefault();
+          performUndo();
+        } else if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'y') {
+          ev.preventDefault();
+          performRedo();
+        }
+      });
+
+      window.addEventListener('keyup', (ev) => {
+        if (ev.code === 'Space') {
+          spaceKeyDown = false;
+          if (pointerTool !== 'pan' && !isReadOnly) {
+            container.classList.remove('pan-mode');
+          }
+        }
+      });
+
+      function selectAllCells() {
+        selectedIds = new Set(cells.map(c => c.id));
+        render();
+        emitSelectionToHost();
+      }
+
+      function deleteSelected() {
+        if (selectedIds.size === 0) return;
+        saveHistory();
+        cells = cells.filter(c => !selectedIds.has(c.id) && !selectedIds.has(c.source) && !selectedIds.has(c.target));
+        selectedIds.clear();
+        render();
+        emitSelectionToHost();
+        postToHost({ event: 'dflow:openProps', cell: null });
+        notifyAutosave();
+      }
+
+      function performUndo() {
+        if (undoStack.length === 0) return;
+        redoStack.push(JSON.stringify(cells));
+        cells = JSON.parse(undoStack.pop());
+        render();
+        emitSelectionToHost();
+        notifyAutosave();
+      }
+
+      function performRedo() {
+        if (redoStack.length === 0) return;
+        undoStack.push(JSON.stringify(cells));
+        cells = JSON.parse(redoStack.pop());
+        render();
+        emitSelectionToHost();
+        notifyAutosave();
+      }
+
+      function exportPngDataUrl(callback) {
+        const clone = svgStage.cloneNode(true);
+        const rect = svgStage.getBoundingClientRect();
+        const w = Math.max(800, rect.width || 1000);
+        const h = Math.max(600, rect.height || 700);
+        clone.setAttribute('width', w);
+        clone.setAttribute('height', h);
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('width', '100%');
+        bg.setAttribute('height', '100%');
+        bg.setAttribute('fill', '#ffffff');
+        clone.insertBefore(bg, clone.firstChild);
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          callback(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => callback('');
+        img.src = url;
+      }
+
+      window.addEventListener('message', (ev) => {
+        let msg = ev.data;
+        if (typeof msg === 'string') {
+          try { msg = JSON.parse(msg); } catch (e) { return; }
+        }
+        if (!msg || typeof msg !== 'object') return;
+        const action = msg.action;
+
+        if (action === 'configure') {
+          postToHost({ event: 'dflow:ready' });
+        } else if (action === 'load') {
+          cells = parseXmlToCells(msg.xml || '');
+          selectedIds.clear();
+          undoStack = [];
+          redoStack = [];
+          render();
+          postToHost({ event: 'load' });
+        } else if (action === 'merge') {
+          saveHistory();
+          const incoming = parseXmlToCells(msg.xml || '');
+          if (incoming.length > 0) {
+            cells = incoming;
+            render();
+            fitViewport();
+            notifyAutosave();
+          }
+        } else if (action === 'export') {
+          const fmt = msg.format || 'xml';
+          const xml = serializeCellsToXml();
+          if (fmt === 'png') {
+            exportPngDataUrl((dataUrl) => {
+              postToHost({ event: 'export', format: 'png', data: dataUrl, xml });
+            });
+          } else {
+            postToHost({ event: 'export', format: fmt, data: xml, xml });
+          }
+        } else if (action === 'invokeAction') {
+          const act = msg.actionName;
+          if (act === 'zoomIn') {
+            zoom = Math.min(2.5, zoom * 1.15);
+            render();
+          } else if (act === 'zoomOut') {
+            zoom = Math.max(0.25, zoom / 1.15);
+            render();
+          } else if (act === 'undo') {
+            performUndo();
+          } else if (act === 'redo') {
+            performRedo();
+          } else if (act === 'delete') {
+            deleteSelected();
+          } else if (act === 'selectAll') {
+            selectAllCells();
+          } else if (act === 'clearSelection') {
+            selectedIds.clear();
+            render();
+            emitSelectionToHost();
+          } else if (act === 'setPointerTool') {
+            setPointerTool(msg.tool || 'select');
+          } else if (act === 'align') {
+            alignSelectedVertices(msg.alignMode);
+          } else if (act === 'autoLayout') {
+            autoLayoutGraph();
+          } else if (act === 'toggleConnectMode') {
+            setConnectMode(!connectModeActive);
+          } else if (act === 'toggleGrid') {
+            gridVisible = !gridVisible;
+            container.classList.toggle('nogrid', !gridVisible);
+            emitCanvasStats();
+          } else if (act === 'copyStyle') {
+            const firstId = Array.from(selectedIds)[0];
+            const target = cells.find(c => c.id === firstId);
+            if (target) {
+              formatPainterStyle = target.style;
+              emitCanvasStats();
+            }
+          } else if (act === 'bringToFront') {
+            const targetIds = selectedIds.size > 0 ? selectedIds : (lastSelectedId ? new Set([lastSelectedId]) : null);
+            if (!targetIds || targetIds.size === 0) return;
+            saveHistory();
+            const picked = cells.filter(c => targetIds.has(c.id));
+            const rest = cells.filter(c => !targetIds.has(c.id));
+            cells = [...rest, ...picked];
+            render();
+            notifyAutosave();
+          } else if (act === 'sendToBack') {
+            const targetIds = selectedIds.size > 0 ? selectedIds : (lastSelectedId ? new Set([lastSelectedId]) : null);
+            if (!targetIds || targetIds.size === 0) return;
+            saveHistory();
+            const picked = cells.filter(c => targetIds.has(c.id));
+            const rest = cells.filter(c => !targetIds.has(c.id));
+            cells = [...picked, ...rest];
+            render();
+            notifyAutosave();
+          } else if (act === 'bringForward') {
+            const targetIds = selectedIds.size > 0 ? selectedIds : (lastSelectedId ? new Set([lastSelectedId]) : null);
+            if (!targetIds || targetIds.size === 0) return;
+            saveHistory();
+            for (let i = cells.length - 2; i >= 0; i--) {
+              if (targetIds.has(cells[i].id) && !targetIds.has(cells[i + 1].id)) {
+                const tmp = cells[i];
+                cells[i] = cells[i + 1];
+                cells[i + 1] = tmp;
+              }
+            }
+            render();
+            notifyAutosave();
+          } else if (act === 'sendBackward') {
+            const targetIds = selectedIds.size > 0 ? selectedIds : (lastSelectedId ? new Set([lastSelectedId]) : null);
+            if (!targetIds || targetIds.size === 0) return;
+            saveHistory();
+            for (let i = 1; i < cells.length; i++) {
+              if (targetIds.has(cells[i].id) && !targetIds.has(cells[i - 1].id)) {
+                const tmp = cells[i];
+                cells[i] = cells[i - 1];
+                cells[i - 1] = tmp;
+              }
+            }
+            render();
+            notifyAutosave();
+          } else if (act === 'setZoom') {
+            zoom = Math.max(0.25, Math.min(2.5, (msg.zoom || 100) / 100));
+            render();
+          } else if (act === 'pasteStyle' || act === 'applyCopiedStyle') {
+            if (formatPainterStyle && selectedIds.size > 0) {
+              saveHistory();
+              cells.filter(c => selectedIds.has(c.id)).forEach(c => {
+                c.style = formatPainterStyle;
+              });
+              render();
+              notifyAutosave();
+              emitSelectionToHost();
+            }
+          } else if (act === 'clearFormat') {
+            if (selectedIds.size > 0) {
+              saveHistory();
+              cells.filter(c => selectedIds.has(c.id)).forEach(c => {
+                if (c.vertex) {
+                  c.style = 'rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#303133;strokeWidth=1;fontSize=13;fontFamily=微软雅黑;';
+                } else if (c.edge) {
+                  c.style = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#303133;strokeWidth=1.5;endArrow=classic;';
+                }
+              });
+              render();
+              notifyAutosave();
+              emitSelectionToHost();
+            }
+          }
+        } else if (action === 'dflow:updateStyle') {
+          if (msg.stylePatch) {
+            Object.entries(msg.stylePatch).forEach(([k, v]) => {
+              if (['fontFamily', 'fontSize', 'fontColor', 'fillColor', 'strokeColor', 'strokeWidth', 'dashed', 'dashPattern', 'fontStyle'].includes(k)) {
+                defaultNodeStyle[k] = v;
+              }
+              if (['edgeStyle', 'strokeColor', 'strokeWidth', 'dashed', 'dashPattern', 'endArrow', 'flowAnimation'].includes(k)) {
+                defaultEdgeStyle[k] = v;
+              }
+            });
+          }
+
+          let targetSet = msg.id
+            ? (Array.isArray(msg.id) ? new Set(msg.id) : new Set([msg.id]))
+            : (selectedIds.size > 0 ? selectedIds : (lastSelectedId ? new Set([lastSelectedId]) : null));
+
+          if (!targetSet || targetSet.size === 0) {
+            if (cells.length === 1) {
+              targetSet = new Set([cells[0].id]);
+            }
+          }
+
+          const targets = targetSet ? cells.filter(c => targetSet.has(c.id)) : [];
+          if (targets.length > 0) {
+            saveHistory();
+            targets.forEach(target => {
+              const map = parseStyle(target.style);
+              Object.entries(msg.stylePatch || {}).forEach(([k, v]) => {
+                if (v === null || v === undefined) {
+                  delete map[k];
+                } else {
+                  map[k] = v;
+                }
+              });
+              target.style = stringifyStyle(map);
+            });
+            render();
+            notifyAutosave();
+            emitSelectionToHost();
+          }
+        } else if (action === 'dflow:shapes') {
+          (msg.shapes || []).forEach(s => { shapesCatalog[s.type] = s; });
+        } else if (action === 'dflow:insert') {
+          insertShapeAtClientPoint(msg, msg.clientX, msg.clientY, msg.clientX === undefined);
+        } else if (action === 'dflow:setAttrs') {
+          const target = cells.find(c => c.id === msg.id);
+          if (target) {
+            saveHistory();
+            const incomingAttrs = msg.attrs || {};
+            if (target.vertex) {
+              target.attrs = { ...(target.attrs || {}), ...incomingAttrs };
+              if (incomingAttrs.name !== undefined && incomingAttrs.name !== '') {
+                target.value = incomingAttrs.name;
+              } else if (incomingAttrs.label !== undefined) {
+                target.value = incomingAttrs.label;
+              }
+            } else if (target.edge) {
+              if (incomingAttrs.label !== undefined) target.value = incomingAttrs.label;
+              const styleObj = parseStyle(target.style);
+              if (incomingAttrs.fontColor) styleObj.fontColor = incomingAttrs.fontColor;
+              if (incomingAttrs.labelBackgroundColor) styleObj.labelBackgroundColor = incomingAttrs.labelBackgroundColor;
+              if (incomingAttrs.labelBorderColor) styleObj.labelBorderColor = incomingAttrs.labelBorderColor;
+              target.style = stringifyStyle(styleObj);
+            }
+            render();
+            notifyAutosave();
+          }
+        } else if (action === 'dflow:getCells') {
+          postToHost({
+            event: 'dflow:cells',
+            cells: cells.map(serializeCellForHost)
+          });
+        } else if (action === 'dflow:highlight') {
+          const target = cells.find(c => c.id === msg.id);
+          if (target) {
+            selectedIds = new Set([target.id]);
+            const rect = container.getBoundingClientRect();
+            panX = Math.round(rect.width / 2 - (target.x + target.width / 2) * zoom);
+            panY = Math.round(rect.height / 2 - (target.y + target.height / 2) * zoom);
+            render();
+            emitSelectionToHost();
+          }
+        } else if (action === 'dflow:edit') {
+          const target = cells.find(c => c.id === msg.id);
+          if (target) {
+            selectedIds = new Set([target.id]);
+            render();
+            emitSelectionToHost();
+            postToHost({ event: 'dflow:openProps', cell: serializeCellForHost(target) });
+          }
+        } else if (action === 'dflow:refreshOverlays') {
+          render();
+        } else if (action === 'dflow:fit') {
+          fitViewport(msg);
+        }
+      });
+
+      setTimeout(() => {
+        postToHost({ event: 'init', configure: 1 });
+        postToHost({ event: 'dflow:ready' });
+      }, 60);
+    })();
+  </script>
+</body>
+</html>
