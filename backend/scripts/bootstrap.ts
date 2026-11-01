@@ -11,7 +11,7 @@ async function main() {
       if ((await c.query('SELECT 1 FROM users LIMIT 1')).rowCount) throw new Error('Bootstrap only runs on an empty user table');
       const before = await db.load(c), state = structuredClone(before);
       state.orgUsers.push({ id:'u_admin', userName:name, nickName:'系统管理员', status:'0', accessRoles:['admin'], roleNames:['系统管理员'], deptId:'', deptName:'', empNo:'ADMIN' });
-      state.archTypes.push({ id:'arch_root', parentId:'', label:'企业流程架构', level:'L0', archNo:'ROOT', versionNo:'V0' });
+      state.archTypes.push({ id:'arch_root', parentId:'', label:'企业流程架构全景', level:'L0', archNo:'ARCH-CORP-000', versionNo:'V2', publishUserName:'系统管理员', publishTime:'2026-03-20 14:00:00', status:'published' });
       state.formEngineSchemas = structuredClone(initialFormEngineSchemas);
       await db.save(c,before,state);
       await c.query('INSERT INTO credentials(user_id,password_hash) VALUES($1,$2)',['u_admin',password]);

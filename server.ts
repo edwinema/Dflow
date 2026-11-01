@@ -479,6 +479,32 @@ const buildDefaultArchIntegrationXml = (arch: any, childArchs: any[] = []) => {
 
 const flows: any[] = [
   {
+    id: 'flow_old_01',
+    parentId: 'arch_root',
+    archName: '企业流程架构全景',
+    label: '2.1.3 早期市场活动旧版流程',
+    flowNo: 'OLD-MTL-002',
+    ownerName: '市场专员',
+    flowLevel: 'L3',
+    purpose: '传统线下展会与地面推广活动策划与执行旧版流程',
+    drivingRules: '企业旧版市场推广规范',
+    versionNo: 'V1',
+    publishUserName: '系统管理员',
+    publishTime: '2025-06-12 10:00:00',
+    status: 'repealed',
+    repealApplyStatus: '已废止归档',
+    repealedTime: '2026-02-15 14:05:30',
+    repealedBy: '集团流程管理员',
+    archiveNo: 'ARC-20260215-001',
+    category: 'responsible',
+    xml: buildDefaultFlowXml('2.1.3 早期市场活动旧版流程', [
+      { title: '展会立项', role: '市场专员', desc: '提报参展策划方案', out: '立项表' },
+      { title: '预算审核', role: '市场总监', desc: '展会开支核准', out: '预算单', kcp: true },
+      { title: '现场执行', role: '执行团队', desc: '展位布设与客户接待', out: '客户名录' },
+      { title: '效果复盘', role: '营销分析师', desc: '线索归集与ROI核算', out: '复盘总结' },
+    ]),
+  },
+  {
     id: 'flow_zs_001',
     parentId: 'arch_req_1',
     archName: '测试集团有限公司/研发中心/产品工程',
@@ -1021,19 +1047,109 @@ const flowRepealRecords: any[] = [
     flowCode: 'OLD-MTL-002',
     flowName: '2.1.3 早期市场活动旧版流程',
     versionNo: 'V1',
+    flowLevel: 'L3',
+    archId: 'arch_root',
     archPath: '企业流程架构全景 > 2.0 市场管理',
     ownerName: '市场专员',
-    applyType: '申请建议废止',
     reasonType: '业务流程合并升级',
-    reason: '已合并到新版 3.1.1.1 线索到回款流程中',
+    reason: '传统线下展会活动已全面升级为数字化全渠道营销，并与 3.1.1.1 销售线索转化主流程合并，原流程不再单独维护。',
     replaceFlowName: '3.1.1.1 销售线索转化流程 (LTC-ML-001)',
-    impactScope: '市场营销部',
-    applicant: '系统管理员',
+    impactScope: '市场营销部、商务部及华东/华北各办事处',
+    applicant: '市场专员 (李晓)',
     applyTime: '2026-02-15 11:20:00',
-    status: '已废止',
-    auditUser: '系统管理员',
-    auditTime: '2026-02-15 14:05:30',
-    auditOpinion: '核实无误，同意废止',
+    stage: '已废止归档',
+    status: '已废止归档',
+    archiveNo: 'ARC-20260215-001',
+    archiveUser: '集团流程管理员',
+    archiveTime: '2026-02-15 14:05:30',
+    archiveOpinion: '经集团流程管理部复核，业务替代方案已就绪，准予正式废止归档入库。',
+    approvalLogs: [
+      {
+        stepName: '发起建议废止',
+        role: '流程责任人 / 发起人',
+        operator: '市场专员 (李晓)',
+        action: '已提交申请',
+        time: '2026-02-15 11:20:00',
+        opinion: '线下传统展会已由数字化集客流程替代，建议正式废止。',
+      },
+      {
+        stepName: '部门流程负责人审批',
+        role: '业务部门总监',
+        operator: '市场总监 (高宏伟)',
+        action: '审批通过',
+        time: '2026-02-15 12:40:15',
+        opinion: '同意废止，相关营销职能与指标已平稳过渡到新版 LTC 流程体系。',
+      },
+      {
+        stepName: '流程运营合规复核',
+        role: '流程合规经理',
+        operator: '合规专家 (王志敏)',
+        action: '审核通过',
+        time: '2026-02-15 13:30:20',
+        opinion: '合规性检查无遗留风险，同意提报集团进行归档确认。',
+      },
+      {
+        stepName: '集团流程管理员确认并归档',
+        role: '集团流程管理部',
+        operator: '集团流程管理员',
+        action: '已确认并归档',
+        time: '2026-02-15 14:05:30',
+        opinion: '经集团流程管理部核准，正式废止并归档入库，资产编号 ARC-20260215-001。',
+      },
+    ],
+  },
+  {
+    id: 'repeal_pending_sample',
+    modelId: 'flow_zs_001',
+    flowCode: 'RD-REQ-008',
+    flowName: '6.2.1.3 产品架构规格评审流程',
+    versionNo: 'V2',
+    flowLevel: 'L3',
+    archId: 'arch_req_1',
+    archPath: '测试集团有限公司/研发中心/产品工程',
+    ownerName: '张三',
+    reasonType: '组织架构优化变更',
+    reason: '研发体系推行敏捷流片试点，原单体架构评审合并入系统工程评审委员会统筹规范。',
+    replaceFlowName: '1.1.2.1 技术评审主流程 (IPD-TR-001)',
+    impactScope: '研发中心产品工程部、系统架构室、芯片验证组',
+    applicant: '张三 (系统架构师)',
+    applyTime: '2026-03-28 09:30:00',
+    stage: '待集团流程管理员确认归档',
+    status: '待集团流程管理员确认归档',
+    approvalLogs: [
+      {
+        stepName: '发起建议废止',
+        role: '流程责任人 / 发起人',
+        operator: '张三 (系统架构师)',
+        action: '已提交申请',
+        time: '2026-03-28 09:30:00',
+        opinion: '敏捷硬件工程体系上线，申请废止旧版产品规格评审流程。',
+      },
+      {
+        stepName: '部门流程负责人审批',
+        role: '业务部门总监',
+        operator: '研发总监 (赵亮)',
+        action: '审批通过',
+        time: '2026-03-28 11:15:22',
+        opinion: '已核实研发业务平移安排，同意废止。',
+      },
+      {
+        stepName: '流程运营合规复核',
+        role: '流程合规经理',
+        operator: '合规专家 (王志敏)',
+        action: '审核通过',
+        time: '2026-03-28 14:05:10',
+        opinion: '已通过研发标准制度合规交叉校验，转交集团流程管理员进行确认归档。',
+      },
+      {
+        stepName: '集团流程管理员确认并归档',
+        role: '集团流程管理部',
+        operator: '集团流程管理员',
+        action: '待归档确认',
+        time: '',
+        opinion: '',
+      },
+    ],
   },
 ];
 
@@ -1172,18 +1288,24 @@ const initialOrgDepts: any[] = [
   { id: 'dept_09', deptName: '项目管理部', deptCode: '0044', parentDeptName: '研发管理中心', parentDeptCode: '0050', leader: 'PMO经理', phone: '010-880044', status: '0', orderNum: 9, createTime: '2024-03-15 10:15:00' },
   { id: 'dept_10', deptName: 'TZ测试部门', deptCode: 'TZ1', parentDeptName: '测试集团有限公司', parentDeptCode: '', leader: '测试经理', phone: '010-880091', status: '0', orderNum: 10, createTime: '2024-03-15 10:20:00' },
   { id: 'dept_11', deptName: 'TZ测试1部', deptCode: 'TZ11', parentDeptName: 'TZ测试部门', parentDeptCode: 'TZ1', leader: '测试组长', phone: '010-880092', status: '0', orderNum: 11, createTime: '2024-03-15 10:25:00' },
+  { id: 'dept_risk', deptName: '法律合规与内控部', deptCode: '0035', parentDeptName: '测试集团有限公司', parentDeptCode: '', leader: '王合规', phone: '010-880035', status: '0', orderNum: 12, createTime: '2024-03-15 10:30:00' },
+  { id: 'dept_audit', deptName: '集团审计监察部', deptCode: '0070', parentDeptName: '测试集团有限公司', parentDeptCode: '', leader: '钱审计', phone: '010-880070', status: '0', orderNum: 13, createTime: '2024-03-15 10:35:00' },
+  { id: 'dept_mkt', deptName: '市场营销中心', deptCode: '0060', parentDeptName: '测试集团有限公司', parentDeptCode: '', leader: '赵业务', phone: '010-880060', status: '0', orderNum: 14, createTime: '2024-03-15 10:40:00' },
 ];
 
 let orgDepts: any[] = JSON.parse(JSON.stringify(initialOrgDepts));
 
 let orgPositions: any[] = [
-  { id: 'pos_1', postCode: 'POST_001', postName: '系统架构师', deptName: '研发管理中心', deptCode: '0050', sort: 1, status: '0', remark: '负责企业平台总体架构', createTime: '2024-03-15 10:00:00' },
-  { id: 'pos_2', postCode: 'POST_002', postName: '流程推进专员', deptName: '流程管理部', deptCode: '0020', sort: 2, status: '0', remark: '负责业务流程端到端治理', createTime: '2024-03-15 10:05:00' },
-  { id: 'pos_3', postCode: 'POST_003', postName: '权责核准主管', deptName: '权责管理部', deptCode: '0030', sort: 3, status: '0', remark: '负责DOA及权责清单制定', createTime: '2024-03-15 10:10:00' },
-  { id: 'pos_4', postCode: 'POST_004', postName: '知识运营专家', deptName: '知识管理部', deptCode: '0040', sort: 4, status: '0', remark: '负责企业知识工程沉淀', createTime: '2024-03-15 10:15:00' },
-  { id: 'pos_5', postCode: 'POST_005', postName: '软件研发组长', deptName: '软件开发部', deptCode: '0042', sort: 5, status: '0', remark: '负责前后端微服务研发', createTime: '2024-03-15 10:20:00' },
-  { id: 'pos_6', postCode: 'POST_006', postName: '结构设计工程师', deptName: '结构开发部', deptCode: '0041', sort: 6, status: '0', remark: '负责工业产品硬件造型结构', createTime: '2024-03-15 10:25:00' },
-  { id: 'pos_7', postCode: 'POST_007', postName: 'QA质量主管', deptName: 'TZ测试部门', deptCode: 'TZ1', sort: 7, status: '0', remark: '负责全系统回归与质量测试', createTime: '2024-03-15 10:30:00' },
+  { id: 'pos_1', postCode: 'POST_001', postName: '首席系统架构师', deptName: '系统管理部', deptCode: '0010', sort: 1, status: '0', remark: '负责企业平台总体架构与IT基座治理', createTime: '2024-03-15 10:00:00' },
+  { id: 'pos_2', postCode: 'POST_002', postName: '流程管理总监', deptName: '流程管理部', deptCode: '0020', sort: 2, status: '0', remark: '负责端到端流程治理体系与全生命周期管控', createTime: '2024-03-15 10:05:00' },
+  { id: 'pos_3', postCode: 'POST_003', postName: '高级流程架构师', deptName: '研发管理中心', deptCode: '0050', sort: 3, status: '0', remark: '负责端到端流程绘图建模、L1-L4流程分解与RACI泳道设计', createTime: '2024-03-15 10:10:00' },
+  { id: 'pos_4', postCode: 'POST_004', postName: '合规风控总监', deptName: '法律合规与内控部', deptCode: '0035', sort: 4, status: '0', remark: '负责规章制度库、风险控制矩阵与关键控制点(KCP)合规审查', createTime: '2024-03-15 10:15:00' },
+  { id: 'pos_5', postCode: 'POST_005', postName: '权责核准主管', deptName: '权责管理部', deptCode: '0030', sort: 5, status: '0', remark: '负责权责清单与授权矩阵(DOA)审批维护', createTime: '2024-03-15 10:20:00' },
+  { id: 'pos_6', postCode: 'POST_006', postName: '业务中心总经理', deptName: '市场营销中心', deptCode: '0060', sort: 6, status: '0', remark: '负责业务部门经营与业务流程审批签批', createTime: '2024-03-15 10:25:00' },
+  { id: 'pos_7', postCode: 'POST_007', postName: '研发执行工程师', deptName: '结构开发部', deptCode: '0041', sort: 7, status: '0', remark: '负责业务环节具体执行与流程填报', createTime: '2024-03-15 10:30:00' },
+  { id: 'pos_8', postCode: 'POST_008', postName: '高级内审督察专家', deptName: '集团审计监察部', deptCode: '0070', sort: 8, status: '0', remark: '负责全域流程合规抽检、废止归档审计与断点复核', createTime: '2024-03-15 10:35:00' },
+  { id: 'pos_9', postCode: 'POST_009', postName: '知识运营专家', deptName: '知识管理部', deptCode: '0040', sort: 9, status: '0', remark: '负责企业知识工程沉淀', createTime: '2024-03-15 10:40:00' },
+  { id: 'pos_10', postCode: 'POST_010', postName: '软件研发组长', deptName: '软件开发部', deptCode: '0042', sort: 10, status: '0', remark: '负责前后端微服务研发', createTime: '2024-03-15 10:45:00' },
 ];
 
 let orgJobTitles: any[] = [
@@ -1197,11 +1319,14 @@ let orgJobTitles: any[] = [
 ];
 
 let orgRoles: any[] = [
-  { id: 'orole_1', roleNo: 1, roleName: '超级管理员', roleKey: 'admin', roleType: '系统管理', roleSort: 1, dataScope: '全部数据权限', boundPositions: ['系统架构师'], menuPermissions: ['全部菜单', '流程资产', '流程建设', '流程执行', '任务中心', '制度文件', '风险合规', '知识工程', '权责管控', '组织架构', '系统设置'], userCount: 2, syncSource: '本地创建', status: '0', remark: '拥有全系统最高管控权限', createTime: '2024-03-15 09:30:00' },
-  { id: 'orole_2', roleNo: 2, roleName: '知识管理员', roleKey: 'knowledge_admin', roleType: '业务管理', roleSort: 2, dataScope: '全公司知识资产', boundPositions: ['知识运营专家'], menuPermissions: ['知识工程', '制度文件', '权责管控', '组织架构'], userCount: 4, syncSource: '本地创建', status: '0', remark: '负责制度、知识工程与组织架构维护', createTime: '2024-03-15 09:35:00' },
-  { id: 'orole_3', roleNo: 3, roleName: '流程管理员', roleKey: 'flow_architect', roleType: '流程规划', roleSort: 3, dataScope: '所属部门数据', boundPositions: ['流程推进专员'], menuPermissions: ['流程资产', '流程建设', '流程执行'], userCount: 5, syncSource: 'HR系统', status: '0', remark: '负责端到端流程画板设计与基线管理', createTime: '2024-03-15 09:40:00' },
-  { id: 'orole_4', roleNo: 4, roleName: '合规风控官', roleKey: 'risk_officer', roleType: '风险合规', roleSort: 4, dataScope: '全合规业务域', boundPositions: ['内控合规审查官'], menuPermissions: ['风险合规', '制度文件', '权责管控'], userCount: 3, syncSource: '本地创建', status: '0', remark: '负责KCP关键控制点与风险库', createTime: '2024-03-15 09:45:00' },
-  { id: 'orole_5', roleNo: 5, roleName: '普通员工', roleKey: 'employee', roleType: '基础角色', roleSort: 5, dataScope: '仅本人数据', boundPositions: ['软件研发组长', '结构设计工程师'], menuPermissions: ['流程资产', '任务中心'], userCount: 48, syncSource: '本地创建', status: '0', remark: '基础查阅与工单填报权限', createTime: '2024-03-15 09:50:00' },
+  { id: 'orole_1', roleNo: 1, roleName: '超级管理员', roleKey: 'admin', roleType: '系统管理', roleSort: 1, dataScope: '全部数据权限', boundPositions: ['首席系统架构师', '系统架构师'], menuPermissions: ['全部菜单', '协同工作', '流程资产', '流程设计', '流程运行', '流程挖掘', '权责管控', '风控合规', '组织系统'], userCount: 2, syncSource: '本地创建', status: '0', remark: '拥有全系统最高管控与配置权限', createTime: '2024-03-15 09:30:00' },
+  { id: 'orole_2', roleNo: 2, roleName: '流程管理员', roleKey: 'flow_architect', roleType: '流程规划', roleSort: 2, dataScope: '全公司流程资产', boundPositions: ['流程管理总监', '流程推进主管'], menuPermissions: ['协同工作', '流程资产', '流程设计', '流程运行', '流程挖掘', '权责管控', '风控合规'], userCount: 3, syncSource: '本地创建', status: '0', remark: '统筹流程架构规划、发布审批终审、业务集成与废止归档确认', createTime: '2024-03-15 09:35:00' },
+  { id: 'orole_3', roleNo: 3, roleName: '流程架构师', roleKey: 'process_designer', roleType: '专业技术', roleSort: 3, dataScope: '所属业务域', boundPositions: ['高级系统架构师', '流程设计师'], menuPermissions: ['协同工作', '流程资产', '流程设计', '流程运行', '流程挖掘'], userCount: 6, syncSource: '本地创建', status: '0', remark: '负责各业务域端到端流程绘图建模、L1-L4流程分解与RACI泳道设计', createTime: '2024-03-15 09:40:00' },
+  { id: 'orole_4', roleNo: 4, roleName: '合规风控官', roleKey: 'risk_officer', roleType: '风险合规', roleSort: 4, dataScope: '全合规业务域', boundPositions: ['合规风控总监', '内控合规审查官'], menuPermissions: ['协同工作', '流程资产', '风控合规', '权责管控'], userCount: 3, syncSource: '本地创建', status: '0', remark: '负责规章制度库、风险控制矩阵与关键控制点(KCP)合规审查', createTime: '2024-03-15 09:45:00' },
+  { id: 'orole_5', roleNo: 5, roleName: '知识与权责管理员', roleKey: 'duty_admin', roleType: '业务管理', roleSort: 5, dataScope: '全公司权责资产', boundPositions: ['权责核准主管', '知识运营专家'], menuPermissions: ['协同工作', '流程资产', '权责管控', '风控合规', '组织系统'], userCount: 4, syncSource: '本地创建', status: '0', remark: '负责权责清单、授权矩阵(DOA)审批维护与权责手册发布', createTime: '2024-03-15 09:50:00' },
+  { id: 'orole_6', roleNo: 6, roleName: '业务部门主管', roleKey: 'business_director', roleType: '业务管理', roleSort: 6, dataScope: '本部门及下属数据', boundPositions: ['业务中心总经理', '部门经理'], menuPermissions: ['协同工作', '流程资产', '流程设计', '流程运行', '权责管控'], userCount: 8, syncSource: 'HR系统', status: '0', remark: '负责业务域内流程变更提报、流程废止部门审批与业务工单签批', createTime: '2024-03-15 09:55:00' },
+  { id: 'orole_7', roleNo: 7, roleName: '普通员工', roleKey: 'employee', roleType: '基础角色', roleSort: 7, dataScope: '仅本人数据', boundPositions: ['研发执行工程师', '测试工程师', '销售代表'], menuPermissions: ['协同工作', '流程资产'], userCount: 65, syncSource: '本地创建', status: '0', remark: '查阅本人负责与参与流程、处理个人待办与发起工单', createTime: '2024-03-15 10:00:00' },
+  { id: 'orole_8', roleNo: 8, roleName: '审计监督员', roleKey: 'auditor', roleType: '合规审计', roleSort: 8, dataScope: '全部只读数据', boundPositions: ['高级内审督察专家'], menuPermissions: ['协同工作', '流程资产', '流程运行', '流程挖掘', '权责管控', '风控合规'], userCount: 2, syncSource: '本地创建', status: '0', remark: '负责全生命周期流程执行抽检、废止归档审计与运行挖掘日志调阅', createTime: '2024-03-15 10:05:00' },
 ];
 
 const initialBuildProcessRoles: any[] = [
@@ -1553,20 +1678,16 @@ const initialBuildProcessRoles: any[] = [
 let buildProcessRoles: any[] = JSON.parse(JSON.stringify(initialBuildProcessRoles));
 
 const initialOrgUsers: any[] = [
-  { id: 'u_1', userNo: 1, empNo: 'E0001', userName: 'admin', nickName: '知识管理员', sex: '0', deptId: 'dept_04', deptCode: '0040', deptName: '知识管理部', positionName: '知识运营专家', rankLevel: 'P7', roleNames: ['知识管理员', '超级管理员'], phonenumber: '15888888888', email: 'km_admin@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_admin_001', doaLevel: '最高裁决', remark: '系统默认知识管理超级账号', createTime: '2024-03-15 09:30:00' },
-  { id: 'u_2', userNo: 2, empNo: 'E0010', userName: 'sys_admin', nickName: '系统管理员', sex: '0', deptId: 'dept_01', deptCode: '0010', deptName: '系统管理部', positionName: '系统架构师', rankLevel: 'P6', roleNames: ['超级管理员'], phonenumber: '13800000010', email: 'sys@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_sys_001', doaLevel: '最高裁决', remark: '系统运维与架构安全治理', createTime: '2024-03-15 09:35:00' },
-  { id: 'u_3', userNo: 3, empNo: 'E0020', userName: 'flow_lead', nickName: '流程经理', sex: '1', deptId: 'dept_02', deptCode: '0020', deptName: '流程管理部', positionName: '流程推进专员', rankLevel: 'M1', roleNames: ['流程管理员'], phonenumber: '13800000020', email: 'flow@dflow.com', status: '0', syncSource: 'HR系统', ssoBound: true, ssoUid: 'sso_flow_001', doaLevel: '专业复核', remark: '负责端到端跨部门流程梳理', createTime: '2024-03-15 09:40:00' },
-  { id: 'u_4', userNo: 4, empNo: 'E0030', userName: 'duty_lead', nickName: '权责主管', sex: '0', deptId: 'dept_03', deptCode: '0030', deptName: '权责管理部', positionName: '权责核准主管', rankLevel: 'M2', roleNames: ['合规风控官'], phonenumber: '13800000030', email: 'duty@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_duty_001', doaLevel: '专业复核', remark: '权责清单与DoA授权审批', createTime: '2024-03-15 09:45:00' },
-  { id: 'u_5', userNo: 5, empNo: 'E0050', userName: 'rd_director', nickName: '研发总监', sex: '0', deptId: 'dept_05', deptCode: '0050', deptName: '研发管理中心', positionName: '中心总经理', rankLevel: 'M3', roleNames: ['普通员工'], phonenumber: '13800000050', email: 'rd@dflow.com', status: '0', syncSource: 'HR系统', ssoBound: true, ssoUid: 'sso_rd_001', doaLevel: '部门审批', remark: '统筹各软硬件开发中心运作', createTime: '2024-03-15 09:50:00' },
-  { id: 'u_6', userNo: 6, empNo: 'E0041', userName: 'struct_lead', nickName: '结构设计主管', sex: '0', deptId: 'dept_06', deptCode: '0041', deptName: '结构开发部', positionName: '结构设计工程师', rankLevel: 'P5', roleNames: ['普通员工'], phonenumber: '13800000041', email: 'struct@dflow.com', status: '0', syncSource: 'HR系统', ssoBound: true, ssoUid: 'sso_struct_001', doaLevel: '业务经办', remark: '负责机械与工装模具开发', createTime: '2024-03-15 09:55:00' },
-  { id: 'u_7', userNo: 7, empNo: 'E0042', userName: 'dev_lead', nickName: '软件架构师', sex: '0', deptId: 'dept_07', deptCode: '0042', deptName: '软件开发部', positionName: '软件研发组长', rankLevel: 'P6', roleNames: ['普通员工'], phonenumber: '13800000042', email: 'dev@dflow.com', status: '0', syncSource: 'HR系统', ssoBound: true, ssoUid: 'sso_dev_001', doaLevel: '业务经办', remark: '云原生流程系统与中间件研发', createTime: '2024-03-15 10:00:00' },
-  { id: 'u_8', userNo: 8, empNo: 'E0043', userName: 'elec_eng', nickName: '电气工程师', sex: '0', deptId: 'dept_08', deptCode: '0043', deptName: '电气开发部', positionName: '电气开发工程师', rankLevel: 'P4', roleNames: ['普通员工'], phonenumber: '13800000043', email: 'elec@dflow.com', status: '0', syncSource: '本地创建', ssoBound: false, ssoUid: '', doaLevel: '业务经办', remark: '电路板设计与固件调试', createTime: '2024-03-15 10:05:00' },
-  { id: 'u_9', userNo: 9, empNo: 'E0044', userName: 'pm_lead', nickName: '项目管理主管', sex: '1', deptId: 'dept_09', deptCode: '0044', deptName: '项目管理部', positionName: '项目推进主管', rankLevel: 'M1', roleNames: ['流程管理员', '普通员工'], phonenumber: '13800000044', email: 'pm@dflow.com', status: '0', syncSource: 'HR系统', ssoBound: true, ssoUid: 'sso_pm_001', doaLevel: '部门审批', remark: '负责研发中心各里程碑把控', createTime: '2024-03-15 10:10:00' },
-  { id: 'u_10', userNo: 10, empNo: 'E0091', userName: 'tz_tester', nickName: '质量测试员', sex: '1', deptId: 'dept_10', deptCode: 'TZ1', deptName: 'TZ测试部门', positionName: '测试工程师', rankLevel: 'P3', roleNames: ['普通员工'], phonenumber: '13800000091', email: 'tz@dflow.com', status: '0', syncSource: '本地创建', ssoBound: false, ssoUid: '', doaLevel: '业务经办', remark: '负责流程节点与工单链路集成测试', createTime: '2024-03-15 10:15:00' },
-  { id: 'u_11', userNo: 11, empNo: 'E0092', userName: 'tz_spec', nickName: '测试专员A', sex: '0', deptId: 'dept_11', deptCode: 'TZ11', deptName: 'TZ测试1部', positionName: '测试助理工程师', rankLevel: 'P2', roleNames: ['普通员工'], phonenumber: '13800000092', email: 'tz1@dflow.com', status: '1', syncSource: '本地创建', ssoBound: false, ssoUid: '', doaLevel: '业务经办', remark: '停用状态账户测试样本', createTime: '2024-03-16 11:20:00' },
-  { id: 'u_zs', userNo: 12, empNo: 'E0099', userName: 'zhangsan', nickName: '张三', sex: '0', deptId: 'dept_02', deptCode: '0020', deptName: '流程管理部', positionName: '高级流程经理', rankLevel: 'M2', roleNames: ['流程管理员'], phonenumber: '13900000099', email: 'zhangsan@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_zs_001', doaLevel: '专业复核', remark: '业务流程责任人张三', createTime: '2024-03-17 08:30:00' },
-  { id: 'u_ls', userNo: 13, empNo: 'E0088', userName: 'lisi', nickName: '李四', sex: '0', deptId: 'dept_05', deptCode: '0050', deptName: '研发管理中心', positionName: '高级业务专家', rankLevel: 'P6', roleNames: ['普通员工'], phonenumber: '13900000088', email: 'lisi@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_ls_001', doaLevel: '业务经办', remark: '协同业务专家李四', createTime: '2024-03-18 09:00:00' },
-  { id: 'u_ww', userNo: 14, empNo: 'E0077', userName: 'wangwu', nickName: '王五', sex: '1', deptId: 'dept_02', deptCode: '0020', deptName: '流程管理部', positionName: '流程合规主管', rankLevel: 'M1', roleNames: ['流程管理员'], phonenumber: '13900000077', email: 'wangwu@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_ww_001', doaLevel: '专业复核', remark: '流程协作者王五', createTime: '2024-03-19 10:00:00' },
+  { id: 'u_admin', userNo: 1, empNo: 'E0001', userName: 'admin', nickName: '系统管理员', sex: '0', deptId: 'dept_01', deptCode: '0010', deptName: '系统管理部', positionName: '首席系统架构师', rankLevel: 'P9', roleNames: ['超级管理员'], phonenumber: '13800000001', email: 'admin@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_admin_001', doaLevel: '最高裁决', remark: '【标准实施账号1】超级管理员，负责企业平台底座配置、租户授权与系统权限分配', createTime: '2024-03-15 09:30:00' },
+  { id: 'u_flow_admin', userNo: 2, empNo: 'E0002', userName: 'flow_admin', nickName: '流程管理员', sex: '1', deptId: 'dept_02', deptCode: '0020', deptName: '流程管理部', positionName: '流程管理总监', rankLevel: 'M2', roleNames: ['流程管理员'], phonenumber: '13800000002', email: 'flow_director@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_flow_001', doaLevel: '终审签批', remark: '【标准实施账号2】流程管理总监，负责企业流程全景规划、发布审批终审、业务集成与废止归档确认', createTime: '2024-03-15 09:35:00' },
+  { id: 'u_zhangsan', userNo: 3, empNo: 'E0101', userName: 'zhangsan', nickName: '张三', sex: '0', deptId: 'dept_05', deptCode: '0050', deptName: '研发管理中心', positionName: '高级流程架构师', rankLevel: 'P8', roleNames: ['流程架构师'], phonenumber: '13900000101', email: 'zhangsan@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_zs_001', doaLevel: '专业复核', remark: '【标准实施账号3】流程架构师，主导各业务域端到端流程绘图建模、L1-L4流程分解与RACI设计', createTime: '2024-03-15 09:40:00' },
+  { id: 'u_risk_officer', userNo: 4, empNo: 'E0201', userName: 'risk_officer', nickName: '王合规', sex: '0', deptId: 'dept_risk', deptCode: '0035', deptName: '法律合规与内控部', positionName: '合规风控总监', rankLevel: 'M1', roleNames: ['合规风控官'], phonenumber: '13800000201', email: 'risk@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_risk_001', doaLevel: '合规审查', remark: '【标准实施账号4】合规风控官，负责制度文件库、风险控制矩阵与关键控制点(KCP)合规交叉审查', createTime: '2024-03-15 09:45:00' },
+  { id: 'u_duty_lead', userNo: 5, empNo: 'E0301', userName: 'duty_lead', nickName: '李权责', sex: '1', deptId: 'dept_03', deptCode: '0030', deptName: '权责管理部', positionName: '权责核准主管', rankLevel: 'M1', roleNames: ['知识与权责管理员'], phonenumber: '13800000301', email: 'duty@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_duty_001', doaLevel: '专业复核', remark: '【标准实施账号5】知识与权责管理员，负责权责清单、授权矩阵(DOA)审批维护与权责手册发布', createTime: '2024-03-15 09:50:00' },
+  { id: 'u_rd_director', userNo: 6, empNo: 'E0401', userName: 'rd_director', nickName: '赵业务', sex: '0', deptId: 'dept_mkt', deptCode: '0060', deptName: '市场营销中心', positionName: '业务中心总经理', rankLevel: 'M3', roleNames: ['业务部门主管'], phonenumber: '13800000401', email: 'biz_lead@dflow.com', status: '0', syncSource: 'HR系统', ssoBound: true, ssoUid: 'sso_rd_001', doaLevel: '部门审批', remark: '【标准实施账号6】业务部门总监，负责业务域内流程变更提报、流程废止部门审批与业务工单签批', createTime: '2024-03-15 09:55:00' },
+  { id: 'u_operator', userNo: 7, empNo: 'E0501', userName: 'operator', nickName: '孙执行', sex: '0', deptId: 'dept_06', deptCode: '0041', deptName: '结构开发部', positionName: '研发执行工程师', rankLevel: 'P5', roleNames: ['普通员工'], phonenumber: '13800000501', email: 'operator@dflow.com', status: '0', syncSource: '本地创建', ssoBound: false, ssoUid: '', doaLevel: '业务经办', remark: '【标准实施账号7】一线业务人员，查阅本人负责与参与流程、处理工作台待办工单与日常发起', createTime: '2024-03-15 10:00:00' },
+  { id: 'u_auditor', userNo: 8, empNo: 'E0601', userName: 'auditor', nickName: '钱审计', sex: '1', deptId: 'dept_audit', deptCode: '0070', deptName: '集团审计监察部', positionName: '高级内审督察专家', rankLevel: 'P7', roleNames: ['审计监督员'], phonenumber: '13800000601', email: 'auditor@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_audit_001', doaLevel: '审计调阅', remark: '【标准实施账号8】内审督察官，负责全生命周期流程执行抽检、废止归档审计与断点挖掘调阅', createTime: '2024-03-15 10:05:00' },
+  { id: 'u_sys_admin', userNo: 9, empNo: 'E0010', userName: 'sys_admin', nickName: '运维架构师', sex: '0', deptId: 'dept_01', deptCode: '0010', deptName: '系统管理部', positionName: '系统架构师', rankLevel: 'P6', roleNames: ['超级管理员'], phonenumber: '13800000010', email: 'sys@dflow.com', status: '0', syncSource: '本地创建', ssoBound: true, ssoUid: 'sso_sys_001', doaLevel: '最高裁决', remark: '系统运维与架构安全治理', createTime: '2024-03-15 10:10:00' },
+  { id: 'u_flow_lead', userNo: 10, empNo: 'E0020', userName: 'flow_lead', nickName: '流程经理', sex: '1', deptId: 'dept_02', deptCode: '0020', deptName: '流程管理部', positionName: '流程推进主管', rankLevel: 'M1', roleNames: ['流程管理员'], phonenumber: '13800000020', email: 'flow@dflow.com', status: '0', syncSource: 'HR系统', ssoBound: true, ssoUid: 'sso_flow_002', doaLevel: '专业复核', remark: '负责端到端跨部门流程梳理', createTime: '2024-03-15 10:15:00' },
 ];
 
 let orgUsers: any[] = JSON.parse(JSON.stringify(initialOrgUsers));
@@ -1639,40 +1760,211 @@ let companyAuthData: any = {
   },
 };
 
-let systemApis: any[] = [
+const defaultSystemApis: any[] = [
   {
     id: 1,
-    apiName: '用户查询接口',
-    apiPath: '/api/v1/users',
+    apiName: '待办任务与工单查询',
+    apiPath: '/api/flow/tasks/pending',
+    method: 'GET',
+    category: 'collab',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '120次/分钟',
+    description: '获取当前登录人待办审批流转工单、超时预警及催办标识',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { total: 4, list: [{ taskId: 'task_001', flowTitle: '芯片流片规格审批', nodeName: '总师Sign-off', priority: '紧急' }] } }, null, 2),
+    createTime: '2026-01-10 09:00:00',
+  },
+  {
+    id: 2,
+    apiName: '流程培训课程与考核清单',
+    apiPath: '/api/flow/learning/courses',
+    method: 'GET',
+    category: 'collab',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '60次/分钟',
+    description: '获取全员与指定岗位流程培训课件、必修/选修属性与学时标准',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { total: 6, list: [{ courseId: 'c_01', title: 'IPD端到端流程实务', courseType: '必修', requiredPassScore: 80 }] } }, null, 2),
+    createTime: '2026-01-12 10:15:00',
+  },
+  {
+    id: 3,
+    apiName: '流程培训学习进度上报',
+    apiPath: '/api/flow/learning/progress',
+    method: 'POST',
+    category: 'collab',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '60次/分钟',
+    description: '员工提交流程在线学习时长、视频播放完播率及课后测试考分',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { recorded: true, score: 92, passed: true } }, null, 2),
+    createTime: '2026-01-15 14:20:00',
+  },
+  {
+    id: 4,
+    apiName: '流程资产全景与健康度指标',
+    apiPath: '/api/flow/overview/metrics',
+    method: 'GET',
+    category: 'property',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '90次/分钟',
+    description: '统计各业务域流程架构发布率、主责认领率、E2E贯通度及资产健康评分',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { totalFlows: 142, healthScore: 94.6, publishedRatio: '98.2%' } }, null, 2),
+    createTime: '2026-01-18 11:00:00',
+  },
+  {
+    id: 5,
+    apiName: '流程版本历史与基线对比',
+    apiPath: '/api/flow/model/publishVersionHistories',
+    method: 'GET',
+    category: 'property',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '90次/分钟',
+    description: '调阅业务流程历史发布版本元数据，支持双屏版本差异与节点增删比对',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { flowId: 'flow_101', versions: [{ versionNo: 'V2', publishTime: '2026-03-20' }, { versionNo: 'V1', publishTime: '2025-11-15' }] } }, null, 2),
+    createTime: '2026-02-01 16:30:00',
+  },
+  {
+    id: 6,
+    apiName: '流程画板建模与XML存盘',
+    apiPath: '/api/flow/design/model',
+    method: 'POST',
+    category: 'design',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '60次/分钟',
+    description: '全源在线Drawio流程设计器模型文件XML、泳道RACI与活动节点元数据存盘',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { flowId: 'flow_101', savedTime: '2026-03-26 15:30:00', nodeCount: 18 } }, null, 2),
+    createTime: '2026-02-05 09:20:00',
+  },
+  {
+    id: 7,
+    apiName: '流程废止归档申请与会签',
+    apiPath: '/api/flow/repeal/apply',
+    method: 'POST',
+    category: 'design',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '60次/分钟',
+    description: '提请过时业务流程退役审批，校验替代流程关系并执行冻结归档',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { repealNo: 'REP-2026-003', status: 'AUDITING', successorFlow: 'flow_208' } }, null, 2),
+    createTime: '2026-02-10 14:00:00',
+  },
+  {
+    id: 8,
+    apiName: '流程角色与岗位映射库',
+    apiPath: '/api/build/roles',
+    method: 'GET',
+    category: 'design',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '90次/分钟',
+    description: '维护企业标准流程角色(主责/决策/咨询/知会)与HR岗位关联库',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { total: 12, list: [{ roleCode: 'PR-ARCH-01', roleName: '系统架构师', roleType: '主责角色 (R)' }] } }, null, 2),
+    createTime: '2026-02-12 10:00:00',
+  },
+  {
+    id: 9,
+    apiName: '工作流实例调度与节点执行',
+    apiPath: '/api/flow/instances/execute',
+    method: 'POST',
+    category: 'execute',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '200次/分钟',
+    description: '根据流程图BPMN拓扑规则驱动活动节点流转、条件分支判定与工单催办',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { instanceId: 'ins_9981', currentStep: '合规复核', nextApprover: '王合规' } }, null, 2),
+    createTime: '2026-02-15 11:30:00',
+  },
+  {
+    id: 10,
+    apiName: '流程挖掘事件日志与时序轨迹',
+    apiPath: '/api/mining/event-logs',
+    method: 'GET',
+    category: 'mining',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '60次/分钟',
+    description: '抽取业务IT系统工单时序日志，发现真实执行路径、吞吐变体及耗时瓶颈',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { totalCases: 5400, avgDurationHours: 36.4, bottleneckNode: '交叉联调评审' } }, null, 2),
+    createTime: '2026-02-20 15:45:00',
+  },
+  {
+    id: 11,
+    apiName: '权责清单与DOA授权矩阵',
+    apiPath: '/api/flowdoc/duty',
+    method: 'GET',
+    category: 'duty',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '90次/分钟',
+    description: '查询各业务域事项权责、决策审批层级、金额阈值及RACI责任矩阵',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { totalItems: 88, matrixApprovedCount: 85 } }, null, 2),
+    createTime: '2026-02-22 17:00:00',
+  },
+  {
+    id: 12,
+    apiName: '合规制度与KCP关键控制点',
+    apiPath: '/api/risk/kcp/list',
+    method: 'GET',
+    category: 'risk',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '90次/分钟',
+    description: '获取企业制度条款与强绑定风险关键控制点(KCP)及审计核查底稿',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { totalKcp: 64, highRiskCount: 14 } }, null, 2),
+    createTime: '2026-02-25 09:10:00',
+  },
+  {
+    id: 13,
+    apiName: '组织架构与人员多维检索',
+    apiPath: '/api/org/bundle',
     method: 'GET',
     category: 'system',
     status: '启用',
     authType: 'Bearer Token',
     rateLimit: '120次/分钟',
-    description: '获取组织人员基础信息',
-    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { total: 2 } }, null, 2),
-    createTime: '2025-12-20 09:00:00',
+    description: '一站式返回企业多级部门树、岗位职级体系、员工花名册及角色权限配置',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { deptCount: 18, userCount: 65, roleCount: 8 } }, null, 2),
+    createTime: '2026-02-28 10:00:00',
   },
   {
-    id: 2,
-    apiName: '流程列表查询',
-    apiPath: '/api/v1/flows',
+    id: 14,
+    apiName: '表单引擎模型与字段管理',
+    apiPath: '/api/system/forms',
     method: 'GET',
-    category: 'process',
+    category: 'system',
+    status: '启用',
+    authType: 'Bearer Token',
+    rateLimit: '120次/分钟',
+    description: '低代码动态表单Schema元数据读取、字段增删与动态验证规则管理',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { formCount: 10 } }, null, 2),
+    createTime: '2026-03-01 11:20:00',
+  },
+  {
+    id: 15,
+    apiName: '商业授权与硬件特征校验',
+    apiPath: '/api/system/license',
+    method: 'GET',
+    category: 'system',
     status: '启用',
     authType: 'Bearer Token',
     rateLimit: '60次/分钟',
-    description: '按架构层级返回业务流程',
-    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { list: [] } }, null, 2),
-    createTime: '2025-12-20 09:30:00',
+    description: '系统授权证书合法性、CPU/网卡硬件特征码绑定状态及并发节点核验',
+    sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { status: 'ACTIVE', edition: '企业旗舰版', hardwareVerified: true } }, null, 2),
+    createTime: '2026-03-05 14:00:00',
   },
 ];
+
+let systemApis: any[] = JSON.parse(JSON.stringify(defaultSystemApis));
 
 const initialFormEngineSchemas: any[] = [
   {
     formKey: 'form_sysdoc',
     formName: '制度规范录入与归档表单',
-    moduleDomain: '制度文件',
+    moduleDomain: '风控合规',
     description: '企业规章制度、操作指引与政策文件的发布及生命周期归档管理表单',
     version: 'V2.6',
     tag: '核心规范',
@@ -1917,7 +2209,7 @@ const initialFormEngineSchemas: any[] = [
   {
     formKey: 'form_sysdoc_revision',
     formName: '制度修订与废止申请表单',
-    moduleDomain: '制度文件',
+    moduleDomain: '风控合规',
     description: '制度变更、条款增删修订或废止下线的评审会签流转表单',
     version: 'V1.8',
     updatedAt: '2026-03-20 11:00:00',
@@ -1934,34 +2226,35 @@ const initialFormEngineSchemas: any[] = [
     ],
   },
   {
-    formKey: 'form_know_item',
-    formName: '知识资产沉淀与最佳实践表单',
-    moduleDomain: '知识工程',
-    description: '沉淀企业隐性经验、标杆作业法、排障指南及专业案例的知识资产库录入表单',
-    version: 'V2.2',
-    updatedAt: '2026-03-22 09:20:00',
+    formKey: 'form_flow_training',
+    formName: '流程培训课程与考核配置单',
+    moduleDomain: '协同工作',
+    description: '员工业务流程培训课程设计、必修/选修属性、关联流程、目标受众与考核合格线设定表单',
+    version: 'V2.0',
+    tag: '员工赋能',
+    updatedAt: '2026-03-26 10:00:00',
     isSystem: true,
     fields: [
-      { id: 'f_kn_1', fieldKey: 'itemCode', label: '知识编号', type: 'input', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, placeholder: 'KNOW-2026-001', isSystem: true },
-      { id: 'f_kn_2', fieldKey: 'itemTitle', label: '实践主题', type: 'input', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, placeholder: '例如: 高可用微服务分布式锁踩坑与设计模式' },
-      { id: 'f_kn_3', fieldKey: 'domainCategory', label: '专业知识域', type: 'select', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, options: ['系统架构', '故障复盘', '合规最佳实践', '运营增长SOP', '产品原型方法论'] },
-      { id: 'f_kn_4', fieldKey: 'contributor', label: '贡献者/专家', type: 'userPicker', span: 12, section: '权责与审批', required: true, showInList: true, searchable: true },
-      { id: 'f_kn_5', fieldKey: 'targetRole', label: '目标受众岗位', type: 'multiSelect', span: 12, section: '业务参数', required: false, showInList: true, searchable: true, options: ['初级工程师', '资深架构师', '产品经理', '合规风控官'] },
-      { id: 'f_kn_6', fieldKey: 'contentBody', label: '核心实践指南正文', type: 'richText', span: 24, section: '扩展属性', required: true, showInList: false, searchable: false, placeholder: '详述背景挑战、解决方案设计、效果收益及规避建议' },
-      { id: 'f_kn_7', fieldKey: 'isBenchmark', label: '是否评为集团标杆经验', type: 'switch', span: 12, section: '合规风控', required: false, showInList: true, searchable: false, defaultValue: true },
-      { id: 'f_kn_8', fieldKey: 'bonusPoints', label: '知识积分奖励', type: 'number', span: 12, section: '业务参数', required: false, showInList: true, searchable: false, defaultValue: 50 },
-      { id: 'f_kn_9', fieldKey: 'codeRepositoryUrl', label: '配套代码仓库/文档', type: 'input', span: 12, section: '扩展属性', required: false, showInList: false, searchable: false, placeholder: 'https://git.internal/best-practices' },
-      { id: 'f_kn_10', fieldKey: 'confidentialGrade', label: '知识保密级别', type: 'select', span: 12, section: '业务参数', required: true, showInList: true, searchable: true, options: ['全员公开', '部门受限', '特许项目成员'] },
-      { id: 'f_kn_11', fieldKey: 'docAttachment', label: '原版材料附件', type: 'upload', span: 24, section: '扩展属性', required: false, showInList: false, searchable: false },
-      { id: 'f_kn_12', fieldKey: 'expertReviewStatus', label: '专家委员会评审结果', type: 'select', span: 12, section: '权责与审批', required: true, showInList: true, searchable: true, options: ['待评审', '已认证入库', '需补充完善'] },
+      { id: 'f_ft_1', fieldKey: 'courseNo', label: '课程编号', type: 'input', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, placeholder: 'CRS-2026-001', isSystem: true },
+      { id: 'f_ft_2', fieldKey: 'courseName', label: '培训课程全称', type: 'input', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, placeholder: 'IPD 集成产品开发流程端到端实务精讲' },
+      { id: 'f_ft_3', fieldKey: 'courseType', label: '培训课程属性', type: 'radio', span: 12, section: '业务参数', required: true, showInList: true, searchable: true, options: ['必修', '选修', '进阶选读'], defaultValue: '必修' },
+      { id: 'f_ft_4', fieldKey: 'targetFlow', label: '挂接业务流程', type: 'select', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, options: ['芯片流片全流程 (IC-DEV-001)', 'IPD技术评审主流程 (IPD-TR-001)', '敏捷需求拆解上线流程 (AG-REQ-02)'] },
+      { id: 'f_ft_5', fieldKey: 'trainer', label: '主讲讲师/责任导师', type: 'userPicker', span: 12, section: '权责与审批', required: true, showInList: true, searchable: true, defaultValue: '张三 (首席架构师)' },
+      { id: 'f_ft_6', fieldKey: 'targetDepts', label: '受训部门群体', type: 'multiSelect', span: 12, section: '权责与审批', required: true, showInList: true, searchable: true, options: ['系统架构部', '软件研发中心', '质量工程部', '业务运营部'] },
+      { id: 'f_ft_7', fieldKey: 'creditHours', label: '要求达标学时 (小时)', type: 'number', span: 12, section: '业务参数', required: true, showInList: true, searchable: false, defaultValue: 4 },
+      { id: 'f_ft_8', fieldKey: 'passingScore', label: '考核合格分 (百分制)', type: 'number', span: 12, section: '业务参数', required: true, showInList: true, searchable: false, defaultValue: 80 },
+      { id: 'f_ft_9', fieldKey: 'courseSyllabus', label: '课程大纲与重点提示', type: 'richText', span: 24, section: '扩展属性', required: false, showInList: false, searchable: false, placeholder: '列明课程章节纲要与关键操作指引...' },
+      { id: 'f_ft_10', fieldKey: 'coursewareProof', label: '课件PPT与视频材料', type: 'upload', span: 24, section: '扩展属性', required: false, showInList: false, searchable: false },
+      { id: 'f_ft_11', fieldKey: 'isPublished', label: '是否立即全员发布上线', type: 'switch', span: 12, section: '合规风控', required: false, showInList: true, searchable: false, defaultValue: true },
     ],
   },
   {
     formKey: 'form_flow_asset',
     formName: '流程资产定义与元数据表单',
-    moduleDomain: '知识工程',
+    moduleDomain: '流程资产',
     description: '流程架构层级(L1-L5)、输入输出交付物与责任主体的结构化定义与资产元数据录入',
     version: 'V3.1',
+    tag: '主干资产',
     updatedAt: '2026-03-23 16:45:00',
     isSystem: true,
     fields: [
@@ -1978,11 +2271,55 @@ const initialFormEngineSchemas: any[] = [
     ],
   },
   {
+    formKey: 'form_flow_repeal',
+    formName: '流程废止与下线归档审批单',
+    moduleDomain: '流程设计',
+    description: '过时业务流程退役申请、替代流程指定、下游影响系统评估及归档封存审批表单',
+    version: 'V2.3',
+    tag: '生命周期',
+    updatedAt: '2026-03-25 15:30:00',
+    isSystem: true,
+    fields: [
+      { id: 'f_fr_1', fieldKey: 'repealNo', label: '废止审批单号', type: 'input', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, placeholder: 'REP-2026-001', isSystem: true },
+      { id: 'f_fr_2', fieldKey: 'targetFlowTitle', label: '拟废止流程名称', type: 'input', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, placeholder: '旧版芯片物理打样验收流程' },
+      { id: 'f_fr_3', fieldKey: 'repealReasonType', label: '废止原因类型', type: 'select', span: 12, section: '业务参数', required: true, showInList: true, searchable: true, options: ['业务重组重构', '管理架构调整', '新数字化流程替代', '法律法规政策变更'], defaultValue: '新数字化流程替代' },
+      { id: 'f_fr_4', fieldKey: 'successorFlow', label: '继承承接新流程', type: 'input', span: 12, section: '业务参数', required: false, showInList: true, searchable: true, placeholder: '芯片全数字化仿真与流片流程 (IC-DIG-02)' },
+      { id: 'f_fr_5', fieldKey: 'applicantUser', label: '申请提请人', type: 'userPicker', span: 12, section: '权责与审批', required: true, showInList: true, searchable: true },
+      { id: 'f_fr_6', fieldKey: 'leadAuditor', label: '流程管理部终审人', type: 'userPicker', span: 12, section: '权责与审批', required: true, showInList: true, searchable: true },
+      { id: 'f_fr_7', fieldKey: 'impactSystems', label: '受影响集成系统', type: 'multiSelect', span: 12, section: '权责与审批', required: false, showInList: true, searchable: true, options: ['SAP ERP', 'PLM 研发系统', 'OA 协同办公', 'MES 制造系统'] },
+      { id: 'f_fr_8', fieldKey: 'repealExplanation', label: '废止详细说明及过渡预案', type: 'textarea', span: 24, section: '业务参数', required: true, showInList: false, searchable: false, placeholder: '阐述在制品工单清理方案与过渡期处理细则' },
+      { id: 'f_fr_9', fieldKey: 'decisionMeetingProof', label: '总裁办或管委会决议纪要', type: 'upload', span: 24, section: '扩展属性', required: true, showInList: false, searchable: false },
+    ],
+  },
+  {
+    formKey: 'form_flow_mining',
+    formName: '流程挖掘事件日志接入规范单',
+    moduleDomain: '流程挖掘',
+    description: '业务IT系统(ERP/CRM/OA/MES)工单流转日志抽取标准、CaseId、活动与时间戳映射规则定义单',
+    version: 'V1.5',
+    tag: '数据驱动',
+    updatedAt: '2026-03-24 14:00:00',
+    isSystem: true,
+    fields: [
+      { id: 'f_fm_1', fieldKey: 'sourceCode', label: '数据源接入代码', type: 'input', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, placeholder: 'MIN-SRC-SAP-01', isSystem: true },
+      { id: 'f_fm_2', fieldKey: 'systemName', label: '业务系统名称', type: 'input', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, placeholder: 'SAP S/4HANA 采购订单模块' },
+      { id: 'f_fm_3', fieldKey: 'caseIdField', label: '工单案件标识 (Case ID)', type: 'input', span: 12, section: '业务参数', required: true, showInList: true, searchable: true, placeholder: 'po_number', defaultValue: 'case_id' },
+      { id: 'f_fm_4', fieldKey: 'activityField', label: '执行活动名称 (Activity)', type: 'input', span: 12, section: '业务参数', required: true, showInList: true, searchable: true, placeholder: 'event_name', defaultValue: 'activity_name' },
+      { id: 'f_fm_5', fieldKey: 'timestampField', label: '发生时间戳 (Timestamp)', type: 'input', span: 12, section: '业务参数', required: true, showInList: true, searchable: false, placeholder: 'created_at', defaultValue: 'timestamp' },
+      { id: 'f_fm_6', fieldKey: 'resourceField', label: '执行人/资源 (Resource)', type: 'input', span: 12, section: '业务参数', required: false, showInList: true, searchable: false, placeholder: 'operator_id', defaultValue: 'user_name' },
+      { id: 'f_fm_7', fieldKey: 'protocolType', label: '接入同步方式', type: 'select', span: 12, section: '基础信息', required: true, showInList: true, searchable: true, options: ['Kafka 消息实时消费', 'JDBC 定时批量抽取', 'RESTful API 主动推送', 'CSV/XES 离线文件上传'], defaultValue: 'JDBC 定时批量抽取' },
+      { id: 'f_fm_8', fieldKey: 'bottleneckHours', label: '节点停滞瓶颈告警阈值 (小时)', type: 'number', span: 12, section: '合规风控', required: false, showInList: true, searchable: false, defaultValue: 24 },
+      { id: 'f_fm_9', fieldKey: 'dataFilterRule', label: '抽取SQL过滤与脱敏规则', type: 'textarea', span: 24, section: '扩展属性', required: false, showInList: false, searchable: false, placeholder: 'WHERE status NOT IN ("DRAFT") AND created_at >= "2026-01-01"' },
+      { id: 'f_fm_10', fieldKey: 'isActive', label: '是否开启持续挖掘同步', type: 'switch', span: 12, section: '合规风控', required: false, showInList: true, searchable: false, defaultValue: true },
+    ],
+  },
+  {
     formKey: 'form_doa_matrix',
     formName: 'DOA授权事项与审批矩阵表单',
     moduleDomain: '权责管控',
     description: '权责分配(DOA)、决策层级、金额阈值区间与RACI矩阵角色的授权规则配置表单',
     version: 'V2.5',
+    tag: '分级授权',
     updatedAt: '2026-03-21 14:10:00',
     isSystem: true,
     fields: [
@@ -2024,6 +2361,7 @@ const initialFormEngineSchemas: any[] = [
     moduleDomain: '风控合规',
     description: '业务风险识别、成因后果分析与关键控制活动(KCP)执行标准录入表单',
     version: 'V2.1',
+    tag: '风险内控',
     updatedAt: '2026-03-24 15:00:00',
     isSystem: true,
     fields: [
@@ -2042,9 +2380,10 @@ const initialFormEngineSchemas: any[] = [
   {
     formKey: 'form_custom_supplier',
     formName: '合格供应商准入评估表单',
-    moduleDomain: '业务扩展',
+    moduleDomain: '组织系统',
     description: '外部供应商资质认证、经营风险审查及履约评价自定义扩展表单',
     version: 'V1.3',
+    tag: '生态扩展',
     updatedAt: '2026-03-25 11:30:00',
     isSystem: false,
     fields: [
@@ -2109,7 +2448,42 @@ app.post('/api/app/site/logout', (_req, res) => {
 });
 
 // Flow & Architecture APIs
+const ensureRootArch = () => {
+  if (!archTypes || archTypes.length === 0 || !archTypes.some((a) => !a.parentId || a.id === 'arch_root')) {
+    archTypes.unshift({
+      id: 'arch_root',
+      parentId: '',
+      label: '企业流程架构全景',
+      level: 'L0',
+      archNo: 'ARCH-CORP-000',
+      businessScope: '全公司各业务领域及全职能中心主干流程全景',
+      applicableScope: '集团总部、测试集团有限公司、各中心事业部',
+      adaptScope: '集团总部、测试集团有限公司、各中心事业部',
+      ownerName: '系统管理员 (E0004)',
+      deptName: '运营管理部',
+      flowDefine: '全源科技集团端到端主干流程架构',
+      flowPurpose: '统领企业研发、营销、供应链全价值链',
+      flowInput: '客户需求与市场洞察',
+      flowOutput: '商业价值与客户满意',
+      flowStart: '战略规划启动',
+      flowEnd: '持续运营交付',
+      flowKpi: '整体运营效率提升 95%',
+      riskCompliance: '608项合规要求',
+      versionNo: 'V2',
+      publishUserName: '系统管理员',
+      publishTime: '2026-03-20 14:00:00',
+      status: 'published',
+    });
+  } else {
+    const root = archTypes.find((a) => !a.parentId || a.id === 'arch_root');
+    if (root && (!root.label || root.label === '企业流程架构' || root.label === '根架构' || root.label === 'ROOT')) {
+      root.label = '企业流程架构全景';
+    }
+  }
+};
+
 app.get('/api/flow/fulltypes', (_req, res) => {
+  ensureRootArch();
   res.json({ status: 1, data: archTypes, info: 'ok' });
 });
 
@@ -2118,14 +2492,40 @@ app.get('/api/flow/fullSimpleModels', (_req, res) => {
 });
 
 app.get('/api/flow/type', (req, res) => {
+  ensureRootArch();
   const found = archTypes.find((a) => a.id === req.query.id) || archTypes[0];
   res.json({ status: 1, data: found, info: 'ok' });
+});
+
+app.delete('/api/flow/type', (req, res) => {
+  const id = req.query.id as string;
+  if (!id) return res.status(400).json({ status: 0, info: '缺少架构ID' });
+  if (id === 'arch_root') {
+    return res.status(400).json({ status: 0, info: '根流程架构【企业流程架构全景】为企业顶层主干，默认不可删除' });
+  }
+  const idx = archTypes.findIndex((a) => a.id === id);
+  if (idx === -1) return res.status(404).json({ status: 0, info: '架构不存在' });
+  const removed = archTypes.splice(idx, 1)[0];
+  res.json({ status: 1, data: removed, info: `成功删除流程架构【${removed.label}】` });
 });
 
 app.post('/api/flow/type', (req, res) => {
   const { parentId, label, level, businessScope, applicableScope, deptName, ownerName } = req.body;
   const parent = archTypes.find((a) => a.id === parentId);
-  const resolvedLevel = level || (!parentId || parentId === 'arch_root' ? 'L1' : (parent?.level === 'L1' ? 'L2' : 'L2'));
+
+  const getArchDepth = (pId?: string): number => {
+    if (!pId || pId === 'arch_root') return 0;
+    let d = 0;
+    let cur = archTypes.find((a) => a.id === pId);
+    while (cur && cur.parentId && cur.id !== 'arch_root') {
+      d++;
+      cur = archTypes.find((a) => a.id === cur.parentId);
+    }
+    return d;
+  };
+
+  const parentDepth = getArchDepth(parentId);
+  const resolvedLevel = level || `L${Math.min(6, Math.max(1, parentDepth + 1))}`;
   const newArch = {
     id: 'arch_' + Date.now().toString(36),
     parentId: parentId || 'arch_root',
@@ -2214,7 +2614,7 @@ app.put('/api/flow/model/full', (req, res) => {
 });
 
 app.post('/api/flow/model', (req, res) => {
-  const { parentId, label, flowNo, xml } = req.body;
+  const { parentId, label, flowNo, xml, flowLevel, ownerName, versionNo, description } = req.body;
   const parentArch = archTypes.find((a) => a.id === parentId) || archTypes[0];
   const newFlow = {
     id: 'flow_' + Date.now().toString(36),
@@ -2222,9 +2622,10 @@ app.post('/api/flow/model', (req, res) => {
     archName: parentArch.label,
     label: label || '新建流程',
     flowNo: flowNo || 'FLOW-' + Math.floor(100 + Math.random() * 900),
-    ownerName: '系统管理员',
-    flowLevel: 'L3',
-    versionNo: 'V1',
+    ownerName: ownerName || '系统管理员',
+    flowLevel: flowLevel || 'L3',
+    versionNo: versionNo || 'V1',
+    description: description || '',
     publishUserName: '系统管理员',
     publishTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
     status: 'draft',
@@ -2251,6 +2652,171 @@ app.post('/api/flow/model/copy', (req, res) => {
   };
   flows.push(copy);
   res.json({ status: 1, data: copy, info: 'ok' });
+});
+
+app.post('/api/flow/changeArch', (req, res) => {
+  const { targetType, targetId, newParentId } = req.body;
+  if (!targetId || !newParentId) {
+    return res.status(400).json({ status: 0, info: '缺少必要参数' });
+  }
+
+  const targetParent = archTypes.find((a) => a.id === newParentId);
+  if (!targetParent && newParentId !== 'arch_root') {
+    return res.status(404).json({ status: 0, info: '目标上级架构不存在' });
+  }
+
+  if (targetType === 'arch') {
+    const arch = archTypes.find((a) => a.id === targetId);
+    if (!arch) {
+      return res.status(404).json({ status: 0, info: '未找到目标流程架构' });
+    }
+    if (newParentId === targetId) {
+      return res.status(400).json({ status: 0, info: '无法将自身设置为上级架构' });
+    }
+
+    // 检查循环引用：判断 newParentId 是否为 targetId 的子孙架构
+    let cur = targetParent;
+    while (cur && cur.parentId) {
+      if (cur.parentId === targetId) {
+        return res.status(400).json({ status: 0, info: '无法将架构归属至其自身的子架构下，避免循环引用' });
+      }
+      cur = archTypes.find((a) => a.id === cur.parentId);
+    }
+
+    arch.parentId = newParentId;
+    let d = 0;
+    let pCur = targetParent;
+    while (pCur && pCur.parentId && pCur.id !== 'arch_root') {
+      d++;
+      pCur = archTypes.find((a) => a.id === pCur.parentId);
+    }
+    arch.level = `L${Math.min(6, Math.max(1, d + 1))}`;
+    return res.json({ status: 1, data: arch, info: '流程架构归属变更成功' });
+  } else {
+    const flow = flows.find((f) => f.id === targetId);
+    if (!flow) {
+      return res.status(404).json({ status: 0, info: '未找到该业务流程' });
+    }
+    flow.parentId = newParentId;
+    flow.archName = targetParent ? targetParent.label : '企业流程架构全景';
+    return res.json({ status: 1, data: flow, info: '业务流程归属变更成功' });
+  }
+});
+
+// Free Drag & Drop node movement (position reorder & cross-level movement)
+app.post('/api/flow/moveNode', (req, res) => {
+  const { dragId, dragType, targetId, targetType, position } = req.body;
+  if (!dragId || !targetId || !position) {
+    return res.status(400).json({ status: 0, info: '缺少移动参数' });
+  }
+
+  // 1. Locate dragged item
+  let dragItem: any = dragType === 'arch' ? archTypes.find((a) => a.id === dragId) : flows.find((f) => f.id === dragId);
+  if (!dragItem) {
+    return res.status(404).json({ status: 0, info: '未找到被拖拽节点' });
+  }
+
+  // Root arch cannot be moved
+  if (dragType === 'arch' && (!dragItem.parentId || dragItem.id === 'arch_root')) {
+    return res.status(400).json({ status: 0, info: '根架构不允许移动' });
+  }
+
+  // 2. Locate target item
+  let targetItem: any = targetType === 'arch' ? archTypes.find((a) => a.id === targetId) : flows.find((f) => f.id === targetId);
+  if (!targetItem) {
+    return res.status(404).json({ status: 0, info: '未找到目标节点' });
+  }
+
+  // 3. Determine newParentId
+  let newParentId = '';
+  if (position === 'inside') {
+    if (targetType !== 'arch') {
+      return res.status(400).json({ status: 0, info: '流程节点无法作为父级包含子节点' });
+    }
+    newParentId = targetId;
+  } else {
+    newParentId = targetItem.parentId || 'arch_root';
+  }
+
+  // 4. Circular dependency check for arch
+  if (dragType === 'arch') {
+    if (newParentId === dragId) {
+      return res.status(400).json({ status: 0, info: '无法移动到自身内部' });
+    }
+    let cur = archTypes.find((a) => a.id === newParentId);
+    while (cur && cur.parentId) {
+      if (cur.parentId === dragId || cur.id === dragId) {
+        return res.status(400).json({ status: 0, info: '无法移动到自身的子孙架构下' });
+      }
+      cur = archTypes.find((a) => a.id === cur.parentId);
+    }
+  }
+
+  // 5. Update parentId and levels
+  const oldParentId = dragItem.parentId;
+  dragItem.parentId = newParentId;
+
+  if (dragType === 'arch') {
+    let d = 0;
+    let pCur = archTypes.find((a) => a.id === newParentId);
+    while (pCur && pCur.parentId && pCur.id !== 'arch_root') {
+      d++;
+      pCur = archTypes.find((a) => a.id === pCur.parentId);
+    }
+    dragItem.level = `L${Math.min(6, Math.max(1, d + 1))}`;
+  } else {
+    const pArch = archTypes.find((a) => a.id === newParentId);
+    dragItem.archName = pArch ? pArch.label : '企业流程架构全景';
+  }
+
+  // 6. Reorder siblings under newParentId
+  const sibArchs = archTypes.filter((a) => a.parentId === newParentId && a.id !== dragId);
+  const sibFlows = flows.filter((f) => f.parentId === newParentId && f.id !== dragId);
+
+  const siblings: Array<{ id: string; type: 'arch' | 'flow'; item: any; sortOrder: number }> = [
+    ...sibFlows.map((f, i) => ({ id: f.id, type: 'flow' as const, item: f, sortOrder: f.sortOrder ?? i })),
+    ...sibArchs.map((a, i) => ({ id: a.id, type: 'arch' as const, item: a, sortOrder: a.sortOrder ?? sibFlows.length + i })),
+  ].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  if (position === 'inside') {
+    siblings.push({ id: dragItem.id, type: dragType, item: dragItem, sortOrder: 9999 });
+  } else {
+    const targetIdx = siblings.findIndex((s) => s.id === targetId);
+    const insertIdx = position === 'before' ? (targetIdx === -1 ? 0 : targetIdx) : (targetIdx === -1 ? siblings.length : targetIdx + 1);
+    siblings.splice(insertIdx, 0, { id: dragItem.id, type: dragType, item: dragItem, sortOrder: 0 });
+  }
+
+  siblings.forEach((s, idx) => {
+    s.item.sortOrder = idx;
+  });
+
+  return res.json({
+    status: 1,
+    info: '节点移动与层级变更成功',
+    data: {
+      dragId,
+      dragType,
+      newParentId,
+      oldParentId,
+      position,
+    },
+  });
+});
+
+app.post('/api/flow/reorder', (req, res) => {
+  const { orderedItems } = req.body || {};
+  if (Array.isArray(orderedItems)) {
+    orderedItems.forEach((item: any, idx: number) => {
+      if (item.type === 'arch') {
+        const found = archTypes.find((a) => a.id === item.id);
+        if (found) found.sortOrder = idx;
+      } else {
+        const found = flows.find((f) => f.id === item.id);
+        if (found) found.sortOrder = idx;
+      }
+    });
+  }
+  res.json({ status: 1, info: '排序已保存' });
 });
 
 app.post('/api/flow/model/publish', (req, res) => {
@@ -2299,14 +2865,223 @@ app.post('/api/flow/model/publish', (req, res) => {
   res.json({ status: 1, data: { versionNo: nextVer }, list: flowAuditRecords, info: 'ok' });
 });
 
+// Helper to build realistic multi-version histories for any flow
+function getFlowVersionHistories(flow: any) {
+  const currentVer = flow?.versionNo || 'V2';
+  const verNum = parseInt(currentVer.replace(/\D/g, '')) || 2;
+  const versions: any[] = [];
+
+  if (flow?.id === 'flow_101' || flow?.flowNo === 'IPD-TR-001') {
+    // V2 (Current)
+    versions.push({
+      versionNo: 'V2',
+      versionId: 'ver_flow101_v2',
+      flowId: flow.id,
+      flowNo: flow.flowNo || 'IPD-TR-001',
+      label: flow.label || '1.1.2.1 技术评审主流程',
+      publishType: '生产升级发布',
+      publishUserName: flow.publishUserName || '系统管理员',
+      publishTime: flow.publishTime || '2025-06-22 20:12:27',
+      status: '已发布生效',
+      isCurrent: true,
+      ownerName: flow.ownerName || '系统管理员',
+      deptName: flow.deptName || '研发中心/计划阶段',
+      applicableScope: '研发规划部、质量控制部',
+      businessScope: '集成产品研发与方案评审',
+      purpose: '保障研发阶段性技术质量达标，强化TRB决议与交叉把关',
+      drivingRules: '研发评审规范与TR评审红线制度V2.1',
+      flowInput: 'TR阶段技术设计规格书、测试验证大纲、专家评审前置自查表',
+      flowOutput: 'TR技术评审决议书、整改闭环追踪表、阶段性准出证书',
+      flowStart: '系统工程师发起技术评审申请',
+      flowEnd: 'TRB决议裁决完成并签发批件',
+      flowKpi: '技术评审一次通过率 ≥ 85%，缺陷收敛闭环率 100%',
+      riskCompliance: '技术合规性与知识产权审查，严格遵循CCB基线红线',
+      changeSummary: '在V1基础上增设TRB决策委员会决议裁决环节，设立2处高危KCP关键控制点，拓宽适用范围至质量控制部。',
+      changeLogs: [
+        '新增环节【TRB决议裁决】（由评审委员会主导终审判断节点）',
+        '新增环节【问题收敛整改】（由研发工程师闭环缺陷跟踪）',
+        '在【同行交叉审查】环节引入KCP关键控制点，强化风险把关',
+        '原【主管签发审批】节点升级并纳入TRB裁决决议体系',
+        '适用范围扩展至“质量控制部”，增加质量合规审定',
+        '制度依据升级为《研发评审规范与TR评审红线制度V2.1》',
+      ],
+      roles: ['系统工程师 (Responsible)', '技术专家 (Consulted)', '研发工程师 (Responsible)', '评审委员会 (Accountable)'],
+      kcps: [
+        { code: 'KCP-TR-01', name: '同行交叉审查把关', role: '技术专家', riskDesc: '技术指标偏离设计规格或接口不兼容风险', controlMeasure: '至少2位资深架构师签署确认意见' },
+        { code: 'KCP-TR-02', name: 'TRB终审裁决决议', role: '评审委员会', riskDesc: '带病进入下一开发阶段导致重大流片/改版成本', controlMeasure: 'TRB全员投票决议通过方可归档' }
+      ],
+      sysDocs: ['《集成产品开发IPD管理手册》', '《TR评审红线制度V2.1》', '《产品技术质量成熟度评价准则》'],
+      xml: flow.xml || buildDefaultFlowXml('1.1.2.1 技术评审主流程', [
+        { title: '发起技术评审', role: '系统工程师', desc: '提请技术资料包', out: '评审申请表' },
+        { title: '同行交叉审查', role: '技术专家', desc: '开展同行专家交叉评议', out: '专家评审意见', kcp: true },
+        { title: '问题收敛整改', role: '研发工程师', desc: '针对评审问题项闭环追踪', out: '问题整改记录' },
+        { title: 'TRB决议裁决', role: '评审委员会', desc: '签发TR通过批件', out: 'TR评审决议', judge: true, kcp: true },
+      ]),
+    });
+
+    // V1 (Baseline)
+    versions.push({
+      versionNo: 'V1',
+      versionId: 'ver_flow101_v1',
+      flowId: flow.id,
+      flowNo: flow.flowNo || 'IPD-TR-001',
+      label: '1.1.2.1 技术评审主流程 (基础版)',
+      publishType: '初始基线发布',
+      publishUserName: '张三',
+      publishTime: '2025-01-15 11:20:00',
+      status: '历史版本 (已归档)',
+      isCurrent: false,
+      ownerName: '张三',
+      deptName: '研发中心/计划阶段',
+      applicableScope: '研发规划部',
+      businessScope: '集成产品研发',
+      purpose: '规范研发阶段性技术评审基本操作',
+      drivingRules: '研发评审规范草案V1.0',
+      flowInput: '技术规格书初稿',
+      flowOutput: '初版评审纪要',
+      flowStart: '项目组发起评审',
+      flowEnd: '部门主管签字确认',
+      flowKpi: '评审按期完成率 ≥ 80%',
+      riskCompliance: '基础合规审核',
+      changeSummary: '建立流程初始基线，确立基础3环节技术评审流程与单点审查。',
+      changeLogs: [
+        '确立基础3环节技术评审流程：发起技术评审、同行审查、主管签发审批',
+        '设立初始控制点KCP-01，仅限研发规划部内部执行',
+      ],
+      roles: ['系统工程师 (Responsible)', '技术专家 (Consulted)', '部门主管 (Accountable)'],
+      kcps: [
+        { code: 'KCP-TR-01', name: '同行审查把关', role: '技术专家', riskDesc: '初级技术偏离风险', controlMeasure: '同行技术员签字' }
+      ],
+      sysDocs: ['《集成产品开发IPD管理手册》'],
+      xml: buildDefaultFlowXml('1.1.2.1 技术评审主流程 (V1基准)', [
+        { title: '发起技术评审', role: '系统工程师', desc: '提请技术资料包', out: '评审申请表' },
+        { title: '同行审查', role: '技术专家', desc: '开展同行专家交叉评议', out: '专家评审意见' },
+        { title: '主管签发审批', role: '部门主管', desc: '部门经理终审确认', out: '审批意见单', judge: true },
+      ]),
+    });
+
+    return versions;
+  }
+
+  // Generic flow versions generator
+  const maxV = Math.max(2, verNum);
+  for (let v = maxV; v >= 1; v--) {
+    const vTag = `V${v}`;
+    const isCur = v === maxV;
+    const isBase = v === 1;
+
+    let vXml = flow.xml;
+    let vKcps = [
+      { code: `KCP-${v}-01`, name: `${flow.label || '流程'}关键审核`, role: flow.ownerName || '流程责任人', riskDesc: '业务操作不合规风险', controlMeasure: '双人复核审批' }
+    ];
+    let vDocs = ['《业务流程管理操作指引》'];
+    let vLogs = [`更新${vTag}版本流程配置，优化节点逻辑与权责清单`];
+
+    if (v === 1) {
+      vXml = buildDefaultFlowXml(`${flow.label || '流程'} (V1基线)`, [
+        { title: '初始业务发起', role: '经办人', desc: '发起业务事项', out: '发起单' },
+        { title: '部门审查', role: '主管', desc: '部门主管初核', out: '审核意见', judge: true },
+      ]);
+      vDocs = ['《业务流程管理操作指引(旧版)》'];
+      vLogs = ['初次发布建立系统基线流程'];
+    } else if (v === 2) {
+      vKcps.push({ code: `KCP-${v}-02`, name: '合规与风险终审', role: '风控总监', riskDesc: '关键控制点违规风险', controlMeasure: '风控系统自动化防线拦截' });
+      vDocs.push('《风险合规控制矩阵V2.0》');
+      vLogs = ['优化流转路径，增加合规与风险终审控制点', '提升时效指标考核权重'];
+    } else if (v >= 3) {
+      vKcps.push(
+        { code: `KCP-${v}-02`, name: '合规与风险终审', role: '风控总监', riskDesc: '关键控制点违规风险', controlMeasure: '风控系统自动化防线拦截' },
+        { code: `KCP-${v}-03`, name: '经营闭环决策', role: '分管副总裁', riskDesc: '经营目标偏离风险', controlMeasure: '月度经营例会决议' }
+      );
+      vDocs.push('《数字化运营与合规制度V3.0》', '《权责发生制清单》');
+      vLogs = ['引入全渠道自动验真与经营闭环决议节点', '关联数字化风险合规防线', '责任人权限精细化下沉'];
+    }
+
+    versions.push({
+      versionNo: vTag,
+      versionId: `ver_${flow.id}_${vTag.toLowerCase()}`,
+      flowId: flow.id,
+      flowNo: flow.flowNo || 'FLOW-001',
+      label: isBase ? `${flow.label} (基线版)` : flow.label,
+      publishType: isBase ? '初始基线发布' : (isCur ? '生产升级发布' : '修订发布'),
+      publishUserName: isBase ? '张三' : (flow.publishUserName || '系统管理员'),
+      publishTime: isCur ? (flow.publishTime || '2026-03-20 10:00:00') : `2025-0${Math.min(9, v + 2)}-15 10:30:00`,
+      status: isCur ? '已发布生效' : '历史版本 (已归档)',
+      isCurrent: isCur,
+      ownerName: isBase ? '张三' : (flow.ownerName || '系统管理员'),
+      deptName: flow.deptName || '数字化运营部',
+      applicableScope: isBase ? '部门内部' : (flow.applicableScope || '集团各相关中心/事业部'),
+      businessScope: flow.businessScope || '核心业务域',
+      purpose: flow.purpose || '提升端到端流程执行效率与风险把控',
+      drivingRules: isBase ? '初版操作规程草案' : (flow.drivingRules || '企业核心业务流程管理规范'),
+      flowInput: flow.flowInput || '业务启动申请表单与前置凭证',
+      flowOutput: flow.flowOutput || '最终审批决议与归档台账',
+      flowStart: flow.flowStart || '经办人发起申请',
+      flowEnd: flow.flowEnd || '决议归档完成',
+      flowKpi: isBase ? '达成率 ≥ 80%' : (flow.flowKpi || '端到端达成率 ≥ 95%'),
+      riskCompliance: flow.riskCompliance || '遵循内控合规手册要求',
+      changeSummary: isCur ? `当前${vTag}生效版本，已完成全面的业务优化与控制点强化。` : `历史版本${vTag}，归档于系统发布库。`,
+      changeLogs: vLogs,
+      roles: ['经办人 (Responsible)', '部门主管 (Accountable)', '风控专员 (Consulted)'],
+      kcps: vKcps,
+      sysDocs: vDocs,
+      xml: isCur ? (flow.xml || vXml) : vXml,
+    });
+  }
+
+  return versions;
+}
+
 app.get('/api/flow/model/publishVersionHistories', (req, res) => {
   const found = flows.find((f) => f.id === req.query.id) || flows[0];
+  const list = getFlowVersionHistories(found);
   res.json({
     status: 1,
-    data: [
-      { versionNo: found.versionNo || 'V2', publishType: '生产发布', publishUserName: '系统管理员', publishTime: found.publishTime || '2026-03-20 10:00:00' },
-      { versionNo: 'V1', publishType: '直接发布', publishUserName: '系统管理员', publishTime: '2025-06-15 11:20:00' },
-    ],
+    data: list,
+    info: 'ok',
+  });
+});
+
+app.get('/api/flow/type/publishVersionHistories', (req, res) => {
+  const targetId = req.query.id as string;
+  const foundArch = archTypes.find((a) => a.id === targetId) || archTypes[0];
+  const list = [
+    {
+      versionNo: 'V2',
+      versionId: `ver_arch_${foundArch.id}_v2`,
+      archId: foundArch.id,
+      archNo: foundArch.archNo || 'ARCH-001',
+      label: foundArch.label,
+      publishType: '架构基线发布',
+      publishUserName: foundArch.publishUserName || '系统管理员',
+      publishTime: foundArch.publishTime || '2026-03-17 15:17:22',
+      status: '已发布生效',
+      isCurrent: true,
+      ownerName: foundArch.ownerName || '系统管理员',
+      deptName: foundArch.deptName || '流程治理委员会',
+      changeSummary: '更新端到端架构视图与业务集成关系。',
+      changeLogs: ['完成L1-L3层级分类梳理与集成视图重绘', '关联下属关键业务流程'],
+    },
+    {
+      versionNo: 'V1',
+      versionId: `ver_arch_${foundArch.id}_v1`,
+      archId: foundArch.id,
+      archNo: foundArch.archNo || 'ARCH-001',
+      label: `${foundArch.label} (初始架构版)`,
+      publishType: '初始建档发布',
+      publishUserName: '张三',
+      publishTime: '2025-05-10 09:30:00',
+      status: '历史版本 (已归档)',
+      isCurrent: false,
+      ownerName: '张三',
+      deptName: foundArch.deptName || '企业规划部',
+      changeSummary: '企业架构梳理首期初始化建档。',
+      changeLogs: ['初始化架构节点定义'],
+    },
+  ];
+  res.json({
+    status: 1,
+    data: list,
     info: 'ok',
   });
 });
@@ -2678,28 +3453,219 @@ app.get('/api/flow/repeals', (_req, res) => {
 });
 
 app.post('/api/flow/repeal/apply', (req, res) => {
-  const { modelId, reason, replaceFlowName } = req.body || {};
+  const { modelId, reasonType, reason, replaceFlowName, impactScope, applicant } = req.body || {};
   const targetFlow = flows.find((f) => f.id === modelId) || flows[0];
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const repId = 'repeal_' + Date.now().toString(36);
+
+  targetFlow.repealApplyStatus = '待审核';
+  targetFlow.repealApplyId = repId;
+
   const newRec = {
-    id: 'repeal_' + Date.now().toString(36),
+    id: repId,
     modelId: targetFlow.id,
     flowCode: targetFlow.flowNo,
     flowName: targetFlow.label,
-    versionNo: targetFlow.versionNo,
-    archPath: targetFlow.archName,
-    reason,
-    replaceFlowName,
-    status: '待审核',
-    applyTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    versionNo: targetFlow.versionNo || 'V1',
+    flowLevel: targetFlow.flowLevel || 'L3',
+    archId: targetFlow.parentId,
+    archPath: targetFlow.archName || '企业流程架构全景',
+    ownerName: targetFlow.ownerName || '系统管理员',
+    reasonType: reasonType || '业务模式变革调整',
+    reason: reason || '业务优化升级与流程整合',
+    replaceFlowName: replaceFlowName || '',
+    impactScope: impactScope || '全公司相关业务部门',
+    applicant: applicant || currentActiveUser?.userName || '流程管理员',
+    applyTime: nowStr,
+    stage: '待部门审批',
+    status: '待部门审批',
+    approvalLogs: [
+      {
+        stepName: '发起建议废止',
+        role: '流程责任人 / 发起人',
+        operator: applicant || currentActiveUser?.userName || '流程管理员',
+        action: '已提交申请',
+        time: nowStr,
+        opinion: reason || '发起流程废止审批申请',
+      },
+      {
+        stepName: '部门流程负责人审批',
+        role: '业务部门总监',
+        operator: '业务总监 (李维)',
+        action: '待审批',
+        time: '',
+        opinion: '',
+      },
+      {
+        stepName: '流程运营合规复核',
+        role: '流程合规经理',
+        operator: '合规专家 (王志敏)',
+        action: '待审核',
+        time: '',
+        opinion: '',
+      },
+      {
+        stepName: '集团流程管理员确认并归档',
+        role: '集团流程管理部',
+        operator: '集团流程管理员',
+        action: '待归档确认',
+        time: '',
+        opinion: '',
+      },
+    ],
   };
+
   flowRepealRecords.unshift(newRec);
   res.json({ status: 1, data: newRec, list: flowRepealRecords, info: 'ok' });
+});
+
+// 多级审批推进
+app.post('/api/flow/repeal/approveStep', (req, res) => {
+  const { id, action, opinion, operator } = req.body || {};
+  const target = flowRepealRecords.find((r) => r.id === id);
+  if (!target) return res.status(404).json({ status: 0, info: '未找到废止申请记录' });
+
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const targetFlow = flows.find((f) => f.id === target.modelId);
+
+  if (action === 'reject') {
+    target.stage = '已驳回';
+    target.status = '已驳回';
+    if (!target.approvalLogs) target.approvalLogs = [];
+    target.approvalLogs.push({
+      stepName: '审批驳回',
+      role: '审批责任人',
+      operator: operator || currentActiveUser?.userName || '审批人员',
+      action: '已驳回',
+      time: nowStr,
+      opinion: opinion || '不满足废止条件，予以驳回',
+    });
+    if (targetFlow) {
+      targetFlow.repealApplyStatus = '已驳回';
+    }
+    return res.json({ status: 1, data: target, list: flowRepealRecords, info: '已驳回废止申请' });
+  }
+
+  // 审批通过推进节点
+  if (target.stage === '待部门审批' || target.status === '待部门审批') {
+    target.stage = '待合规复核';
+    target.status = '待合规复核';
+    const logItem = (target.approvalLogs || []).find((l: any) => l.stepName === '部门流程负责人审批');
+    if (logItem) {
+      logItem.action = '审批通过';
+      logItem.time = nowStr;
+      logItem.operator = operator || logItem.operator;
+      logItem.opinion = opinion || '同意建议废止，业务衔接方案合理。';
+    }
+  } else if (target.stage === '待合规复核' || target.status === '待合规复核') {
+    target.stage = '待集团流程管理员确认归档';
+    target.status = '待集团流程管理员确认归档';
+    const logItem = (target.approvalLogs || []).find((l: any) => l.stepName === '流程运营合规复核');
+    if (logItem) {
+      logItem.action = '审核通过';
+      logItem.time = nowStr;
+      logItem.operator = operator || logItem.operator;
+      logItem.opinion = opinion || '制度与合规影响评估完成，准予进入集团归档阶段。';
+    }
+  }
+
+  res.json({ status: 1, data: target, list: flowRepealRecords, info: '审批已通过并流转下一节点' });
+});
+
+// 最终批准：集团流程管理员进行确认并归档
+app.post('/api/flow/repeal/confirmArchive', (req, res) => {
+  const { id, opinion, operator } = req.body || {};
+  const target = flowRepealRecords.find((r) => r.id === id);
+  if (!target) return res.status(404).json({ status: 0, info: '未找到废止申请记录' });
+
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const targetFlow = flows.find((f) => f.id === target.modelId);
+  const archiveNo = 'ARC-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(100 + Math.random() * 900);
+
+  target.stage = '已废止归档';
+  target.status = '已废止归档';
+  target.archiveNo = archiveNo;
+  target.archiveUser = operator || currentActiveUser?.userName || '集团流程管理员';
+  target.archiveTime = nowStr;
+  target.archiveOpinion = opinion || '经集团流程管理部最终核验，所有关联业务已顺利割接，正式废止并归档入库。';
+
+  const logItem = (target.approvalLogs || []).find((l: any) => l.stepName === '集团流程管理员确认并归档');
+  if (logItem) {
+    logItem.action = '已确认并归档';
+    logItem.time = nowStr;
+    logItem.operator = target.archiveUser;
+    logItem.opinion = target.archiveOpinion;
+  }
+
+  if (targetFlow) {
+    targetFlow.status = 'repealed';
+    targetFlow.repealApplyStatus = '已废止归档';
+    targetFlow.repealedTime = nowStr;
+    targetFlow.repealedBy = target.archiveUser;
+    targetFlow.archiveNo = archiveNo;
+  }
+
+  res.json({ status: 1, data: target, list: flowRepealRecords, info: '流程已完成集团确认并归档入库' });
+});
+
+// 核心功能：还原已废止流程
+app.post('/api/flow/repeal/restore', (req, res) => {
+  const { id, modelId, targetParentId, restoreStatus, restoreReason, operator } = req.body || {};
+  const repealRecord = flowRepealRecords.find((r) => r.id === id || r.modelId === modelId);
+  const targetFlow = flows.find((f) => f.id === (modelId || repealRecord?.modelId));
+
+  if (!targetFlow) {
+    return res.status(404).json({ status: 0, info: '未找到对应业务流程数据' });
+  }
+
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+  // 恢复流程状态
+  targetFlow.status = restoreStatus || 'published';
+  targetFlow.repealApplyStatus = '';
+  delete targetFlow.repealedTime;
+  delete targetFlow.repealedBy;
+  targetFlow.restoredTime = nowStr;
+  targetFlow.restoredBy = operator || currentActiveUser?.userName || '集团流程管理员';
+  targetFlow.restoreReason = restoreReason || '业务重启恢复启用';
+
+  // 支持还原至原架构或指定新架构
+  if (targetParentId) {
+    targetFlow.parentId = targetParentId;
+    const parentArch = archTypes.find((a) => a.id === targetParentId);
+    if (parentArch) {
+      targetFlow.archName = parentArch.label;
+    }
+  }
+
+  if (repealRecord) {
+    repealRecord.status = '已还原';
+    repealRecord.stage = '已还原';
+    if (!repealRecord.restoreLogs) repealRecord.restoreLogs = [];
+    repealRecord.restoreLogs.unshift({
+      time: nowStr,
+      operator: targetFlow.restoredBy,
+      targetArch: targetFlow.archName,
+      restoreStatus: targetFlow.status,
+      reason: restoreReason || '因业务需要重新启用并还原入库',
+    });
+  }
+
+  res.json({ status: 1, data: targetFlow, repealRecord, info: '流程已成功还原' });
 });
 
 app.post('/api/flow/repeal/action', (req, res) => {
   const { id, action } = req.body || {};
   const target = flowRepealRecords.find((r) => r.id === id);
-  if (target && action === 'approve') target.status = '已废止';
+  if (target && action === 'approve') {
+    target.status = '已废止归档';
+    target.stage = '已废止归档';
+    const flowItem = flows.find((f) => f.id === target.modelId);
+    if (flowItem) {
+      flowItem.status = 'repealed';
+      flowItem.repealApplyStatus = '已废止归档';
+    }
+  }
   res.json({ status: 1, data: target, list: flowRepealRecords, info: 'ok' });
 });
 
@@ -3332,6 +4298,41 @@ app.post('/api/flowdoc/manuals/:id/archive', (req, res) => {
 });
 
 // Category tree operations
+function findCategoryInTree(tree: any[], id: string): any | null {
+  if (!Array.isArray(tree)) return null;
+  for (const node of tree) {
+    if (node.id === id) return node;
+    if (Array.isArray(node.children) && node.children.length > 0) {
+      const found = findCategoryInTree(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function removeCategoryFromTree(tree: any[], id: string): any | null {
+  if (!Array.isArray(tree)) return null;
+  for (let i = 0; i < tree.length; i++) {
+    if (tree[i].id === id) {
+      return tree.splice(i, 1)[0];
+    }
+    if (Array.isArray(tree[i].children) && tree[i].children.length > 0) {
+      const removed = removeCategoryFromTree(tree[i].children, id);
+      if (removed) return removed;
+    }
+  }
+  return null;
+}
+
+function isDescendantCategory(node: any, targetId: string): boolean {
+  if (!node || !Array.isArray(node.children)) return false;
+  for (const child of node.children) {
+    if (child.id === targetId) return true;
+    if (isDescendantCategory(child, targetId)) return true;
+  }
+  return false;
+}
+
 app.post('/api/flowdoc/manuals/:id/categories', (req, res) => {
   const target = dutyManuals.find((m) => m.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到该手册' });
@@ -3339,22 +4340,24 @@ app.post('/api/flowdoc/manuals/:id/categories', (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ status: 0, info: '分类名称不能为空' });
 
   if (!Array.isArray(target.categoryTree)) target.categoryTree = [];
+  const targetParentId = parentId ? String(parentId).trim() : null;
   const newCat: any = {
-    id: 'cat_' + Date.now().toString(36),
+    id: 'cat_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6),
     name: name.trim(),
-    parentId: parentId || null,
+    parentId: targetParentId,
     orderNum: 99,
+    children: [],
   };
 
-  if (!parentId) {
-    newCat.children = [];
+  if (!targetParentId) {
     target.categoryTree.push(newCat);
   } else {
-    const parent = target.categoryTree.find((r: any) => r.id === parentId);
+    const parent = findCategoryInTree(target.categoryTree, targetParentId);
     if (parent) {
       if (!Array.isArray(parent.children)) parent.children = [];
       parent.children.push(newCat);
     } else {
+      newCat.parentId = null;
       target.categoryTree.push(newCat);
     }
   }
@@ -3365,22 +4368,50 @@ app.post('/api/flowdoc/manuals/:id/categories', (req, res) => {
 app.put('/api/flowdoc/manuals/:id/categories/:catId', (req, res) => {
   const target = dutyManuals.find((m) => m.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到该手册' });
-  const { name } = req.body || {};
-  if (!name || !name.trim()) return res.status(400).json({ status: 0, info: '分类名称不能为空' });
+  const { name, parentId } = req.body || {};
+  if (name !== undefined && !name.trim()) return res.status(400).json({ status: 0, info: '分类名称不能为空' });
 
-  let found = false;
-  target.categoryTree?.forEach((r: any) => {
-    if (r.id === req.params.catId) {
-      r.name = name.trim();
-      found = true;
-    }
-    r.children?.forEach((c: any) => {
-      if (c.id === req.params.catId) {
-        c.name = name.trim();
-        found = true;
+  if (!Array.isArray(target.categoryTree)) target.categoryTree = [];
+  const existingNode = findCategoryInTree(target.categoryTree, req.params.catId);
+  if (!existingNode) return res.status(404).json({ status: 0, info: '未找到该分类' });
+
+  if (name && name.trim()) {
+    existingNode.name = name.trim();
+  }
+
+  // Support changing directory / hierarchy parent
+  if (parentId !== undefined) {
+    const targetParentId = parentId ? String(parentId).trim() : null;
+    const currentParentId = existingNode.parentId || null;
+
+    if (targetParentId !== currentParentId) {
+      if (targetParentId === req.params.catId) {
+        return res.status(400).json({ status: 0, info: '不能选择自身作为上级目录' });
       }
-    });
-  });
+      if (targetParentId && isDescendantCategory(existingNode, targetParentId)) {
+        return res.status(400).json({ status: 0, info: '不能选择下级子分类作为上级目录' });
+      }
+
+      const detachedNode = removeCategoryFromTree(target.categoryTree, req.params.catId);
+      if (detachedNode) {
+        detachedNode.parentId = targetParentId;
+        if (!targetParentId) {
+          target.categoryTree.push(detachedNode);
+        } else {
+          const newParent = findCategoryInTree(target.categoryTree, targetParentId);
+          if (newParent) {
+            if (!Array.isArray(newParent.children)) newParent.children = [];
+            newParent.children.push(detachedNode);
+          } else {
+            detachedNode.parentId = null;
+            target.categoryTree.push(detachedNode);
+          }
+        }
+      }
+    }
+  }
+
+  recalculateManualCounts(target);
   res.json({ status: 1, data: target.categoryTree, info: '更新分类成功' });
 });
 
@@ -3388,17 +4419,7 @@ app.delete('/api/flowdoc/manuals/:id/categories/:catId', (req, res) => {
   const target = dutyManuals.find((m) => m.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到该手册' });
 
-  const rootIdx = target.categoryTree?.findIndex((r: any) => r.id === req.params.catId);
-  if (rootIdx !== undefined && rootIdx !== -1) {
-    target.categoryTree.splice(rootIdx, 1);
-  } else {
-    target.categoryTree?.forEach((r: any) => {
-      const cIdx = r.children?.findIndex((c: any) => c.id === req.params.catId);
-      if (cIdx !== undefined && cIdx !== -1) {
-        r.children.splice(cIdx, 1);
-      }
-    });
-  }
+  removeCategoryFromTree(target.categoryTree || [], req.params.catId);
   recalculateManualCounts(target);
   res.json({ status: 1, data: target.categoryTree, info: '删除分类成功' });
 });
@@ -4044,6 +5065,53 @@ app.get('/api/org/bundle', (_req, res) => {
     },
     info: 'ok',
   });
+});
+
+app.post('/api/org/roles', (req, res) => {
+  const { roleName, roleKey, roleType = '自定义角色', dataScope = '本部门数据', menuPermissions = ['协同工作', '流程资产'], remark = '' } = req.body || {};
+  if (!roleName || !roleName.trim()) {
+    return res.status(400).json({ status: 0, info: '角色名称不能为空' });
+  }
+  const newR = {
+    id: 'orole_' + Math.random().toString(36).substring(2, 8),
+    roleNo: orgRoles.length + 1,
+    roleName: roleName.trim(),
+    roleKey: roleKey ? roleKey.trim() : 'role_' + Math.random().toString(36).substring(2, 6),
+    roleType,
+    roleSort: orgRoles.length + 1,
+    dataScope,
+    boundPositions: ['业务人员'],
+    menuPermissions,
+    userCount: 0,
+    status: '0',
+    remark: remark || '自定义业务角色',
+    createTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  };
+  orgRoles.push(newR);
+  res.json({ status: 1, data: newR, list: orgRoles, info: '新增角色成功' });
+});
+
+app.put('/api/org/roles/:id', (req, res) => {
+  const target = orgRoles.find((r) => r.id === req.params.id);
+  if (!target) return res.status(404).json({ status: 0, info: '未找到指定角色' });
+  Object.assign(target, req.body);
+  res.json({ status: 1, data: target, list: orgRoles, info: '角色信息已更新' });
+});
+
+app.delete('/api/org/roles/:id', (req, res) => {
+  if (req.params.id === 'orole_1') {
+    return res.status(400).json({ status: 0, info: '超级管理员角色不允许删除' });
+  }
+  orgRoles = orgRoles.filter((r) => r.id !== req.params.id);
+  res.json({ status: 1, list: orgRoles, info: '角色已成功删除' });
+});
+
+app.post('/api/org/roles/:id/permissions', (req, res) => {
+  const target = orgRoles.find((r) => r.id === req.params.id);
+  if (!target) return res.status(404).json({ status: 0, info: '未找到指定角色' });
+  const { menuPermissions = [] } = req.body || {};
+  target.menuPermissions = menuPermissions;
+  res.json({ status: 1, data: target, list: orgRoles, info: '角色权限配置已保存并即时生效' });
 });
 
 app.post('/api/org/depts', (req, res) => {
@@ -5321,7 +6389,111 @@ app.post('/api/system/license/activate', (req, res) => {
 });
 
 app.get('/api/system/apis', (_req, res) => {
-  res.json({ status: 1, data: { list: systemApis, allTotal: systemApis.length, activeCount: 2, totalCalls: 1800 }, info: 'ok' });
+  const activeCount = systemApis.filter((a) => a.status === '启用').length;
+  res.json({
+    status: 1,
+    data: {
+      list: systemApis,
+      allTotal: systemApis.length,
+      activeCount,
+      totalCalls: 38240,
+    },
+    list: systemApis,
+    info: 'ok',
+  });
+});
+
+app.post('/api/system/apis', (req, res) => {
+  const { apiName, apiPath, method = 'GET', category = 'collab', status = '启用', authType = 'Bearer Token', rateLimit = '60次/分钟', description = '', sampleResponse = '{}' } = req.body;
+  if (!apiName || !apiPath) {
+    return res.status(400).json({ status: 0, info: '接口名称与路径必填' });
+  }
+  const newApi = {
+    id: systemApis.length > 0 ? Math.max(...systemApis.map((a) => a.id || 0)) + 1 : 1,
+    apiName: apiName.trim(),
+    apiPath: apiPath.trim(),
+    method: method.toUpperCase(),
+    category,
+    status,
+    authType,
+    rateLimit,
+    description,
+    sampleResponse,
+    createTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  };
+  systemApis.unshift(newApi);
+  res.json({ status: 1, data: newApi, list: systemApis, info: 'API 接口已成功注册并发布' });
+});
+
+app.put('/api/system/apis/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const idx = systemApis.findIndex((a) => a.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ status: 0, info: '未找到指定 API 接口' });
+  }
+  systemApis[idx] = {
+    ...systemApis[idx],
+    ...req.body,
+    id,
+  };
+  res.json({ status: 1, data: systemApis[idx], list: systemApis, info: 'API 接口已成功更新' });
+});
+
+app.delete('/api/system/apis/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  systemApis = systemApis.filter((a) => a.id !== id);
+  res.json({ status: 1, list: systemApis, info: 'API 接口已删除' });
+});
+
+app.post('/api/system/apis/reset', (_req, res) => {
+  systemApis = JSON.parse(JSON.stringify(defaultSystemApis));
+  res.json({ status: 1, list: systemApis, info: '已成功重置为系统出厂预置 API 规范' });
+});
+
+app.post('/api/system/apis/debug', async (req, res) => {
+  const { apiPath, method = 'GET', headers = {}, body } = req.body;
+  const start = Date.now();
+  try {
+    const target = systemApis.find((a) => a.apiPath === apiPath && a.method === method.toUpperCase());
+    const latency = Math.floor(Math.random() * 25) + 12; // Realistic 12-37ms response
+    let responseData: any;
+    if (target?.sampleResponse) {
+      try {
+        responseData = JSON.parse(target.sampleResponse);
+      } catch {
+        responseData = { code: 200, message: 'success', data: target.sampleResponse };
+      }
+    } else {
+      responseData = {
+        code: 200,
+        message: 'success',
+        timestamp: new Date().toISOString(),
+        echo: { apiPath, method, requestBody: body },
+      };
+    }
+    res.json({
+      status: 1,
+      httpStatus: 200,
+      statusText: 'OK',
+      latencyMs: latency,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'x-powered-by': 'QingProcess Enterprise Gateway',
+        'x-request-id': `req_${Math.random().toString(36).slice(2, 10)}`,
+        'x-rate-limit-remaining': '119',
+      },
+      data: responseData,
+      info: '在线调试调用成功',
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      status: 0,
+      httpStatus: 500,
+      statusText: 'Internal Error',
+      latencyMs: Date.now() - start,
+      info: err.message || '调试执行失败',
+    });
+  }
 });
 
 app.get('/api/system/forms', (_req, res) => {

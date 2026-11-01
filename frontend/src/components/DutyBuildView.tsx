@@ -59,6 +59,102 @@ export interface CategoryTreeNode {
   children?: CategoryTreeNode[];
 }
 
+// Recursive helper to find any node in category tree
+export function findCategoryNodeInTree(nodes: CategoryTreeNode[], id: string): CategoryTreeNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children && node.children.length > 0) {
+      const found = findCategoryNodeInTree(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Helper to get full breadcrumb path of CategoryTreeNodes from root to target
+export function getCategoryPathList(
+  nodes: CategoryTreeNode[],
+  targetId: string,
+  currentPath: CategoryTreeNode[] = []
+): CategoryTreeNode[] | null {
+  for (const node of nodes) {
+    const nextPath = [...currentPath, node];
+    if (node.id === targetId) return nextPath;
+    if (node.children && node.children.length > 0) {
+      const found = getCategoryPathList(node.children, targetId, nextPath);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Check if testNodeId is a descendant of ancestorNode
+export function isCategoryDescendant(ancestorNode: CategoryTreeNode, testNodeId: string): boolean {
+  if (!ancestorNode.children || ancestorNode.children.length === 0) return false;
+  for (const child of ancestorNode.children) {
+    if (child.id === testNodeId) return true;
+    if (isCategoryDescendant(child, testNodeId)) return true;
+  }
+  return false;
+}
+
+// Flatten category tree into directory catalog options for selection
+export interface FlatCategoryOption {
+  id: string | null;
+  name: string;
+  level: number;
+  pathText: string;
+  disabled?: boolean;
+}
+
+export function flattenCategoryCatalog(
+  nodes: CategoryTreeNode[],
+  currentEditingId?: string | null,
+  currentLevel = 1,
+  prefixPath = '',
+  parentDisabled = false
+): FlatCategoryOption[] {
+  const result: FlatCategoryOption[] = [];
+
+  for (const node of nodes) {
+    const currentPath = prefixPath ? `${prefixPath} / ${node.name}` : node.name;
+    const isEditingSelf = currentEditingId ? node.id === currentEditingId : false;
+    const isDisabled = parentDisabled || isEditingSelf;
+
+    result.push({
+      id: node.id,
+      name: node.name,
+      level: currentLevel,
+      pathText: currentPath,
+      disabled: isDisabled,
+    });
+
+    if (node.children && node.children.length > 0) {
+      const childOptions = flattenCategoryCatalog(
+        node.children,
+        currentEditingId,
+        currentLevel + 1,
+        currentPath,
+        isDisabled
+      );
+      result.push(...childOptions);
+    }
+  }
+
+  return result;
+}
+
+// Get all descendant IDs of a category node
+export function getAllDescendantIds(node: CategoryTreeNode): string[] {
+  const ids = [node.id];
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      ids.push(...getAllDescendantIds(child));
+    }
+  }
+  return ids;
+}
+
 export type ApprovalRoleType = '通用' | '职位' | '人员';
 
 export interface ApprovalRoleItem {
@@ -456,16 +552,18 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
   const [dutyPageSize, setDutyPageSize] = useState(10);
   const [dutyPageJump, setDutyPageJump] = useState('1');
 
-  // Category Tree Modals
+  // Category Tree Modals (支持从目录中选择挂载目录并实时呈现层级关系)
   const [categoryActionModal, setCategoryActionModal] = useState<{
     open: boolean;
-    mode: 'createChild' | 'edit' | 'createRoot' | 'sort';
+    mode: 'create' | 'edit';
     targetNode: CategoryTreeNode | null;
+    selectedParentId: string | null;
     name: string;
   }>({
     open: false,
-    mode: 'createChild',
+    mode: 'create',
     targetNode: null,
+    selectedParentId: null,
     name: '',
   });
 
@@ -788,29 +886,61 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
 
   // =================== CONTENT CONFIG LOGIC (内容配置业务逻辑) ===================
 
-  // Find selected category name
+  // Find selected category node recursively
   const selectedCategoryNode = useMemo(() => {
-    for (const root of categoryTree) {
-      if (root.id === selectedCategoryId) return root;
-      if (root.children) {
-        const found = root.children.find((c) => c.id === selectedCategoryId);
-        if (found) return found;
-      }
-    }
-    return null;
+    if (!selectedCategoryId) return null;
+    return findCategoryNodeInTree(categoryTree, selectedCategoryId);
   }, [categoryTree, selectedCategoryId]);
 
-  // Filter duty items based on category, status, name, no
+  // Selected category full breadcrumb path list
+  const selectedCategoryPath = useMemo(() => {
+    if (!selectedCategoryId) return [];
+    return getCategoryPathList(categoryTree, selectedCategoryId) || [];
+  }, [categoryTree, selectedCategoryId]);
+
+  // Flattened directory catalog options for category create/edit (从目录中选择某一个目录)
+  const categoryCatalogOptions = useMemo(() => {
+    const flat = flattenCategoryCatalog(
+      categoryTree,
+      categoryActionModal.mode === 'edit' ? categoryActionModal.targetNode?.id : null
+    );
+    return [
+      {
+        id: null,
+        name: '根目录（作为顶级主分类，无上级目录）',
+        level: 0,
+        pathText: '根目录 (Top Level)',
+        disabled: false,
+      },
+      ...flat,
+    ];
+  }, [categoryTree, categoryActionModal.mode, categoryActionModal.targetNode]);
+
+  // Full breadcrumb path of the selected parent directory in modal
+  const modalSelectedParentPath = useMemo(() => {
+    if (!categoryActionModal.selectedParentId) return [];
+    return getCategoryPathList(categoryTree, categoryActionModal.selectedParentId) || [];
+  }, [categoryTree, categoryActionModal.selectedParentId]);
+
+  // Target hierarchy level of the category being created or edited
+  const modalTargetLevel = (modalSelectedParentPath.length || 0) + 1;
+
+  // Filter duty items based on category (matches node or its descendants), status, name, no
   const filteredDutyItems = useMemo(() => {
+    const descendantCategoryIds = selectedCategoryNode
+      ? getAllDescendantIds(selectedCategoryNode)
+      : [];
+
     return dutyItems.filter((item) => {
-      // Category filter: if a specific category is selected, check if it matches categoryId or categoryName
+      // Category filter: match item's categoryId or categoryName
       if (selectedCategoryId && selectedCategoryNode) {
-        const isRoot = categoryTree.some((r) => r.id === selectedCategoryId);
-        if (!isRoot) {
-          if (item.categoryId !== selectedCategoryId && item.categoryName !== selectedCategoryNode.name) {
-            // Also allow if parent matches
-            // check child
-          }
+        const matchesId = item.categoryId && descendantCategoryIds.includes(item.categoryId);
+        const matchesName = item.categoryName && (
+          item.categoryName === selectedCategoryNode.name ||
+          (selectedCategoryNode.children && selectedCategoryNode.children.some((c) => c.name === item.categoryName))
+        );
+        if (!matchesId && !matchesName) {
+          return false;
         }
       }
       // Status filter
@@ -888,45 +1018,55 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
 
   const handleSaveCategoryModal = async () => {
     if (!selectedManual) return;
-    const { mode, targetNode, name } = categoryActionModal;
+    const { mode, targetNode, selectedParentId, name } = categoryActionModal;
     if (!name.trim()) {
       showToast('请输入分类名称', 'warning');
       return;
     }
 
     try {
-      if (mode === 'createChild' && targetNode) {
+      if (mode === 'create') {
         const res = await fetch(`/api/flowdoc/manuals/${selectedManual.id}/categories`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), parentId: targetNode.id }),
+          body: JSON.stringify({
+            name: name.trim(),
+            parentId: selectedParentId || null,
+          }),
         }).then((r) => r.json());
+
         if (res.status === 1) {
-          showToast(`已创建子分类【${name.trim()}】`, 'success');
+          const parentName = selectedParentId
+            ? findCategoryNodeInTree(res.data, selectedParentId)?.name || '指定目录'
+            : '根目录';
+          showToast(`已在【${parentName}】下成功创建分类【${name.trim()}】`, 'success');
           setCategoryTree(res.data);
-          setCategoryActionModal({ ...categoryActionModal, open: false });
-        }
-      } else if (mode === 'createRoot') {
-        const res = await fetch(`/api/flowdoc/manuals/${selectedManual.id}/categories`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), parentId: null }),
-        }).then((r) => r.json());
-        if (res.status === 1) {
-          showToast(`已创建根分类【${name.trim()}】`, 'success');
-          setCategoryTree(res.data);
-          setCategoryActionModal({ ...categoryActionModal, open: false });
+          if (selectedParentId) {
+            setExpandedNodeIds((prev) => ({ ...prev, [selectedParentId]: true }));
+          }
+          setCategoryActionModal((prev) => ({ ...prev, open: false }));
+        } else {
+          showToast(res.info || '创建分类失败', 'error');
         }
       } else if (mode === 'edit' && targetNode) {
         const res = await fetch(`/api/flowdoc/manuals/${selectedManual.id}/categories/${targetNode.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim() }),
+          body: JSON.stringify({
+            name: name.trim(),
+            parentId: selectedParentId || null,
+          }),
         }).then((r) => r.json());
+
         if (res.status === 1) {
-          showToast(`已更新分类名称为【${name.trim()}】`, 'success');
+          showToast(`已成功更新分类【${name.trim()}】及其层级架构关系`, 'success');
           setCategoryTree(res.data);
-          setCategoryActionModal({ ...categoryActionModal, open: false });
+          if (selectedParentId) {
+            setExpandedNodeIds((prev) => ({ ...prev, [selectedParentId]: true }));
+          }
+          setCategoryActionModal((prev) => ({ ...prev, open: false }));
+        } else {
+          showToast(res.info || '更新分类失败', 'error');
         }
       }
     } catch {
@@ -1203,6 +1343,90 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
     }
   };
 
+  // Recursive category tree renderer supporting arbitrary levels (L1, L2, L3, L4...)
+  const renderCategoryNodeList = (nodes: CategoryTreeNode[], depth = 0) => {
+    return nodes.map((node) => {
+      const isExpanded = !!expandedNodeIds[node.id];
+      const isSelected = selectedCategoryId === node.id;
+      const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+      const indentPx = 6 + depth * 14;
+
+      return (
+        <div key={node.id} className="space-y-0.5">
+          <div
+            onClick={() => setSelectedCategoryId(node.id)}
+            style={{ paddingLeft: `${indentPx}px` }}
+            className={`flex items-center justify-between pr-2 py-1.5 rounded cursor-pointer transition-colors group relative ${
+              isSelected
+                ? 'bg-[#e6f7ff] text-[#1890ff] font-medium'
+                : 'text-[#262626] hover:bg-[#f5f5f5]'
+            }`}
+            title={`层级: 第 ${depth + 1} 级 · ${node.name}`}
+          >
+            <div className="flex items-center gap-1.5 truncate min-w-0">
+              {hasChildren ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedNodeIds((prev) => ({
+                      ...prev,
+                      [node.id]: !prev[node.id],
+                    }));
+                  }}
+                  className="p-0.5 text-[#8c8c8c] hover:text-[#262626] shrink-0"
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              ) : (
+                <span className="w-3.5 shrink-0" />
+              )}
+              {hasChildren ? (
+                isExpanded ? (
+                  <FolderOpen className="w-3.5 h-3.5 text-[#1890ff] shrink-0" />
+                ) : (
+                  <Folder className="w-3.5 h-3.5 text-[#faad14] shrink-0" />
+                )
+              ) : (
+                <Network className="w-3 h-3 text-[#8c8c8c] shrink-0" />
+              )}
+              <span className="truncate">{node.name}</span>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <span className="text-[10px] text-[#bfbfbf] bg-[#fafafa] px-1 rounded font-mono border border-[#f0f0f0] group-hover:hidden">
+                L{depth + 1}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => handleOpenCategoryMenu(e, node)}
+                className={`p-1 rounded cursor-pointer transition-opacity ${
+                  isSelected
+                    ? 'opacity-100 text-[#1890ff]'
+                    : 'opacity-0 group-hover:opacity-100 text-[#8c8c8c] hover:text-[#1890ff]'
+                }`}
+                title="分类操作（创建子分类 / 编辑分类 / 删除）"
+              >
+                <Edit3 className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
+          {/* Recursive children rendering */}
+          {hasChildren && isExpanded && (
+            <div className="space-y-0.5">
+              {renderCategoryNodeList(node.children!, depth + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
+
   // =================== RENDER: VIEW 2 - CONTENT CONFIG (设计稿 image_27c1af07.png) ===================
   if (viewMode === 'contentConfig' && selectedManual) {
     const isAllSelected =
@@ -1234,112 +1458,64 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
         {/* Main Content: Split Layout (Left: 权责分类 Tree, Right: Filter + Table) */}
         <div className="flex-1 flex gap-3 min-h-[580px] overflow-hidden">
           {/* Left Panel: 权责分类 Tree (Design Draft Left Column) */}
-          <div className="w-[230px] bg-white rounded border border-[#ebeef5] flex flex-col shrink-0 shadow-xs overflow-hidden">
-            <div className="p-3.5 border-b border-[#f0f0f0] flex items-center justify-between bg-[#fafafa]">
-              <span className="text-xs font-bold text-[#262626]">权责分类</span>
+          <div className="w-[240px] bg-white rounded border border-[#ebeef5] flex flex-col shrink-0 shadow-xs overflow-hidden">
+            <div className="p-3 border-b border-[#f0f0f0] flex items-center justify-between bg-[#fafafa]">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-[#262626]">权责分类</span>
+                {selectedCategoryId && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategoryId('')}
+                    className="text-[11px] text-[#1890ff] hover:underline cursor-pointer"
+                    title="清除筛选，显示全部权责"
+                  >
+                    [全部]
+                  </button>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() =>
                   setCategoryActionModal({
                     open: true,
-                    mode: 'createRoot',
+                    mode: 'create',
                     targetNode: null,
+                    selectedParentId: selectedCategoryId || null,
                     name: '',
                   })
                 }
-                title="创建根分类"
-                className="text-[#1890ff] hover:text-[#40a9ff] p-1 rounded hover:bg-[#e6f7ff] cursor-pointer transition-colors"
+                title="新建分类（可选择挂载目录）"
+                className="flex items-center gap-1 text-[11px] text-[#1890ff] hover:text-[#40a9ff] px-1.5 py-0.5 rounded hover:bg-[#e6f7ff] cursor-pointer transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
+                <span>新建</span>
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2 text-xs space-y-1 relative">
-              {categoryTree.map((root) => {
-                const isExpanded = !!expandedNodeIds[root.id];
-                const isSelected = selectedCategoryId === root.id;
-
-                return (
-                  <div key={root.id} className="space-y-0.5">
-                    {/* Root Node */}
-                    <div
-                      onClick={() => setSelectedCategoryId(root.id)}
-                      className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors group ${
-                        isSelected
-                          ? 'bg-[#e6f7ff] text-[#1890ff] font-medium'
-                          : 'text-[#262626] hover:bg-[#f5f5f5]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 truncate">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedNodeIds((prev) => ({
-                              ...prev,
-                              [root.id]: !prev[root.id],
-                            }));
-                          }}
-                          className="p-0.5 text-[#8c8c8c] hover:text-[#262626]"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          ) : (
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                        <Network className="w-3.5 h-3.5 text-[#8c8c8c] shrink-0" />
-                        <span className="truncate">{root.name}</span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleOpenCategoryMenu(e, root)}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-[#8c8c8c] hover:text-[#1890ff] rounded cursor-pointer transition-opacity"
-                        title="分类操作菜单"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    {/* Children Nodes */}
-                    {isExpanded &&
-                      root.children?.map((child) => {
-                        const isChildSelected = selectedCategoryId === child.id;
-
-                        return (
-                          <div
-                            key={child.id}
-                            onClick={() => setSelectedCategoryId(child.id)}
-                            className={`flex items-center justify-between pl-7 pr-2 py-1.5 rounded cursor-pointer transition-colors group relative ${
-                              isChildSelected
-                                ? 'bg-[#e6f7ff] text-[#1890ff] font-medium'
-                                : 'text-[#595959] hover:bg-[#f5f5f5]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5 truncate">
-                              <Network className="w-3 h-3 text-[#bfbfbf] shrink-0" />
-                              <span className="truncate">{child.name}</span>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={(e) => handleOpenCategoryMenu(e, child)}
-                              className={`p-1 rounded cursor-pointer transition-opacity ${
-                                isChildSelected
-                                  ? 'opacity-100 text-[#1890ff]'
-                                  : 'opacity-0 group-hover:opacity-100 text-[#8c8c8c] hover:text-[#1890ff]'
-                              }`}
-                              title="分类操作菜单"
-                            >
-                              <Edit3 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                  </div>
-                );
-              })}
+            <div className="flex-1 overflow-y-auto p-1.5 text-xs space-y-0.5 relative">
+              {categoryTree.length === 0 ? (
+                <div className="text-center py-8 text-[#bfbfbf] space-y-2">
+                  <Network className="w-8 h-8 mx-auto text-[#d9d9d9]" />
+                  <p>暂无权责分类</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCategoryActionModal({
+                        open: true,
+                        mode: 'create',
+                        targetNode: null,
+                        selectedParentId: null,
+                        name: '',
+                      })
+                    }
+                    className="text-[#1890ff] hover:underline text-[11px]"
+                  >
+                    + 新建根分类
+                  </button>
+                </div>
+              ) : (
+                renderCategoryNodeList(categoryTree, 0)
+              )}
             </div>
           </div>
 
@@ -1468,6 +1644,25 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                   <Upload className="w-3.5 h-3.5" />
                   <span>批量导入</span>
                 </button>
+
+                {selectedCategoryNode && (
+                  <div className="ml-auto flex items-center gap-1.5 text-xs text-[#595959] bg-[#f0f5ff] px-2.5 py-1 rounded border border-[#d6e4ff]">
+                    <Network className="w-3.5 h-3.5 text-[#1890ff] shrink-0" />
+                    <span>分类筛选：</span>
+                    <span className="font-semibold text-[#1890ff]">
+                      {selectedCategoryPath.map((p) => p.name).join(' > ')}
+                    </span>
+                    <span className="text-[#8c8c8c] text-[11px]">({filteredDutyItems.length}项)</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategoryId('')}
+                      className="ml-1 text-[#8c8c8c] hover:text-[#ff4d4f] cursor-pointer"
+                      title="清除筛选查看全部"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1898,8 +2093,9 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                 setCategoryMenuState({ nodeId: null, node: null, x: 0, y: 0 });
                 setCategoryActionModal({
                   open: true,
-                  mode: 'createChild',
+                  mode: 'create',
                   targetNode: node,
+                  selectedParentId: node.id,
                   name: '',
                 });
               }}
@@ -1916,6 +2112,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                   open: true,
                   mode: 'edit',
                   targetNode: node,
+                  selectedParentId: node.parentId || null,
                   name: node.name,
                 });
               }}
@@ -1947,19 +2144,84 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
           </div>
         )}
 
-        {/* Modal: Category Action (创建子分类 / 编辑分类 / 创建根分类) */}
+        {/* Modal: Category Action (创建分类 / 编辑分类 - 支持从目录中选择某一个目录，填入新分类名称，明确显示层级关系) */}
         {categoryActionModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-            <div className="bg-white rounded-lg shadow-xl border border-[#ebeef5] w-full max-w-sm p-4 space-y-3 text-xs">
-              <h4 className="text-sm font-semibold text-[#262626]">
-                {categoryActionModal.mode === 'createChild'
-                  ? `在【${categoryActionModal.targetNode?.name}】下创建子分类`
-                  : categoryActionModal.mode === 'edit'
-                  ? `编辑分类名称`
-                  : '创建根分类'}
-              </h4>
-              <div>
-                <label className="block text-[#595959] mb-1">
+            <div className="bg-white rounded-lg shadow-2xl border border-[#ebeef5] w-full max-w-lg p-5 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-[#f0f0f0] pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-md bg-[#e6f7ff] text-[#1890ff] flex items-center justify-center">
+                    <FolderPlus className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-[#262626]">
+                      {categoryActionModal.mode === 'create' ? '创建权责分类' : '编辑权责分类'}
+                    </h4>
+                    <p className="text-[11px] text-[#8c8c8c]">
+                      支持从目录列表中自由选择挂载目录，清晰定义并明确呈现层级关系
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCategoryActionModal({ ...categoryActionModal, open: false })}
+                  className="p-1 text-[#8c8c8c] hover:text-[#262626] rounded hover:bg-[#f5f5f5]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Form Field 1: 挂载所属目录 (从目录中选择某一个目录) */}
+              <div className="space-y-1.5">
+                <label className="block text-[#262626] font-medium flex items-center justify-between">
+                  <span>
+                    <span className="text-[#ff4d4f]">*</span> 挂载所属目录 (选择上级父级分类)
+                  </span>
+                  <span className="text-[11px] text-[#8c8c8c] font-normal">
+                    {categoryActionModal.selectedParentId ? '当前为多级子分类' : '当前为一级顶级主分类'}
+                  </span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={categoryActionModal.selectedParentId || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCategoryActionModal({
+                        ...categoryActionModal,
+                        selectedParentId: val ? val : null,
+                      });
+                    }}
+                    className="w-full h-9 px-3 pr-8 border border-[#d9d9d9] rounded bg-white text-xs text-[#262626] focus:outline-none focus:border-[#1890ff] cursor-pointer"
+                  >
+                    {categoryCatalogOptions.map((opt) => {
+                      const indent = '　'.repeat(opt.level);
+                      const prefix = opt.level === 0 ? '📁 ' : `${indent}└─ 📁 `;
+                      const label = opt.level === 0 ? opt.name : `${prefix}${opt.name} (${opt.level}级目录)`;
+                      return (
+                        <option
+                          key={opt.id || '__root__'}
+                          value={opt.id || ''}
+                          disabled={opt.disabled}
+                        >
+                          {label} {opt.disabled ? '(当前分类或其子分类，不可选)' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div className="text-[11px] text-[#8c8c8c] flex items-center gap-1.5 pt-0.5">
+                  <Info className="w-3.5 h-3.5 text-[#1890ff] shrink-0" />
+                  <span>
+                    {categoryActionModal.selectedParentId
+                      ? `将挂载于【${findCategoryNodeInTree(categoryTree, categoryActionModal.selectedParentId)?.name || '所选目录'}】之下`
+                      : '未选择上级目录，将作为与集团手册并列的【一级顶级主分类】'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Form Field 2: 分类名称 */}
+              <div className="space-y-1.5">
+                <label className="block text-[#262626] font-medium">
                   <span className="text-[#ff4d4f]">*</span> 分类名称
                 </label>
                 <input
@@ -1968,24 +2230,128 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                   onChange={(e) =>
                     setCategoryActionModal({ ...categoryActionModal, name: e.target.value })
                   }
-                  placeholder="请输入分类名称"
+                  placeholder="请输入分类名称，如：综合管理中心 / 供应链运营部 / 采购分部"
                   className="w-full h-8 px-2.5 border border-[#d9d9d9] rounded focus:outline-none focus:border-[#1890ff]"
+                  autoFocus
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+
+              {/* Form Field 3: 明确显示层级关系与架构结构预览 (层级关系明确和显示出层级关系) */}
+              <div className="bg-[#f8faff] rounded-lg border border-[#d6e4ff] p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#1d39c4]">
+                    <Network className="w-3.5 h-3.5 text-[#2f54eb]" />
+                    <span>分类层级关系明确与结构预览</span>
+                  </div>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-[#e6f7ff] text-[#1890ff] border border-[#91d5ff]">
+                    规划层级: L{modalTargetLevel} ({modalTargetLevel === 1 ? '1级顶级主分类' : modalTargetLevel === 2 ? '2级分类' : `${modalTargetLevel}级子分类`})
+                  </span>
+                </div>
+
+                {/* 完整层级路径面包屑 */}
+                <div className="bg-white p-2.5 rounded border border-[#adc6ff] text-xs space-y-1">
+                  <div className="text-[11px] text-[#8c8c8c] flex items-center justify-between">
+                    <span>完整挂载路径 (完整层级链)：</span>
+                    <span className="text-[#595959]">深度: {modalTargetLevel} 层</span>
+                  </div>
+                  <div className="flex items-center flex-wrap gap-1 font-medium text-[#262626] pt-0.5">
+                    <span className="text-[#8c8c8c] bg-[#f5f5f5] px-1.5 py-0.5 rounded border border-[#e8e8e8]">根目录</span>
+                    {modalSelectedParentPath.map((p) => (
+                      <React.Fragment key={p.id}>
+                        <ChevronRight className="w-3 h-3 text-[#bfbfbf]" />
+                        <span className="text-[#595959] bg-[#f0f5ff] px-1.5 py-0.5 rounded border border-[#d6e4ff]">{p.name}</span>
+                      </React.Fragment>
+                    ))}
+                    <ChevronRight className="w-3 h-3 text-[#1890ff]" />
+                    <span className="text-[#1890ff] bg-[#e6f7ff] px-2 py-0.5 rounded font-bold border border-[#91d5ff] flex items-center gap-1">
+                      <span>🏷️</span>
+                      <span>{categoryActionModal.name.trim() || '未输入分类名称'}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* 拓扑结构示意图 */}
+                <div className="bg-white/90 p-2.5 rounded border border-[#d6e4ff] text-xs font-mono space-y-1">
+                  <div className="text-[11px] text-[#8c8c8c] font-sans pb-1 border-b border-[#f0f0f0] flex items-center justify-between">
+                    <span>拓扑结构示意图：</span>
+                    <span className="text-[#1890ff]">层级树结构即时联动</span>
+                  </div>
+                  <div className="pt-1 space-y-1">
+                    {modalSelectedParentPath.length === 0 ? (
+                      <div className="space-y-1 pl-1 font-sans">
+                        <div className="text-[#8c8c8c] flex items-center gap-1.5">
+                          <Folder className="w-3.5 h-3.5 text-[#8c8c8c]" />
+                          <span>[手册根目录]</span>
+                        </div>
+                        <div className="pl-4 text-[#1890ff] font-bold flex items-center gap-1 bg-[#e6f7ff]/50 p-1 rounded">
+                          <span>└── 🏷️</span>
+                          <span>{categoryActionModal.name.trim() || '新分类名称'} (L1 顶级分类)</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 pl-1 font-sans">
+                        {modalSelectedParentPath.map((p, i) => (
+                          <div
+                            key={p.id}
+                            style={{ paddingLeft: `${i * 16}px` }}
+                            className="text-[#595959] flex items-center gap-1.5 text-xs"
+                          >
+                            <span>{i === 0 ? '📁' : '└── 📁'}</span>
+                            <span className="font-medium">{p.name}</span>
+                            <span className="text-[10px] text-[#8c8c8c] font-mono bg-[#f5f5f5] px-1 rounded">L{i + 1}</span>
+                          </div>
+                        ))}
+                        <div
+                          style={{ paddingLeft: `${modalSelectedParentPath.length * 16}px` }}
+                          className="text-[#1890ff] font-bold flex items-center gap-1.5 text-xs bg-[#e6f7ff]/70 p-1 rounded border border-[#91d5ff]"
+                        >
+                          <span>└── 🏷️</span>
+                          <span>{categoryActionModal.name.trim() || '新分类名称'}</span>
+                          <span className="text-[10px] text-[#1890ff] font-mono bg-[#bae7ff] px-1.5 py-0.2 rounded">
+                            L{modalTargetLevel} · {categoryActionModal.mode === 'create' ? '新建位置' : '调整后位置'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {categoryActionModal.mode === 'edit' && categoryActionModal.targetNode && (
+                  <div className="text-[11px] text-[#595959] pt-1.5 border-t border-[#d6e4ff] flex items-center justify-between">
+                    <span>
+                      原上级目录：
+                      <span className="font-semibold text-[#262626]">
+                        {categoryActionModal.targetNode.parentId
+                          ? findCategoryNodeInTree(categoryTree, categoryActionModal.targetNode.parentId)?.name || '已设置上级'
+                          : '根目录 (顶级分类)'}
+                      </span>
+                    </span>
+                    {categoryActionModal.selectedParentId !== (categoryActionModal.targetNode.parentId || null) && (
+                      <span className="text-[#fa8c16] font-medium bg-[#fffbe6] px-2 py-0.5 rounded border border-[#ffe58f] flex items-center gap-1">
+                        <ArrowRight className="w-3 h-3" />
+                        <span>已调整所属目录跨层级移动</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Dialog Actions */}
+              <div className="flex justify-end gap-2.5 pt-2 border-t border-[#f0f0f0]">
                 <button
                   type="button"
                   onClick={() => setCategoryActionModal({ ...categoryActionModal, open: false })}
-                  className="h-7 px-3 rounded border border-[#d9d9d9] text-[#595959]"
+                  className="h-8 px-4 rounded border border-[#d9d9d9] text-[#595959] hover:text-[#262626] hover:border-[#bfbfbf] transition-colors"
                 >
                   取消
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveCategoryModal}
-                  className="h-7 px-3.5 rounded bg-[#1890ff] text-white font-medium cursor-pointer"
+                  className="h-8 px-5 rounded bg-[#1890ff] text-white font-medium hover:bg-[#40a9ff] transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
                 >
-                  确定
+                  <Check className="w-3.5 h-3.5" />
+                  <span>确定保存</span>
                 </button>
               </div>
             </div>

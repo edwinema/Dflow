@@ -19,6 +19,7 @@ import { DashboardView } from './components/DashboardView';
 import { FlowDesignView } from './components/FlowDesignView';
 import { FlowVerifyView } from './components/FlowVerifyView';
 import { PropertyOverviewView } from './components/PropertyOverviewView';
+import { FlowRepealArchiveView } from './components/FlowRepealArchiveView';
 import { DrawioDesigner } from './components/DrawioDesigner';
 import { SysDocRiskModuleView } from './components/SysDocRiskModuleView';
 import { FlowProcessView } from './components/FlowProcessView';
@@ -34,6 +35,7 @@ import { MyResponsibleView } from './components/MyResponsibleView';
 import { DutyBuildView } from './components/DutyBuildView';
 import { DutyAuditView } from './components/DutyAuditView';
 import { ProcessMiningView } from './components/ProcessMiningView';
+import { ProcessLearningView } from './components/ProcessLearningView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
@@ -55,8 +57,8 @@ export default function App() {
   const [systemLogo, setSystemLogo] = useState<string>('');
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Accordion menu state: null by default (all menus collapsed)
-  const [expandedMenuId, setExpandedMenuId] = useState<string | null>(null);
+  // Accordion menu state: default expanded to workspace
+  const [expandedMenuId, setExpandedMenuId] = useState<string | null>('workspace');
   const [formEngineActiveKey, setFormEngineActiveKey] = useState<string>('form_sysdoc');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
@@ -149,6 +151,8 @@ export default function App() {
           localStorage.setItem('dflow-remember', JSON.stringify({ userId: loginUser }));
         }
         setToken(authHeader);
+        setCurrentPath('/dashboard/index');
+        setExpandedMenuId('workspace');
         showToast('登录成功', 'success');
       } else {
         showToast(body.info || '登录失败', 'error');
@@ -156,6 +160,8 @@ export default function App() {
     } catch {
       localStorage.setItem('dflow-token', 'dflow-jwt-token-2026');
       setToken('dflow-jwt-token-2026');
+      setCurrentPath('/dashboard/index');
+      setExpandedMenuId('workspace');
       showToast('登录成功', 'success');
     } finally {
       setLoginLoading(false);
@@ -166,6 +172,8 @@ export default function App() {
     await fetch('/api/app/site/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('dflow-token');
     setToken(null);
+    setCurrentPath('/dashboard/index');
+    setExpandedMenuId('workspace');
     setUserDropdownOpen(false);
   };
 
@@ -179,22 +187,31 @@ export default function App() {
   };
 
   const handleNavigate = (path: string, extraParam?: string) => {
+    const targetPath = !path || path === '/' ? '/dashboard/index' : path;
     if (extraParam) {
-      if (path.startsWith('/build/')) {
+      if (targetPath.startsWith('/build/')) {
         setSelectedFlowId(extraParam);
-      } else if (path === '/system/column' || path === '/system/form') {
+      } else if (targetPath === '/system/column' || targetPath === '/system/form') {
         setFormEngineActiveKey(extraParam);
       }
     }
-    setCurrentPath(path);
+    setCurrentPath(targetPath);
     setFullScreenMode('none');
-    const matchedGroup = MENU_ROUTES.find((g) => g.children.some((c) => c.path === path));
+    const matchedGroup =
+      MENU_ROUTES.find((g) => g.children.some((c) => c.path === targetPath)) ||
+      MENU_ROUTES.find((g) => {
+        if (targetPath.startsWith('/task/') && g.id === 'workspace') return true;
+        if (targetPath.startsWith('/property/') && (g.id === 'workspace' || g.id === 'property')) return true;
+        if (targetPath.startsWith('/flowdoc/') && (g.id === 'duty' || g.id === 'governance')) return true;
+        if (targetPath.startsWith('/sysdoc/') && g.id === 'governance') return true;
+        if (targetPath.startsWith('/risk/') && g.id === 'governance') return true;
+        if (targetPath.startsWith('/org/') && g.id === 'system') return true;
+        if (targetPath.startsWith('/system/') && g.id === 'system') return true;
+        if (targetPath.startsWith('/mining/') && g.id === 'mining') return true;
+        return false;
+      });
     if (matchedGroup) {
-      if (matchedGroup.id !== 'dashboard') {
-        setExpandedMenuId(matchedGroup.id);
-      } else {
-        setExpandedMenuId(null);
-      }
+      setExpandedMenuId(matchedGroup.id);
     }
   };
 
@@ -215,7 +232,14 @@ export default function App() {
         return { parentTitle: group.title, childTitle: child.title };
       }
     }
-    return { parentTitle: '流程资产', childTitle: '流程概览' };
+    if (currentPath.startsWith('/flowdoc/')) return { parentTitle: '权责管控', childTitle: '权责清单与手册' };
+    if (currentPath.startsWith('/sysdoc/')) return { parentTitle: '风控合规', childTitle: '制度文件库' };
+    if (currentPath.startsWith('/risk/')) return { parentTitle: '风控合规', childTitle: '风险合规库' };
+    if (currentPath.startsWith('/task/')) return { parentTitle: '协同工作', childTitle: currentPath === '/task/learning' ? '流程培训' : '待办任务' };
+    if (currentPath.startsWith('/org/')) return { parentTitle: '组织系统', childTitle: '部门组织' };
+    if (currentPath.startsWith('/system/')) return { parentTitle: '组织系统', childTitle: '系统设置' };
+    if (currentPath.startsWith('/mining/')) return { parentTitle: '流程挖掘', childTitle: '流程挖掘诊断' };
+    return { parentTitle: '协同工作', childTitle: '综合首页' };
   };
 
   if (!token) {
@@ -276,7 +300,20 @@ export default function App() {
                   />
                   <span>记住密码</span>
                 </label>
-                <span className="text-[#909399]">演示账号: admin / 123456</span>
+                <span className="text-[#909399]">初始化参考账号: admin / 123456</span>
+              </div>
+              <div className="text-[10px] text-[#909399] bg-[#f8fafc] p-2 rounded border border-[#e2e8f0] leading-relaxed">
+                <span className="font-medium text-[#606266]">可复制使用的8大基准角色（密码统一 123456）：</span>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1 text-[9.5px]">
+                  <span>• 超级管理: admin</span>
+                  <span>• 流程总监: flow_admin</span>
+                  <span>• 流程架构: zhangsan</span>
+                  <span>• 合规风控: risk_officer</span>
+                  <span>• 权责管理: duty_lead</span>
+                  <span>• 业务总监: rd_director</span>
+                  <span>• 业务执行: operator</span>
+                  <span>• 内审监督: auditor</span>
+                </div>
               </div>
               <button
                 type="submit"
@@ -382,7 +419,14 @@ export default function App() {
           {sidebarCollapsed ? (
             <span className="text-white font-bold text-sm">df</span>
           ) : (
-            <div className="flex items-center gap-2 min-w-0 max-w-full">
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNavigate('/dashboard/index');
+              }}
+              className="flex items-center gap-2 min-w-0 max-w-full cursor-pointer hover:opacity-90 transition-opacity"
+              title="点击返回综合首页"
+            >
               {systemLogo ? (
                 <img src={systemLogo} alt="Logo" className="h-5 max-w-[50px] object-contain shrink-0" />
               ) : null}
@@ -396,7 +440,7 @@ export default function App() {
         <nav className="flex-1 overflow-y-auto py-1 sidebar-transparent-scroll">
           {MENU_ROUTES.map((group) => {
             const IconComp = group.icon;
-            const isSingle = group.children.length === 1 && group.id === 'dashboard';
+            const isSingle = group.children.length === 1;
             const isExpanded = expandedMenuId === group.id;
             const hasActiveChild = group.children.some((c) => c.path === currentPath);
 
@@ -515,7 +559,7 @@ export default function App() {
               <ChevronDown className="w-3.5 h-3.5 text-[#909399]" />
             </button>
             {userDropdownOpen && (
-              <div className="absolute right-0 top-10 w-52 bg-white rounded-lg border border-[#ebeef5] shadow-xl py-2 z-50 text-xs">
+              <div className="absolute right-0 top-10 w-72 bg-white rounded-lg border border-[#ebeef5] shadow-xl py-2 z-50 text-xs">
                 <div className="px-3 pb-2 mb-1 border-b border-[#F0F2F5]">
                   <div className="font-bold text-sm text-[#303133]">
                     {currentUser.userName || '流程管理员'}
@@ -529,36 +573,55 @@ export default function App() {
                 </div>
                 <div className="px-3 py-2 border-b border-[#F0F2F5] bg-[#f9fafc]">
                   <div className="text-[10.5px] text-[#909399] font-medium mb-1.5 flex items-center justify-between">
-                    <span>快捷切换登录账号：</span>
+                    <span>标准角色初始化参考账号：</span>
                     <span className="text-[9.5px] text-[#409eff]">责任人联动识别</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {[
-                      { name: '流程管理员', role: '经理', dept: '流程管理部' },
-                      { name: '张三', role: '高级流程经理', dept: '流程管理部' },
-                      { name: '系统管理员', role: '系统架构师', dept: '系统管理部' },
+                      { name: '系统管理员', account: 'admin', role: '超级管理员', dept: '系统管理部' },
+                      { name: '流程管理员', account: 'flow_admin', role: '流程管理总监', dept: '流程管理部' },
+                      { name: '张三', account: 'zhangsan', role: '高级流程架构师', dept: '研发管理中心' },
+                      { name: '王合规', account: 'risk_officer', role: '合规风控总监', dept: '法律合规与内控部' },
+                      { name: '李权责', account: 'duty_lead', role: '权责核准主管', dept: '权责管理部' },
+                      { name: '赵业务', account: 'rd_director', role: '业务中心总监', dept: '市场营销中心' },
+                      { name: '孙执行', account: 'operator', role: '研发工程师', dept: '结构开发部' },
+                      { name: '钱审计', account: 'auditor', role: '高级内审专家', dept: '集团审计监察部' },
                     ].map((acc) => (
                       <button
-                        key={acc.name}
-                        onClick={() => {
-                          setCurrentUser((prev: any) => ({
-                            ...prev,
-                            userName: acc.name,
-                            nickName: acc.name,
-                            userId: acc.name === '张三' ? 'zhangsan' : 'admin',
-                            jobTitle: acc.role,
-                            deptName: acc.dept,
-                          }));
+                        key={acc.account}
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/session', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ userId: acc.account }),
+                            });
+                            const body = await res.json();
+                            if (body.data) {
+                              setCurrentUser(body.data);
+                            }
+                          } catch {
+                            setCurrentUser((prev: any) => ({
+                              ...prev,
+                              userName: acc.name,
+                              nickName: acc.name,
+                              userId: acc.account,
+                              jobTitle: acc.role,
+                              deptName: acc.dept,
+                            }));
+                          }
                           setUserDropdownOpen(false);
-                          showToast(`当前登录账号已切换为【${acc.name}】`, 'info');
+                          showToast(`当前账号已切换为【${acc.name}】(${acc.role})`, 'info');
                         }}
-                        className={`px-2 py-0.5 rounded text-[10.5px] border transition-colors cursor-pointer ${
-                          currentUser.userName === acc.name
+                        className={`px-2 py-1 rounded text-[10px] border transition-colors cursor-pointer flex items-center justify-between w-[calc(50%-2px)] ${
+                          currentUser.userName === acc.name || currentUser.userId === acc.account
                             ? 'bg-[#409eff] text-white border-[#409eff] font-medium'
                             : 'bg-white text-[#606266] border-[#dcdfe6] hover:border-[#409eff] hover:text-[#409eff]'
                         }`}
+                        title={`${acc.name} · ${acc.role} (${acc.dept})`}
                       >
-                        {acc.name}
+                        <span className="truncate">{acc.name}</span>
+                        <span className="text-[9px] opacity-75">{acc.role.slice(0, 4)}</span>
                       </button>
                     ))}
                   </div>
@@ -579,7 +642,7 @@ export default function App() {
           <ErrorBoundary fallbackTitle="页面视图加载异常">
           {currentPath === '/dashboard/index' ? (
             <DashboardView currentUser={currentUser} onNavigate={handleNavigate} />
-          ) : currentPath === '/property/verify' || currentPath === '/property/partake' ? (
+          ) : currentPath === '/property/verify' || currentPath === '/property/partake' || currentPath === '/property/catalog' ? (
             <MyResponsibleView
               subPath={currentPath}
               currentUser={currentUser}
@@ -590,15 +653,14 @@ export default function App() {
           ) : currentPath.startsWith('/property/') ? (
             <PropertyOverviewView
               initialSelectedFlowId={selectedFlowId}
-              mode="overview"
+              mode={currentPath === '/property/integrate' ? 'integrate' : 'overview'}
+              subPath={currentPath}
               currentUser={currentUser}
               onNavigate={handleNavigate}
               showToast={showToast}
             />
           ) : currentPath === '/build/repeal' ? (
-            <PropertyOverviewView
-              initialSelectedFlowId={selectedFlowId}
-              mode="repealList"
+            <FlowRepealArchiveView
               currentUser={currentUser}
               onNavigate={handleNavigate}
               showToast={showToast}
@@ -618,6 +680,12 @@ export default function App() {
             <FlowVerifyView
               onNavigateToFlow={(flowId) => handleNavigate('/build/design', flowId)}
               onEnterDesigner={handleEnterDesigner}
+              showToast={showToast}
+            />
+          ) : currentPath === '/task/learning' ? (
+            <ProcessLearningView
+              currentUser={currentUser}
+              onNavigate={handleNavigate}
               showToast={showToast}
             />
           ) : currentPath === '/execute/process' || currentPath.startsWith('/task/') ? (

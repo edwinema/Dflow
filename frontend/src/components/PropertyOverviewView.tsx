@@ -35,6 +35,7 @@ import {
   CornerDownRight,
   Folder,
   FolderOpen,
+  GitCompare,
 } from 'lucide-react';
 import { DrawioBridge } from '../utils/drawioBridge';
 import { parseFlowNodes } from '../utils/flowSchema';
@@ -46,10 +47,12 @@ import {
 } from './OnlineDocumentPreviewModal';
 import { FlowPageStandardHeader, getArchHierarchyPath } from './FlowPageStandardHeader';
 import { UnifiedCardDetailView } from './UnifiedCardDetailView';
+import { FlowVersionDiffModal } from './FlowVersionDiffModal';
 
 interface PropertyOverviewViewProps {
   initialSelectedFlowId?: string | null;
-  mode?: 'overview' | 'repealList';
+  mode?: 'overview' | 'integrate' | 'repealList';
+  subPath?: string;
   currentUser?: any;
   onNavigate?: (path: string, flowId?: string) => void;
   showToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
@@ -163,13 +166,31 @@ const ARCH_PALETTES = [
   },
 ];
 
+// 计算任意架构节点真实的层级（支持 L1-L6 级）
+const resolveArchLevel = (arch: any, allArchs: any[]): string => {
+  if (!arch) return 'L1';
+  if (!arch.parentId || arch.id === 'arch_root') return 'L0';
+  let depth = 0;
+  let cur: any = arch;
+  const visited = new Set<string>();
+  while (cur && cur.parentId && cur.id !== 'arch_root') {
+    if (visited.has(cur.id)) break;
+    visited.add(cur.id);
+    depth++;
+    cur = allArchs.find((a) => a.id === cur.parentId);
+  }
+  return `L${Math.min(6, Math.max(1, depth))}`;
+};
+
 export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
   initialSelectedFlowId,
   mode = 'overview',
+  subPath,
   currentUser,
   onNavigate,
   showToast,
 }) => {
+  const isIntegrateMode = mode === 'integrate' || subPath === '/property/integrate';
   const [archList, setArchList] = useState<any[]>([]);
   const [flowList, setFlowList] = useState<any[]>([]);
   const [dictBundle, setDictBundle] = useState<any>({});
@@ -194,15 +215,29 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
     execRole: '',
   });
 
-  const [selectedNode, setSelectedNode] = useState<{ type: 'arch' | 'flow'; id: string }>({
-    type: 'flow',
-    id: initialSelectedFlowId || 'flow_101',
+  const [selectedNode, setSelectedNode] = useState<{ type: 'arch' | 'flow'; id: string }>(() => {
+    if (isIntegrateMode) {
+      return { type: 'arch', id: 'arch_root' };
+    }
+    return {
+      type: 'flow',
+      id: initialSelectedFlowId || 'flow_101',
+    };
   });
 
   const [flowTab, setFlowTab] = useState<
     'flow' | 'jbzl' | 'jxzb' | 'zdwj' | 'fxhg' | 'lcsy' | 'xgfj' | 'lcjdmx' | 'lczxqk'
   >('flow');
-  const [archTab, setArchTab] = useState<'arch' | 'typecard' | 'zdwj' | 'fxhg' | 'xgfj'>('arch');
+  const [archTab, setArchTab] = useState<'arch' | 'ywjcst' | 'typecard' | 'zdwj' | 'fxhg' | 'xgfj'>(
+    isIntegrateMode ? 'ywjcst' : 'arch'
+  );
+
+  useEffect(() => {
+    if (isIntegrateMode) {
+      setSelectedNode((prev) => (prev.type === 'arch' ? prev : { type: 'arch', id: 'arch_root' }));
+      setArchTab('ywjcst');
+    }
+  }, [isIntegrateMode]);
   const [currentFlow, setCurrentFlow] = useState<any | null>(null);
   const [currentArch, setCurrentArch] = useState<any | null>(null);
   const [flowRefs, setFlowRefs] = useState<string[]>([]);
@@ -216,7 +251,19 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
     open: boolean;
     title: string;
     rows: any[];
-  }>({ open: false, title: '', rows: [] });
+    flow?: any | null;
+  }>({ open: false, title: '', rows: [], flow: null });
+
+  // Version Comparison Diff Modal state
+  const [diffModal, setDiffModal] = useState<{
+    open: boolean;
+    flow: any | null;
+    baseVer?: string;
+    compareVer?: string;
+  }>({
+    open: false,
+    flow: null,
+  });
 
   const [repealModal, setRepealModal] = useState<{
     open: boolean;
@@ -278,20 +325,64 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
         fetch('/api/dict/bundle').then((r) => r.json()),
         fetch('/api/flow/repeals').then((r) => r.json()),
       ]);
-      const archs = archRes?.data || [];
+      let archs = archRes?.data || [];
       const flows = flowRes?.data || [];
+
+      // 确保新服务器全新部署时，默认显示根架构「企业流程架构全景」
+      const hasRoot = archs.some((a: any) => !a.parentId || a.id === 'arch_root');
+      if (!hasRoot) {
+        const defaultRoot = {
+          id: 'arch_root',
+          parentId: '',
+          label: '企业流程架构全景',
+          level: 'L0',
+          archNo: 'ARCH-CORP-000',
+          businessScope: '全公司各业务领域及全职能中心主干流程全景',
+          applicableScope: '集团总部、测试集团有限公司、各中心事业部',
+          adaptScope: '集团总部、测试集团有限公司、各中心事业部',
+          ownerName: '系统管理员 (E0004)',
+          deptName: '运营管理部',
+          flowDefine: '全源科技集团端到端主干流程架构',
+          flowPurpose: '统领企业研发、营销、供应链全价值链',
+          versionNo: 'V2',
+          publishUserName: '系统管理员',
+          publishTime: '2026-03-20 14:00:00',
+          status: 'published',
+        };
+        archs = [defaultRoot, ...archs];
+      } else {
+        archs = archs.map((a: any) =>
+          (!a.parentId || a.id === 'arch_root') && (!a.label || a.label === '企业流程架构' || a.label === '根架构' || a.label === 'ROOT')
+            ? { ...a, label: '企业流程架构全景' }
+            : a
+        );
+      }
+
       setArchList(archs);
       setFlowList(flows);
       if (dictRes?.data) setDictBundle(dictRes.data);
       if (repealRes?.data) setRepealRecords(repealRes.data);
 
+      // 汇总已最终批准完成归档的流程集合 (ID 与编号)
+      const initialArchivedIdSet = new Set<string>();
+      const initialArchivedCodeSet = new Set<string>();
+      (repealRes?.data || []).forEach((r: any) => {
+        if (r.stage === '已废止归档' || r.status === '已废止归档' || r.status === '已废止') {
+          if (r.modelId) initialArchivedIdSet.add(r.modelId);
+          if (r.flowCode) initialArchivedCodeSet.add(r.flowCode);
+        }
+      });
+
       // 仅展示继承自流程设计页面直接发布或发布审批后的有效流程
+      // 核心业务规则：废止流程一旦被最终批准完成并归档到「废止归档」目录后，在流程概览页面中坚决不显示
+      // 注意：批准没有完成之前（审批流转中），保持正常展示并显示“废止审核中”标识
       const published = flows.filter(
-        (f: any) =>
-          f.status !== 'repealed' &&
-          f.status !== 'draft' &&
-          (f.status === 'published' || f.auditStatus === '已审核') &&
-          Boolean(f.publishTime)
+        (f: any) => {
+          if (f.status === 'repealed' || f.repealApplyStatus === '已废止归档') return false;
+          if (initialArchivedIdSet.has(f.id) || (f.flowNo && initialArchivedCodeSet.has(f.flowNo))) return false;
+          if (f.status === 'draft') return false;
+          return (f.status === 'published' || f.auditStatus === '已审核') && Boolean(f.publishTime);
+        }
       );
 
       const pubArchs = archs.filter((a: any) => {
@@ -332,16 +423,64 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
     loadAllData();
   }, [initialSelectedFlowId, mode]);
 
+  // 已最终批准归档的流程 ID 集合
+  const archivedFlowIdSet = useMemo(() => {
+    const ids = new Set<string>();
+    repealRecords.forEach((r) => {
+      if (r.stage === '已废止归档' || r.status === '已废止归档' || r.status === '已废止') {
+        if (r.modelId) ids.add(r.modelId);
+      }
+    });
+    return ids;
+  }, [repealRecords]);
+
+  // 已最终批准归档的流程 编号集合
+  const archivedFlowCodeSet = useMemo(() => {
+    const codes = new Set<string>();
+    repealRecords.forEach((r) => {
+      if (r.stage === '已废止归档' || r.status === '已废止归档' || r.status === '已废止') {
+        if (r.flowCode) codes.add(r.flowCode);
+      }
+    });
+    return codes;
+  }, [repealRecords]);
+
+  // 汇总所有当前处于多级审批流转中（但尚未最终完成归档）的废止申请
+  const pendingRepealMap = useMemo(() => {
+    const map = new Map<string, any>();
+    repealRecords.forEach((r) => {
+      const isPending =
+        r.stage === '待部门审批' ||
+        r.stage === '待合规复核' ||
+        r.stage === '待集团流程管理员确认归档' ||
+        r.status === '待审核' ||
+        r.status === '待部门审批' ||
+        r.status === '待合规复核' ||
+        r.status === '待集团流程管理员确认归档';
+      if (isPending) {
+        if (r.modelId) map.set(r.modelId, r);
+        if (r.flowCode) map.set(r.flowCode, r);
+      }
+    });
+    return map;
+  }, [repealRecords]);
+
   // 1. 严格过滤：只有通过直接发布或审批发布的流程才在流程概览页面显示
+  // 核心规则：当废止流程被最终批准完成并归档到「废止归档」目录后，在流程概览页面中不显示；
+  // 注意：批准没有完成之前（审批流转中），保持原有样式逻辑正常显示并带“废止审核中”标识。
   const publishedFlows = useMemo(() => {
     return flowList.filter((f) => {
-      if (f.status === 'repealed' || f.status === 'draft') return false;
+      // 最终批准完成并归档的流程：不再显示
+      if (f.status === 'repealed' || f.repealApplyStatus === '已废止归档') return false;
+      if (archivedFlowIdSet.has(f.id) || (f.flowNo && archivedFlowCodeSet.has(f.flowNo))) return false;
+      if (f.status === 'draft') return false;
+
       // 继承自流程建设-流程设计：直接发布或审核审批发布生效
       const isPublished =
         (f.status === 'published' || f.auditStatus === '已审核') && Boolean(f.publishTime);
       return isPublished;
     });
-  }, [flowList]);
+  }, [flowList, archivedFlowIdSet, archivedFlowCodeSet]);
 
   // 2. 严格过滤：架构也仅展示正式通过“发布架构”发布后的层级节点
   const publishedArchs = useMemo(() => {
@@ -508,10 +647,26 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
       ? `/api/flow/type/publishVersionHistories?id=${targetId}`
       : `/api/flow/model/publishVersionHistories?id=${targetId}`;
     const res = await fetch(url).then((r) => r.json());
+    const matchedFlow = !isArch ? (publishedFlows.find((f) => f.id === targetId) || currentFlow) : null;
     setHistoryModal({
       open: true,
       title: isArch ? '架构版本发布历史' : '流程版本发布历史',
       rows: res?.data || [],
+      flow: matchedFlow,
+    });
+  };
+
+  const handleOpenDiff = (flowToDiff?: any, baseVer?: string, compareVer?: string) => {
+    const target = flowToDiff || currentFlow;
+    if (!target) {
+      showToast('请先选择要对比的流程', 'warning');
+      return;
+    }
+    setDiffModal({
+      open: true,
+      flow: target,
+      baseVer,
+      compareVer,
     });
   };
 
@@ -534,8 +689,8 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
 
   const handleSubmitRepeal = async () => {
     if (!repealModal.flow) return;
-    if (repealModal.applyMode === 'suggest' && !repealModal.reason.trim()) {
-      showToast('请输入建议废止理由', 'warning');
+    if (!repealModal.reason.trim()) {
+      showToast('请输入建议废止详细说明与背景', 'warning');
       return;
     }
     setRepealModal((prev) => ({ ...prev, submitting: true }));
@@ -545,21 +700,19 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           modelId: repealModal.flow.id,
-          mode: repealModal.applyMode,
           reasonType: repealModal.reasonType,
           reason: repealModal.reason.trim(),
           replaceFlowName: repealModal.replaceFlowName.trim(),
           impactScope: repealModal.impactScope.trim(),
-          applicant: '当前登录人',
+          applicant: currentUser?.userName || '流程管理员',
         }),
       }).then((r) => r.json());
       if (res.status === 1) {
         const targetLabel = repealModal.flow.label;
-        const isDirect = repealModal.applyMode === 'direct';
         setRepealModal((prev) => ({ ...prev, open: false, submitting: false }));
         await loadAllData();
         showToast(
-          isDirect ? `流程【${targetLabel}】已正式废止` : `已提交流程【${targetLabel}】废止申请`,
+          `已成功提交流程【${targetLabel}】建议废止申请！正在进入多级审批，最终由集团流程管理员确认归档。`,
           'success'
         );
       } else {
@@ -681,7 +834,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
               isSel ? 'bg-white/20 text-white' : 'bg-[#f0f2f5] text-[#909399]'
             }`}
           >
-            {arch.level || 'L1'}
+            {resolveArchLevel(arch, publishedArchs)}
           </span>
         </div>
 
@@ -692,7 +845,8 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
             }
             const fl = child;
             const isFlowSel = selectedNode.type === 'flow' && selectedNode.id === fl.id;
-            const hasPendingRepeal = fl.repealApplyStatus === '待审核';
+            const pendingRec = pendingRepealMap.get(fl.id) || (fl.flowNo && pendingRepealMap.get(fl.flowNo));
+            const hasPendingRepeal = Boolean(pendingRec) || fl.repealApplyStatus === '待审核' || fl.repealApplyStatus === '审批中';
 
             return (
               <div
@@ -860,7 +1014,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
             {!treeCollapsed && (
               <div className="flex items-center gap-1.5">
                 <FolderTree className="w-4 h-4 text-[#409eff]" />
-                <span className="text-xs font-semibold text-[#1f2733]">流程资产发布架构树</span>
+                <span className="text-xs font-semibold text-[#1f2733]">流程资产架构树</span>
               </div>
             )}
             <button
@@ -933,12 +1087,18 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                         <CheckCircle2 className="w-3 h-3" />
                         已发布生效
                       </span>
-                      {currentFlow.repealApplyStatus === '待审核' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#fdf6ec] border border-[#f5dab1] text-[#e6a23c] text-xs font-medium">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          废止审核中
-                        </span>
-                      )}
+                      {(() => {
+                        const isPending =
+                          (currentFlow && (pendingRepealMap.get(currentFlow.id) || (currentFlow.flowNo && pendingRepealMap.get(currentFlow.flowNo)))) ||
+                          currentFlow.repealApplyStatus === '待审核' ||
+                          currentFlow.repealApplyStatus === '审批中';
+                        return isPending ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#fdf6ec] border border-[#f5dab1] text-[#e6a23c] text-xs font-medium">
+                            <Clock className="w-3.5 h-3.5" />
+                            废止审核中
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                     <div className="text-[11px] text-[#909399] mt-0.5 truncate">
                       所属架构：{currentFlow.archName || '主干流程'} · 责任人：{currentFlow.ownerName || '系统管理员'} · 发布时间：{currentFlow.publishTime || '-'}
@@ -948,20 +1108,55 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
+                    onClick={() => handleOpenDiff(currentFlow)}
+                    className="h-8 px-3.5 rounded border border-[#87e8de] bg-[#e6fffb] hover:bg-[#13c2c2] text-[#08979c] hover:text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                    title="双屏对比该流程的历史发布版本与管理要素变更"
+                  >
+                    <GitCompare className="w-3.5 h-3.5" />
+                    <span>版本对比</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleOpenHistory(false, currentFlow.id)}
                     className="h-8 px-3.5 rounded border border-[#b3d8ff] bg-[#ecf5ff] hover:bg-[#409eff] text-[#409eff] hover:text-white text-xs flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                   >
                     <FileSearch className="w-3.5 h-3.5" />
                     <span>版本历史</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => openRepealModalForFlow(currentFlow, 'suggest')}
-                    className="h-8 px-3.5 rounded border border-[#f5dab1] bg-[#fdf6ec] hover:bg-[#e6a23c] text-[#e6a23c] hover:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <FileWarning className="w-3.5 h-3.5" />
-                    <span>建议废止</span>
-                  </button>
+                  {(() => {
+                    const isPending =
+                      (currentFlow && (pendingRepealMap.get(currentFlow.id) || (currentFlow.flowNo && pendingRepealMap.get(currentFlow.flowNo)))) ||
+                      currentFlow.repealApplyStatus === '待审核' ||
+                      currentFlow.repealApplyStatus === '审批中';
+
+                    return isPending ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onNavigate) {
+                            onNavigate('/build/repeal');
+                            showToast('已跳转至「废止归档」查看该流程审批流转与归档进度', 'info');
+                          } else {
+                            showToast('该流程建议废止申请正在流转多级审批中，待集团流程管理员最终批准确认归档', 'warning');
+                          }
+                        }}
+                        className="h-8 px-3.5 rounded border border-[#f5dab1] bg-[#fdf6ec] hover:bg-[#faecd8] text-[#e6a23c] text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                        title="废止申请正在流转审批中，点击可前往「废止归档」查看进度"
+                      >
+                        <Clock className="w-3.5 h-3.5 animate-spin" />
+                        <span>废止审批中 (查看进度)</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openRepealModalForFlow(currentFlow, 'suggest')}
+                        className="h-8 px-3.5 rounded border border-[#f5dab1] bg-[#fdf6ec] hover:bg-[#e6a23c] text-[#e6a23c] hover:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                      >
+                        <FileWarning className="w-3.5 h-3.5" />
+                        <span>建议废止</span>
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1402,6 +1597,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
               <div className="px-5 border-b border-[#ebeef5] flex items-center gap-7 text-xs font-medium shrink-0 overflow-x-auto bg-white">
                 {[
                   { key: 'arch', label: '架构键盘图' },
+                  { key: 'ywjcst', label: '业务集成视图' },
                   { key: 'typecard', label: '架构卡片' },
                   { key: 'zdwj', label: '制度文件' },
                   { key: 'fxhg', label: '风险合规' },
@@ -1418,6 +1614,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                     }`}
                   >
                     {t.key === 'arch' && <Layers className="w-3.5 h-3.5" />}
+                    {t.key === 'ywjcst' && <Network className="w-3.5 h-3.5" />}
                     {t.key === 'typecard' && <FileText className="w-3.5 h-3.5" />}
                     <span>{t.label}</span>
                   </button>
@@ -1472,7 +1669,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                                 }`}
                                 title={`点击穿透至【${crumb.label}】`}
                               >
-                                {crumb.label} ({crumb.level || 'L' + idx})
+                                {crumb.label} ({resolveArchLevel(crumb, publishedArchs)})
                               </button>
                             </React.Fragment>
                           );
@@ -1502,7 +1699,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded bg-white/20 text-white font-mono text-xs font-bold border border-white/30">
-                            {currentArch.level || 'L1'} · 架构键盘图
+                            {resolveArchLevel(currentArch, publishedArchs)} · 架构键盘图
                           </span>
                           <h2 className="text-base font-bold tracking-tight">{currentArch.label}</h2>
                         </div>
@@ -1551,7 +1748,7 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                                     <span
                                       className={`px-2 py-0.5 rounded text-[11px] font-bold border font-mono ${palette.badgeBg} ${palette.badgeText} ${palette.badgeBorder}`}
                                     >
-                                      {childArch.level || 'L2'}
+                                      {resolveArchLevel(childArch, publishedArchs)}
                                     </span>
                                     <span className="font-mono-tabular text-[11px] text-[#909399]">
                                       {childArch.archNo || 'ARCH-SUB'}
@@ -1627,6 +1824,10 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                           {directChildFlows.map((fl, idx) => {
                             const palette = ARCH_PALETTES[(idx + 2) % ARCH_PALETTES.length];
+                            const cardHasPendingRepeal =
+                              Boolean(fl.repealApplyStatus && fl.repealApplyStatus !== '已废止归档') ||
+                              pendingRepealMap.has(fl.id) ||
+                              Boolean(fl.flowNo && pendingRepealMap.has(fl.flowNo));
                             return (
                               <div
                                 key={fl.id}
@@ -1635,7 +1836,13 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                                   setFlowTab('flow');
                                   showToast(`已向下穿透进入流程【${fl.label}】`, 'success');
                                 }}
-                                className={`rounded-lg border border-[#e2e8f0] bg-white hover:border-[#409eff] p-3.5 flex flex-col justify-between gap-3 cursor-pointer transition-all duration-200 group shadow-2xs hover:shadow-md hover:ring-2 hover:ring-[#409eff]/15`}
+                                className={`rounded-lg border ${
+                                  cardHasPendingRepeal
+                                    ? 'border-[#fca5a5] bg-[#fffaf8] hover:border-[#f87171]'
+                                    : 'border-[#e2e8f0] bg-white hover:border-[#409eff]'
+                                } p-3.5 flex flex-col justify-between gap-3 cursor-pointer transition-all duration-200 group shadow-2xs hover:shadow-md hover:ring-2 ${
+                                  cardHasPendingRepeal ? 'hover:ring-[#f56c6c]/15' : 'hover:ring-[#409eff]/15'
+                                }`}
                               >
                                 <div>
                                   <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -1647,9 +1854,17 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                                         {fl.flowNo}
                                       </span>
                                     </div>
-                                    <span className="px-2 py-0.5 rounded font-mono-tabular font-bold text-[11px] bg-[#ecf5ff] text-[#409eff]">
-                                      {fl.versionNo || 'V1'}
-                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="px-2 py-0.5 rounded font-mono-tabular font-bold text-[11px] bg-[#ecf5ff] text-[#409eff]">
+                                        {fl.versionNo || 'V1'}
+                                      </span>
+                                      {cardHasPendingRepeal && (
+                                        <span className="px-1.5 py-0.5 rounded text-[10.5px] font-medium bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] flex items-center gap-1">
+                                          <Clock className="w-2.5 h-2.5" />
+                                          废止审核中
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
 
                                   <h4 className="font-bold text-xs text-[#1f2733] group-hover:text-[#409eff] transition-colors leading-snug line-clamp-2">
@@ -1664,10 +1879,17 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                                 </div>
 
                                 <div className="pt-2 border-t border-[#f1f5f9] flex items-center justify-between text-xs">
-                                  <span className="inline-flex items-center gap-1 text-[11px] text-[#67c23a] font-medium">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    已审核发布
-                                  </span>
+                                  {cardHasPendingRepeal ? (
+                                    <span className="inline-flex items-center gap-1 text-[11px] text-[#e6a23c] font-medium">
+                                      <AlertCircle className="w-3 h-3 text-[#e6a23c]" />
+                                      废止审批中
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[11px] text-[#67c23a] font-medium">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      已审核发布
+                                    </span>
+                                  )}
                                   <span className="text-[#409eff] font-medium flex items-center gap-1 text-[11px] group-hover:underline">
                                     <span>向下穿透查阅流程</span>
                                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
@@ -1688,6 +1910,116 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                         <p className="text-[11px] text-[#909399]">请在「流程构建」模块完成设计并直接发布或审批通过后生效展示</p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* ============================================================== */}
+                {/* 业务集成视图 (Business Integration View)                          */}
+                {/* ============================================================== */}
+                {archTab === 'ywjcst' && currentArch && (
+                  <div className="space-y-4">
+                    {/* 架构端到端流转边界看板 */}
+                    <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-4">
+                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#e2e8f0]">
+                        <div className="flex items-center gap-2">
+                          <Network className="w-4 h-4 text-[#409eff]" />
+                          <span className="font-bold text-xs text-[#1f2733]">
+                            【{currentArch.label}】端到端业务集成与输入输出接口握手矩阵
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-[#909399]">
+                          层级：{resolveArchLevel(currentArch, archList)} · 责任人：{currentArch.ownerName || '系统管理员'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                        <div className="bg-white p-3 rounded-lg border border-[#e2e8f0] shadow-2xs">
+                          <div className="text-[11px] text-[#909399] mb-1 font-medium">前序输入源头 (Flow Input)</div>
+                          <div className="font-semibold text-[#1f2733]">{currentArch.flowInput || '上游业务需求与市场洞察'}</div>
+                          <div className="text-[10.5px] text-[#64748b] mt-1">关联前置：{currentArch.prevArch || '无 / 顶层输入'}</div>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-lg border border-[#e2e8f0] shadow-2xs">
+                          <div className="text-[11px] text-[#909399] mb-1 font-medium">触发启动条件 (Flow Start)</div>
+                          <div className="font-semibold text-[#409eff]">{currentArch.flowStart || '业务规划立项或需求触发'}</div>
+                          <div className="text-[10.5px] text-[#64748b] mt-1">驱动标准：{currentArch.flowDefine || '端到端流程治理规范'}</div>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-lg border border-[#e2e8f0] shadow-2xs">
+                          <div className="text-[11px] text-[#909399] mb-1 font-medium">交付终结条件 (Flow End)</div>
+                          <div className="font-semibold text-[#67c23a]">{currentArch.flowEnd || '交付验收与服务运营完成'}</div>
+                          <div className="text-[10.5px] text-[#64748b] mt-1">后序流向：{currentArch.nextArch || '下游业务承接'}</div>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-lg border border-[#e2e8f0] shadow-2xs">
+                          <div className="text-[11px] text-[#909399] mb-1 font-medium">目标产出价值 (Flow Output)</div>
+                          <div className="font-semibold text-[#e6a23c]">{currentArch.flowOutput || '经营业绩闭环与客户满意交付'}</div>
+                          <div className="text-[10.5px] text-[#64748b] mt-1">关键考核：{currentArch.flowKpi || '达成率 ≥ 95%'}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 集成业务流程接口协同清单 */}
+                    <div className="bg-white rounded-xl border border-[#e4e7ed] p-4 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <GitBranch className="w-4 h-4 text-[#409eff]" />
+                          <h4 className="font-bold text-xs text-[#1f2733]">架构内业务流程端到端集成协同清单</h4>
+                        </div>
+                        <span className="text-[11px] text-[#909399]">共 {directChildFlows.length} 个业务交互流程</span>
+                      </div>
+
+                      {directChildFlows.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs text-left border-collapse">
+                            <thead>
+                              <tr className="bg-[#f8fafc] text-[#606266] border-b border-[#e2e8f0]">
+                                <th className="py-2.5 px-3 font-semibold">流程编号</th>
+                                <th className="py-2.5 px-3 font-semibold">业务流程名称</th>
+                                <th className="py-2.5 px-3 font-semibold">版本</th>
+                                <th className="py-2.5 px-3 font-semibold">责任人</th>
+                                <th className="py-2.5 px-3 font-semibold">前置输入 / 触发源</th>
+                                <th className="py-2.5 px-3 font-semibold">后置输出 / 交付件</th>
+                                <th className="py-2.5 px-3 font-semibold text-center">穿透查阅</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#ebeef5]">
+                              {directChildFlows.map((fl) => (
+                                <tr key={fl.id} className="hover:bg-[#f0f9eb]/30 transition-colors">
+                                  <td className="py-2.5 px-3 font-mono-tabular text-[#64748b]">{fl.flowNo}</td>
+                                  <td className="py-2.5 px-3 font-semibold text-[#1f2733]">{fl.label}</td>
+                                  <td className="py-2.5 px-3">
+                                    <span className="px-1.5 py-0.5 rounded text-[10.5px] font-mono font-bold bg-[#ecf5ff] text-[#409eff]">
+                                      {fl.versionNo || 'V1'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-[#606266]">{fl.ownerName || '系统管理员'}</td>
+                                  <td className="py-2.5 px-3 text-[#909399]">{fl.drivingRules || '业务触发'}</td>
+                                  <td className="py-2.5 px-3 text-[#909399]">{fl.purpose || '业务成果单据'}</td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedNode({ type: 'flow', id: fl.id });
+                                        setFlowTab('flow');
+                                        showToast(`已向下穿透查阅【${fl.label}】`, 'info');
+                                      }}
+                                      className="text-[#409eff] hover:underline font-medium cursor-pointer"
+                                    >
+                                      查阅图表
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="py-8 text-center text-xs text-[#909399] bg-[#fafbfc] rounded-lg border border-dashed border-[#dcdfe6]">
+                          该架构下暂无直属流程
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1830,12 +2162,13 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                       <th className="py-2.5 px-3">发布时间</th>
                       <th className="py-2.5 px-3">发布人</th>
                       <th className="py-2.5 px-3">状态</th>
+                      <th className="py-2.5 px-3 text-right">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#ebeef5]">
                     {historyModal.rows.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-6 text-center text-[#909399]">
+                        <td colSpan={5} className="py-6 text-center text-[#909399]">
                           暂无历史发布记录
                         </td>
                       </tr>
@@ -1851,8 +2184,23 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                           <td className="py-2.5 px-3 text-[#303133]">{r.publishUserName || '系统管理员'}</td>
                           <td className="py-2.5 px-3">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[10.5px]">
-                              ● 已生效
+                              ● {r.status || '已生效'}
                             </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const targetFlow = historyModal.flow || currentFlow;
+                                setHistoryModal({ open: false, title: '', rows: [], flow: null });
+                                handleOpenDiff(targetFlow, r.versionNo);
+                              }}
+                              className="text-xs text-[#08979c] hover:text-[#13c2c2] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                              title="以该版本为基准开展对比"
+                            >
+                              <GitCompare className="w-3.5 h-3.5" />
+                              <span>对比此版本</span>
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1861,10 +2209,22 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                 </table>
               </div>
             </div>
-            <div className="px-5 py-3 border-t border-[#ebeef5] bg-[#fafafa] flex justify-end shrink-0">
+            <div className="px-5 py-3 border-t border-[#ebeef5] bg-[#fafafa] flex items-center justify-between shrink-0">
               <button
                 type="button"
-                onClick={() => setHistoryModal({ open: false, title: '', rows: [] })}
+                onClick={() => {
+                  const targetFlow = historyModal.flow || currentFlow;
+                  setHistoryModal({ open: false, title: '', rows: [], flow: null });
+                  handleOpenDiff(targetFlow);
+                }}
+                className="h-8 px-3.5 rounded border border-[#87e8de] bg-[#e6fffb] hover:bg-[#13c2c2] text-[#08979c] hover:text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+              >
+                <GitCompare className="w-3.5 h-3.5" />
+                <span>进入双屏版本对比</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryModal({ open: false, title: '', rows: [], flow: null })}
                 className="h-8 px-4 rounded border border-[#dcdfe6] bg-white text-xs text-[#606266] hover:border-[#409eff] cursor-pointer shadow-2xs"
               >
                 关闭
@@ -1874,14 +2234,23 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
         </div>
       )}
 
-      {/* Repeal Modal */}
+      {/* Repeal Modal (流程建议废止申请：走审批流程 -> 最终由集团流程管理员确认归档) */}
       {repealModal.open && repealModal.flow && (
         <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-[490px] shadow-2xl border border-[#ebeef5] overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="px-5 py-4 border-b border-[#ebeef5] bg-[#fafafa] flex items-center justify-between shrink-0">
-              <span className="text-sm font-bold text-[#1f2733]">
-                {repealModal.applyMode === 'direct' ? '正式废止流程' : '申请建议废止流程'}
-              </span>
+          <div className="bg-white rounded-xl w-full max-w-[620px] shadow-2xl border border-[#ebeef5] overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#ebeef5] bg-gradient-to-r from-[#fff7ed] to-[#ffedd5] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-[#ea580c] text-white flex items-center justify-center shadow-xs">
+                  <FileWarning className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#9a3412]">流程建议废止申请</h3>
+                  <p className="text-[11px] text-[#c2410c]">
+                    需经业务部门审批与合规复核，最终由集团流程管理员进行确认并归档
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setRepealModal((prev) => ({ ...prev, open: false }))}
@@ -1890,42 +2259,180 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1 min-h-0">
-              <div className="p-3 bg-[#fdf6ec] border border-[#faecd8] rounded text-[#e6a23c] leading-relaxed">
-                确定要对已发布的流程【<strong>{repealModal.flow.label}</strong>】提交废止处理吗？
+
+            {/* Content Body */}
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
+              {/* Target Flow Card */}
+              <div className="p-3.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[#1f2733] text-sm">{repealModal.flow.label}</span>
+                    <span className="px-1.5 py-0.2 rounded font-mono font-bold text-[10px] bg-[#eff6ff] text-[#2563eb] border border-[#bfdbfe]">
+                      {repealModal.flow.flowLevel || 'L3'}
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded font-mono font-bold text-[10px] bg-[#ecf5ff] text-[#409eff]">
+                      {repealModal.flow.versionNo || 'V1'}
+                    </span>
+                  </div>
+                  <span className="font-mono-tabular text-[#909399] text-[11px]">
+                    {repealModal.flow.flowNo}
+                  </span>
+                </div>
+                <div className="text-[11px] text-[#64748b] flex items-center gap-3">
+                  <span>归属架构：{repealModal.flow.archName || '企业流程架构全景'}</span>
+                  <span>•</span>
+                  <span>责任人：{repealModal.flow.ownerName || '系统管理员'}</span>
+                </div>
               </div>
-              <div>
-                <label className="block text-[#606266] mb-1 font-medium">废止原因说明</label>
-                <textarea
-                  rows={3}
-                  value={repealModal.reason}
-                  onChange={(e) =>
-                    setRepealModal((prev) => ({ ...prev, reason: e.target.value }))
-                  }
-                  placeholder="请输入废止理由..."
-                  className="w-full p-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] text-[#303133] outline-none resize-none"
-                />
+
+              {/* Form Fields */}
+              <div className="space-y-3.5">
+                <div>
+                  <label className="block text-[#606266] font-medium mb-1">
+                    废止原因分类 <span className="text-[#f56c6c]">*</span>
+                  </label>
+                  <select
+                    value={repealModal.reasonType}
+                    onChange={(e) =>
+                      setRepealModal((prev) => ({ ...prev, reasonType: e.target.value }))
+                    }
+                    className="w-full h-8 px-2.5 rounded-lg border border-[#dcdfe6] bg-white text-xs outline-none focus:border-[#ea580c] cursor-pointer"
+                  >
+                    <option value="业务模式变革调整">业务模式变革调整</option>
+                    <option value="业务流程合并升级">业务流程合并升级</option>
+                    <option value="组织架构优化变更">组织架构优化变更</option>
+                    <option value="业务关停下线">业务关停下线</option>
+                    <option value="合规标准迭代升级">合规标准迭代升级</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[#606266] font-medium mb-1">
+                    建议废止详细说明与背景 <span className="text-[#f56c6c]">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={repealModal.reason}
+                    onChange={(e) =>
+                      setRepealModal((prev) => ({ ...prev, reason: e.target.value }))
+                    }
+                    placeholder="请详细说明废止原因、业务背景以及衔接安排..."
+                    className="w-full p-2.5 rounded-lg border border-[#dcdfe6] focus:border-[#ea580c] outline-none text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[#606266] font-medium mb-1">替代/衔接流程 (选填)</label>
+                    <input
+                      type="text"
+                      value={repealModal.replaceFlowName}
+                      onChange={(e) =>
+                        setRepealModal((prev) => ({ ...prev, replaceFlowName: e.target.value }))
+                      }
+                      placeholder="如：3.1.1.1 销售线索转化主流程"
+                      className="w-full h-8 px-2.5 rounded-lg border border-[#dcdfe6] focus:border-[#ea580c] outline-none bg-white text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#606266] font-medium mb-1">影响部门范围与衔接</label>
+                    <input
+                      type="text"
+                      value={repealModal.impactScope}
+                      onChange={(e) =>
+                        setRepealModal((prev) => ({ ...prev, impactScope: e.target.value }))
+                      }
+                      placeholder="如：涉及研发中心、营销部及运营部"
+                      className="w-full h-8 px-2.5 rounded-lg border border-[#dcdfe6] focus:border-[#ea580c] outline-none bg-white text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Approval Chain Workflow Preview */}
+              <div className="p-3.5 bg-[#fff7ed]/60 rounded-xl border border-[#fed7aa] space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-[#9a3412]">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#ea580c]" />
+                    建议废止审批流与归档路径
+                  </span>
+                  <span className="text-[11px] text-[#ea580c] font-normal">多级审核管控</span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 pt-1 text-center">
+                  <div className="p-2 bg-white rounded border border-[#fed7aa] space-y-1">
+                    <div className="w-5 h-5 rounded-full bg-[#ea580c] text-white font-mono text-[10px] flex items-center justify-center mx-auto">
+                      1
+                    </div>
+                    <div className="font-bold text-[#1f2733] text-[11px]">发起建议废止</div>
+                    <div className="text-[10px] text-[#909399]">流程责任人</div>
+                  </div>
+
+                  <div className="p-2 bg-white rounded border border-[#fed7aa] space-y-1">
+                    <div className="w-5 h-5 rounded-full bg-[#fed7aa] text-[#9a3412] font-mono text-[10px] flex items-center justify-center mx-auto">
+                      2
+                    </div>
+                    <div className="font-bold text-[#1f2733] text-[11px]">部门审核</div>
+                    <div className="text-[10px] text-[#909399]">业务部门总监</div>
+                  </div>
+
+                  <div className="p-2 bg-white rounded border border-[#fed7aa] space-y-1">
+                    <div className="w-5 h-5 rounded-full bg-[#fed7aa] text-[#9a3412] font-mono text-[10px] flex items-center justify-center mx-auto">
+                      3
+                    </div>
+                    <div className="font-bold text-[#1f2733] text-[11px]">合规复核</div>
+                    <div className="text-[10px] text-[#909399]">流程运营合规</div>
+                  </div>
+
+                  <div className="p-2 bg-[#ffedd5] rounded border border-[#f97316] space-y-1">
+                    <div className="w-5 h-5 rounded-full bg-[#f97316] text-white font-mono text-[10px] flex items-center justify-center mx-auto">
+                      4
+                    </div>
+                    <div className="font-bold text-[#9a3412] text-[11px]">确认并归档</div>
+                    <div className="text-[10px] text-[#ea580c] font-medium">集团流程管理员</div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="px-5 py-3 flex items-center justify-end gap-2 bg-[#fafafa] border-t border-[#ebeef5] shrink-0">
-              <button
-                type="button"
-                onClick={() => setRepealModal((prev) => ({ ...prev, open: false }))}
-                className="h-8 px-4 rounded border border-[#dcdfe6] bg-white hover:bg-[#f5f7fa] text-xs text-[#606266] cursor-pointer shadow-2xs"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                disabled={repealModal.submitting}
-                onClick={handleSubmitRepeal}
-                className="h-8 px-4 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium cursor-pointer shadow-2xs"
-              >
-                {repealModal.submitting ? '提交中...' : '提交'}
-              </button>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 flex items-center justify-between bg-[#fafafa] border-t border-[#ebeef5] shrink-0 text-xs">
+              <span className="text-[#909399]">
+                提交后任务将转入审批流，最终批准后由集团流程管理员归档至「废止归档」
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRepealModal((prev) => ({ ...prev, open: false }))}
+                  className="h-8 px-4 rounded-lg border border-[#dcdfe6] bg-white hover:bg-[#f5f7fa] text-xs text-[#606266] cursor-pointer shadow-2xs"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  disabled={repealModal.submitting}
+                  onClick={handleSubmitRepeal}
+                  className="h-8 px-5 rounded-lg bg-[#ea580c] hover:bg-[#c2410c] text-white text-xs font-bold cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors"
+                >
+                  {repealModal.submitting ? '正在提交...' : '提报建议废止申请'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Flow Version Diff Modal */}
+      {diffModal.open && diffModal.flow && (
+        <FlowVersionDiffModal
+          open={diffModal.open}
+          onClose={() => setDiffModal({ open: false, flow: null })}
+          flow={diffModal.flow}
+          showToast={showToast}
+          initialBaseVer={diffModal.baseVer}
+          initialCompareVer={diffModal.compareVer}
+        />
       )}
     </div>
   );

@@ -12,8 +12,10 @@ import {
   Table2,
   Shield,
   Search,
+  Users,
 } from 'lucide-react';
 import { PersonSelectModal } from './PersonSelectModal';
+import { RoleLibrarySelectModal, ProcessRoleItem } from './RoleLibrarySelectModal';
 import { OnlineDocumentPreviewModal, DocumentItem } from './OnlineDocumentPreviewModal';
 
 export interface FileAttachmentItem {
@@ -158,6 +160,8 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
 
   // UI Interactive States
   const [roleSelectOpen, setRoleSelectOpen] = useState(false);
+  const [roleLibraryModalOpen, setRoleLibraryModalOpen] = useState(false);
+  const [libraryRoles, setLibraryRoles] = useState<ProcessRoleItem[]>([]);
   const [systemSelectOpen, setSystemSelectOpen] = useState(false);
   const [orgPersonModalOpen, setOrgPersonModalOpen] = useState(false);
   const [sysDocModalMode, setSysDocModalMode] = useState<'in' | 'out' | null>(null);
@@ -168,6 +172,18 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
   // Hidden file input refs
   const inFileInputRef = useRef<HTMLInputElement | null>(null);
   const outFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Fetch role library roles on mount
+  useEffect(() => {
+    fetch('/api/build/roles?pageSize=100')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json && Array.isArray(json.rows) && json.rows.length > 0) {
+          setLibraryRoles(json.rows);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Sync state whenever cell changes
   useEffect(() => {
@@ -288,39 +304,79 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
 
               {/* Role Dropdown */}
               {roleSelectOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e4e7ed] rounded-lg shadow-xl py-1 z-50 text-xs max-h-56 overflow-y-auto">
-                  <div className="p-1 border-b border-[#f0f2f5]">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e4e7ed] rounded-lg shadow-xl py-1 z-50 text-xs max-h-64 overflow-y-auto">
+                  <div className="p-1 border-b border-[#f0f2f5] space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRoleSelectOpen(false);
+                        setRoleLibraryModalOpen(true);
+                      }}
+                      className="w-full px-2 py-1.5 rounded bg-[#ecf5ff] text-[#1677ff] hover:bg-[#d9ecff] flex items-center justify-center gap-1.5 font-medium cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <Users className="w-3.5 h-3.5 text-[#1677ff]" />
+                      <span>从流程建设-角色库中选择...</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
                         setRoleSelectOpen(false);
                         setOrgPersonModalOpen(true);
                       }}
-                      className="w-full px-2 py-1.5 rounded bg-[#ecf5ff] text-[#1677ff] hover:bg-[#d9ecff] flex items-center justify-center gap-1.5 font-medium cursor-pointer transition-colors"
+                      className="w-full px-2 py-1 text-[11px] text-[#909399] hover:text-[#1677ff] hover:bg-[#f5f7fa] rounded flex items-center justify-center gap-1 cursor-pointer transition-colors"
                     >
-                      <Building2 className="w-3.5 h-3.5" />
-                      <span>从公司组织架构中选择...</span>
+                      <Building2 className="w-3 h-3 text-[#909399]" />
+                      <span>从公司组织架构人员选择...</span>
                     </button>
                   </div>
-                  <div className="text-[10px] text-[#909399] px-3 py-1 font-medium bg-[#fafafa]">
-                    预设高频业务角色
+                  <div className="text-[10px] text-[#909399] px-3 py-1 font-medium bg-[#fafafa] flex items-center justify-between">
+                    <span>角色库标准流程角色</span>
+                    <span className="text-[10px] text-[#1677ff] font-mono">共 {libraryRoles.length || PRESET_ROLES.length} 个</span>
                   </div>
-                  {PRESET_ROLES.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => {
-                        setRoleName(r);
-                        setRoleSelectOpen(false);
-                      }}
-                      className={`w-full px-3 py-1.5 text-left hover:bg-[#f5f7fa] flex items-center justify-between cursor-pointer ${
-                        roleName === r ? 'text-[#1677ff] font-semibold bg-[#e6f4ff]/40' : 'text-[#303133]'
-                      }`}
-                    >
-                      <span>{r}</span>
-                      {roleName === r && <CheckCircle2 className="w-3.5 h-3.5 text-[#1677ff]" />}
-                    </button>
-                  ))}
+                  {(libraryRoles.length > 0
+                    ? libraryRoles
+                    : PRESET_ROLES.map((r) => ({ id: r, roleName: r, roleCode: '', roleType: '' }))
+                  ).map((r: any) => {
+                    const rName = r.roleName || r;
+                    const isSelected = roleName === rName;
+                    return (
+                      <button
+                        key={r.id || rName}
+                        type="button"
+                        onClick={() => {
+                          setRoleName(rName);
+                          if (r.isKcpApprover && !isKcp) {
+                            setIsKcp(true);
+                          }
+                          setRoleSelectOpen(false);
+                        }}
+                        className={`w-full px-3 py-1.5 text-left hover:bg-[#f5f7fa] flex items-center justify-between cursor-pointer transition-colors ${
+                          isSelected ? 'text-[#1677ff] font-semibold bg-[#e6f4ff]/40' : 'text-[#303133]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                          <span className="truncate">{rName}</span>
+                          {r.roleCode && (
+                            <span className="text-[10px] font-mono text-[#909399]">{r.roleCode}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {r.roleType && (
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-gray-100 text-gray-600">
+                              {r.roleType.includes('R')
+                                ? '主责'
+                                : r.roleType.includes('A')
+                                ? '审批'
+                                : r.roleType.includes('C')
+                                ? '会签'
+                                : '角色'}
+                            </span>
+                          )}
+                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#1677ff]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -783,6 +839,22 @@ export const NodePropertiesDrawer: React.FC<NodePropertiesDrawerProps> = ({
           </div>
         </div>
       </aside>
+
+      {/* Process Role Library Selection Modal (流程建设-角色库) */}
+      <RoleLibrarySelectModal
+        open={roleLibraryModalOpen}
+        initialSelectedRoleName={roleName}
+        onClose={() => setRoleLibraryModalOpen(false)}
+        onConfirm={(selectedRole) => {
+          setRoleName(selectedRole.roleName);
+          if (selectedRole.isKcpApprover && !isKcp) {
+            setIsKcp(true);
+          }
+          showToast(`已从流程角色库中选定负责角色：【${selectedRole.roleName}】`, 'success');
+          setRoleLibraryModalOpen(false);
+        }}
+        showToast={showToast}
+      />
 
       {/* Person & Organization Selection Modal */}
       <PersonSelectModal

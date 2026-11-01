@@ -1525,7 +1525,7 @@ export const ProcessRoleLibraryView: React.FC<ProcessRoleLibraryViewProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-[#1F2733]">流程角色库</h1>
+              <h1 className="text-sm font-bold text-[#1F2733]">流程角色</h1>
               <span className="text-[11px] px-2 py-0.2 rounded-full bg-[#ECF5FF] text-[#2F7BFE] font-medium border border-[#B3D8FF]">
                 共 {stats.allTotal || roles.length} 个角色
               </span>

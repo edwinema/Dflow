@@ -193,11 +193,14 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
   // =========================================================================
   const [selectedRoleId, setSelectedRoleId] = useState<string>('orole_1');
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({
-    orole_1: ['all', 'flow', 'build', 'exec', 'task', 'sysdoc', 'risk', 'know', 'duty', 'org', 'system'],
-    orole_2: ['know', 'sysdoc', 'duty', 'org'],
-    orole_3: ['flow', 'build', 'exec'],
-    orole_4: ['risk', 'sysdoc', 'duty'],
-    orole_5: ['flow', 'task'],
+    orole_1: ['all', 'collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk', 'system'],
+    orole_2: ['collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk'],
+    orole_3: ['collab', 'property', 'design', 'execute', 'mining'],
+    orole_4: ['collab', 'property', 'risk', 'duty'],
+    orole_5: ['collab', 'property', 'duty', 'risk', 'system'],
+    orole_6: ['collab', 'property', 'design', 'execute', 'duty'],
+    orole_7: ['collab', 'property'],
+    orole_8: ['collab', 'property', 'execute', 'mining', 'duty', 'risk'],
   });
 
   // Load Org Bundle
@@ -2278,79 +2281,118 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  showToast('权限配置已即时生效并同步至用户访问网关', 'success');
-                }}
-                className="h-8 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>保存权限矩阵</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allKeys = ['collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk', 'system'];
+                    setRolePermissions((prev) => ({ ...prev, [selectedRoleId]: allKeys }));
+                    showToast('已全选所有 8 大业务模块权限', 'info');
+                  }}
+                  className="h-8 px-3 rounded border border-[#DCDFE6] text-[#606266] hover:bg-[#F5F7FA] text-xs cursor-pointer"
+                >
+                  全选模块
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRolePermissions((prev) => ({ ...prev, [selectedRoleId]: [] }));
+                    showToast('已清空当前角色模块权限', 'info');
+                  }}
+                  className="h-8 px-3 rounded border border-[#DCDFE6] text-[#606266] hover:bg-[#F5F7FA] text-xs cursor-pointer"
+                >
+                  清空权限
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const currentPerms = rolePermissions[selectedRoleId] || [];
+                    const moduleNameMap: Record<string, string> = {
+                      collab: '协同工作',
+                      property: '流程资产',
+                      design: '流程设计',
+                      execute: '流程运行',
+                      mining: '流程挖掘',
+                      duty: '权责管控',
+                      risk: '风控合规',
+                      system: '组织系统',
+                    };
+                    const mappedNames = currentPerms
+                      .filter((p) => p !== 'all')
+                      .map((p) => moduleNameMap[p] || p);
+                    try {
+                      await fetch(`/api/org/roles/${selectedRoleId}/permissions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ menuPermissions: mappedNames }),
+                      });
+                      setRoles((prev) =>
+                        prev.map((r) =>
+                          r.id === selectedRoleId ? { ...r, menuPermissions: mappedNames } : r
+                        )
+                      );
+                      showToast('权限配置已即时生效并同步至用户访问网关', 'success');
+                    } catch {
+                      showToast('保存权限配置失败', 'error');
+                    }
+                  }}
+                  className="h-8 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>保存权限矩阵</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2.5">
               {[
                 {
-                  id: 'flow',
-                  title: '流程资产管理 (流程规划、设计建模与发布)',
-                  desc: '流程概览、业务流程总览与分级目录树维护',
-                  actions: ['查阅资产', '设计画板', '发起评审', '基线发布'],
+                  id: 'collab',
+                  title: '协同工作 (综合首页、待办任务、已办任务、流程培训)',
+                  desc: '员工工作台、待办流转、催办预警与业务流程必修/选修培训课件学习',
+                  actions: ['查阅待办', '流转审批', '发起培训', '考核评定', '学习进度追踪'],
                 },
                 {
-                  id: 'build',
-                  title: '流程建设 (全源画板、建模引擎与节点规范)',
-                  desc: 'draw.io 图形设计器、泳道图、节点扩展属性与连接线配置',
-                  actions: ['在线建模', '导出XML', '版本对比', '审批入库'],
+                  id: 'property',
+                  title: '流程资产 (我的主责、流程概览、流程集成、我的参与、流程目录)',
+                  desc: '企业主干流程架构全景(L0-L4)、资产健康度统计、版本双屏对比与跨系统集成图谱',
+                  actions: ['资产盘点', '全景穿透', '版本基线对比', '健康度评估', '导出资产报表'],
                 },
                 {
-                  id: 'exec',
-                  title: '流程执行与工单调度',
-                  desc: '工作流引擎流转、填报审批、代办通知与日志追溯',
-                  actions: ['发起工单', '审批决议', '驳回委托', '督办归档'],
+                  id: 'design',
+                  title: '流程设计 (流程设计、流程审核、流程废止、流程角色、专业术语)',
+                  desc: 'Drawio在线流程画板建模、节点扩展属性、废止下线归档审批与流程标准角色库',
+                  actions: ['在线建模', '模型提交送审', '废止归档', '流程角色维护', '术语管理'],
                 },
                 {
-                  id: 'task',
-                  title: '任务中心与待办督办',
-                  desc: '个人待办事项、已办历史、抄送查阅与催办任务看板',
-                  actions: ['处理待办', '批量转办', '查看轨迹'],
+                  id: 'execute',
+                  title: '流程运行 (流程执行、工单驱动与流转监控)',
+                  desc: '业务流程实例在线发起、任务节点调度、审批轨迹记录与异常干预督办',
+                  actions: ['发起流程工单', '审批决议', '委托加签', '催办督办', '日志追溯'],
                 },
                 {
-                  id: 'sysdoc',
-                  title: '制度文件管控中心',
-                  desc: '制度草拟、合规审查、结构化条款发布与流程强关联',
-                  actions: ['录入制度', '条款标引', '废止修订', '下载附件'],
-                },
-                {
-                  id: 'risk',
-                  title: '风险合规与关键控制点(KCP)',
-                  desc: '风险清单库、控制矩阵、应对措施与审计证据链',
-                  actions: ['录入风险', '关联KCP', '合规审查', '缺陷整改'],
-                },
-                {
-                  id: 'know',
-                  title: '知识工程与图谱检索',
-                  desc: '经验案例库、业务知识图谱与智能问答推荐',
-                  actions: ['知识入库', '智能问答', '标签打标'],
+                  id: 'mining',
+                  title: '流程挖掘 (挖掘引擎、时序回放与瓶颈洞察)',
+                  desc: 'IT系统业务日志时序重放、真实流程变体发现、吞吐瓶颈分析与合规偏离度诊断',
+                  actions: ['日志抽取接入', '时序轨迹回放', '变体路径发现', '瓶颈下钻分析', '挖掘报告'],
                 },
                 {
                   id: 'duty',
-                  title: '权责管控与清单',
-                  desc: '权责清单、授权矩阵(DOA)与手册导出',
-                  actions: ['权责定义', '矩阵审批', '导出手册'],
+                  title: '权责管控 (权责清单、权责审核与DOA授权矩阵)',
+                  desc: '业务事项权责清单、决策审批层级、金额阈值区间、RACI责任矩阵与权责手册发布',
+                  actions: ['权责事项编制', 'DOA矩阵设定', '权责行权审核', '导出手册', '交叉校验'],
                 },
                 {
-                  id: 'org',
-                  title: '组织架构管理',
-                  desc: '部门组织、用户管理与角色权限配置',
-                  actions: ['部门维护', '用户账号', '权限分配', '导入组织架构'],
+                  id: 'risk',
+                  title: '风控合规 (制度清单、制度预览、风险清单、风险看板)',
+                  desc: '规章制度发文归档、条款强关联标引、风险控制矩阵与关键控制点(KCP)合规审查',
+                  actions: ['制度草拟发布', '条款结构化拆解', '风险识别录入', 'KCP控制点关联', '合规看板'],
                 },
                 {
                   id: 'system',
-                  title: '系统设置与表单引擎',
-                  desc: '公司授权信息、表单引擎字段设计与开放API',
-                  actions: ['企业授权', '字段设计器', 'API密钥生成'],
+                  title: '组织系统 (部门组织、用户管理、权限管理、表单引擎、公司信息、接口管理)',
+                  desc: '组织架构与岗位编制、用户账号与角色权限矩阵、低代码表单引擎、商业授权与OpenAPI网关',
+                  actions: ['部门用户维护', '角色授权分派', '表单字段设计', '商业授权更新', 'API接口调试'],
                 },
               ].map((module) => {
                 const currentPerms = rolePermissions[selectedRoleId] || [];
@@ -2395,7 +2437,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                     </div>
 
                     <span
-                      className={`px-2 py-0.5 rounded text-[11px] font-medium ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${
                         isChecked ? 'bg-[#E8F3FF] text-[#2F7BFE]' : 'bg-[#F2F3F5] text-[#86909C]'
                       }`}
                     >

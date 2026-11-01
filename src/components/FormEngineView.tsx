@@ -150,7 +150,7 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
   const [createModelData, setCreateModelData] = useState({
     formKey: '',
     formName: '',
-    moduleDomain: '制度文件 (制度规范与政策规程)',
+    moduleDomain: '协同工作 (任务流转与流程培训)',
     description: '',
     template: '空白表单 (预置编码、名称、备注3个基本项)',
   });
@@ -752,7 +752,7 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
 
           {/* Category Filter Pills */}
           <div className="p-2 border-b border-[#ebeef5] flex flex-wrap gap-1 bg-[#fafbfc]">
-            {['全部表单', '制度文件', '知识工程', '权责管控', '风控合规', '业务扩展'].map((cat) => (
+            {['全部表单', '协同工作', '流程资产', '流程设计', '流程运行', '流程挖掘', '权责管控', '风控合规', '组织系统'].map((cat) => (
               <button
                 key={cat}
                 type="button"
@@ -2053,11 +2053,14 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
                   }
                   className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#1890ff] outline-none bg-white"
                 >
-                  <option value="制度文件 (制度规范与政策规程)">制度文件 (制度规范与政策规程)</option>
-                  <option value="知识工程 (最佳实践与经验沉淀)">知识工程 (最佳实践与经验沉淀)</option>
-                  <option value="权责管控 (DOA与授权矩阵)">权责管控 (DOA与授权矩阵)</option>
-                  <option value="风控合规 (合规审计与KCP控制)">风控合规 (合规审计与KCP控制)</option>
-                  <option value="业务扩展 (供应商与客商准入)">业务扩展 (供应商与客商准入)</option>
+                  <option value="协同工作 (任务流转与流程培训)">协同工作 (任务流转与流程培训)</option>
+                  <option value="流程资产 (主干架构与概览图谱)">流程资产 (主干架构与概览图谱)</option>
+                  <option value="流程设计 (画板建模与废止归档)">流程设计 (画板建模与废止归档)</option>
+                  <option value="流程运行 (工单流转与实例调度)">流程运行 (工单流转与实例调度)</option>
+                  <option value="流程挖掘 (日志接入与挖掘分析)">流程挖掘 (日志接入与挖掘分析)</option>
+                  <option value="权责管控 (权责清单与授权矩阵)">权责管控 (权责清单与授权矩阵)</option>
+                  <option value="风控合规 (合规制度与KCP控制)">风控合规 (合规制度与KCP控制)</option>
+                  <option value="组织系统 (组织架构与系统配置)">组织系统 (组织架构与系统配置)</option>
                 </select>
               </div>
 

@@ -62,12 +62,12 @@ export interface ColumnConfig {
 }
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
-  { key: 'flowNo', title: '流程编码', width: 140, minWidth: 100, maxWidth: 300, visible: true, fixed: 'left', align: 'left' },
-  { key: 'label', title: '流程名称', width: 280, minWidth: 160, maxWidth: 600, visible: true, align: 'left' },
-  { key: 'archName', title: '所属流程架构', width: 260, minWidth: 160, maxWidth: 500, visible: true, align: 'left' },
-  { key: 'versionNo', title: '当前版本', width: 110, minWidth: 80, maxWidth: 180, visible: true, align: 'center' },
-  { key: 'ownerName', title: '负责人', width: 160, minWidth: 120, maxWidth: 260, visible: true, align: 'left' },
-  { key: 'publishTime', title: '发布时间', width: 180, minWidth: 150, maxWidth: 260, visible: true, align: 'left' },
+  { key: 'flowNo', title: '流程编码', width: 150, minWidth: 110, maxWidth: 300, visible: true, fixed: 'left', align: 'left' },
+  { key: 'label', title: '流程名称', width: 280, minWidth: 180, maxWidth: 600, visible: true, align: 'left' },
+  { key: 'versionNo', title: '当前版本', width: 110, minWidth: 80, maxWidth: 160, visible: true, align: 'center' },
+  { key: 'ownerName', title: '负责人', width: 170, minWidth: 130, maxWidth: 280, visible: true, align: 'left' },
+  { key: 'archName', title: '所属流程架构', width: 280, minWidth: 180, maxWidth: 500, visible: true, align: 'left' },
+  { key: 'publishTime', title: '发布时间', width: 200, minWidth: 160, maxWidth: 280, visible: true, align: 'left' },
   { key: 'publishUserName', title: '发布人', width: 160, minWidth: 120, maxWidth: 260, visible: true, align: 'left' },
   { key: 'actions', title: '操作', width: 130, minWidth: 110, maxWidth: 200, visible: true, fixed: 'right', align: 'center' },
 ];
@@ -116,7 +116,8 @@ export function MyResponsibleView({
   showToast,
 }: MyResponsibleViewProps) {
   const isPartake = subPath.includes('partake');
-  const pageTitle = isPartake ? '我的参与' : '我的负责';
+  const isCatalog = subPath.includes('catalog');
+  const pageTitle = isCatalog ? '流程目录' : isPartake ? '我的参与' : '我的负责';
   const currentUserName = currentUser?.userName || currentUser?.nickName || '流程管理员';
 
   // Search filter states
@@ -133,10 +134,10 @@ export function MyResponsibleView({
   const [loading, setLoading] = useState(false);
 
   // 取数模式：'my_only' (默认：严格基于当前账号在流程资料中被定义的责任人取数并统计) vs 'all' (查看全量)
-  const [viewScope, setViewScope] = useState<'my_only' | 'all'>('my_only');
+  const [viewScope, setViewScope] = useState<'my_only' | 'all'>(isCatalog ? 'all' : 'my_only');
 
   // Column customization state
-  const storageKey = `${STORAGE_KEY_PREFIX}_${isPartake ? 'partake' : 'verify'}`;
+  const storageKey = `${STORAGE_KEY_PREFIX}_${isCatalog ? 'catalog' : isPartake ? 'partake' : 'verify'}`;
   const [columns, setColumns] = useState<ColumnConfig[]>(() => {
     try {
       const saved = localStorage.getItem(storageKey);
@@ -277,7 +278,13 @@ export function MyResponsibleView({
   const filteredFlows = useMemo(() => {
     return rawFlows.filter((flow) => {
       // 1. 取数逻辑分支
-      if (!isPartake) {
+      if (isCatalog) {
+        // 流程目录清单：默认查看全量流程，若用户点击只看我负责的流程也可切换
+        if (viewScope === 'my_only') {
+          const isMine = matchFlowResponsibleUser(flow.ownerName, currentUser);
+          if (!isMine) return false;
+        }
+      } else if (!isPartake) {
         // 我的负责：基于所登录的账号，被定义在流程设计菜单下的流程资料下的责任人
         if (viewScope === 'my_only') {
           const isMine = matchFlowResponsibleUser(flow.ownerName, currentUser);
@@ -678,51 +685,59 @@ export function MyResponsibleView({
       {/* 2. Table Area with Column Sizing, Movement & Account Binding Identification */}
       <div className="bg-white rounded border border-[#e4e7ed] shadow-xs flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Table Top Toolbar */}
-        <div className="px-4 py-2.5 border-b border-[#ebeef5] flex items-center justify-between gap-3 shrink-0 bg-[#fafafa]">
-          <div className="flex items-center gap-2.5 text-xs text-[#606266] flex-wrap">
-            <span className="font-semibold text-[#303133]">{pageTitle}清单</span>
+        <div className="px-4 py-2 border-b border-[#ebeef5] flex items-center justify-between gap-3 shrink-0 bg-[#fafafa] min-h-[44px]">
+          <div className="flex items-center gap-2.5 text-xs text-[#606266] min-w-0 flex-1 overflow-hidden">
+            <span className="font-semibold text-[#303133] whitespace-nowrap">{pageTitle}清单</span>
 
-            {!isPartake && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#f0f9eb] border border-[#e1f3d8] text-[#67c23a] text-xs font-medium">
+            {!isPartake && !isCatalog && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#f0f9eb] border border-[#e1f3d8] text-[#67c23a] text-xs font-medium shrink-0 whitespace-nowrap">
                 <UserCheck className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   当前账号：<strong className="text-[#303133]">{currentUserName}</strong>
                 </span>
                 <span className="text-[#c0c4cc]">|</span>
                 <span>
-                  识别并统计流程资料责任人：<strong className="text-[#67c23a]">{myResponsibleFlowsCount}</strong> 条
+                  识别统计责任人：<strong className="text-[#67c23a]">{myResponsibleFlowsCount}</strong> 条
                 </span>
               </div>
             )}
+            {isCatalog && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#eff6ff] border border-[#bfdbfe] text-[#2563eb] text-xs font-medium shrink-0 whitespace-nowrap">
+                <Layers className="w-3.5 h-3.5 shrink-0" />
+                <span>全量企业流程资产目录</span>
+                <span className="text-[#c0c4cc]">|</span>
+                <span>共计 <strong>{rawFlows.length}</strong> 条发布流程</span>
+              </div>
+            )}
 
-            <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-[#409eff] bg-[#ecf5ff] px-2 py-0.5 rounded border border-[#d9ecff]">
+            <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-[#409eff] bg-[#ecf5ff] px-2 py-1 rounded border border-[#d9ecff] shrink-0 whitespace-nowrap">
               <MoveHorizontal className="w-3 h-3" />
               <span>拖拽表头可移动栏位，拖动右侧边框可定义尺寸</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
             {/* 我的负责：范围切换开关 */}
             {!isPartake && (
-              <div className="flex items-center rounded border border-[#dcdfe6] bg-white overflow-hidden text-[11px]">
+              <div className="flex items-center rounded-md border border-[#dcdfe6] bg-white overflow-hidden text-xs shrink-0 whitespace-nowrap shadow-2xs">
                 <button
                   type="button"
                   onClick={() => {
                     setViewScope('my_only');
                     setCurrentPage(1);
                   }}
-                  className={`h-7 px-2.5 cursor-pointer transition-colors flex items-center gap-1.5 ${
+                  className={`h-8 px-3 cursor-pointer transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                     viewScope === 'my_only'
                       ? 'bg-[#409eff] text-white font-medium'
                       : 'text-[#606266] hover:bg-[#f5f7fa]'
                   }`}
                   title="基于所登录账号，自动识别并在流程资料中责任人匹配该账号的流程"
                 >
-                  <span>仅我负责</span>
+                  <span className="whitespace-nowrap">仅我负责</span>
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none ${
                       viewScope === 'my_only'
-                        ? 'bg-white/20 text-white font-bold'
+                        ? 'bg-white/25 text-white'
                         : 'bg-[#f0f2f5] text-[#909399]'
                     }`}
                   >
@@ -735,18 +750,18 @@ export function MyResponsibleView({
                     setViewScope('all');
                     setCurrentPage(1);
                   }}
-                  className={`h-7 px-2.5 cursor-pointer transition-colors flex items-center gap-1.5 ${
+                  className={`h-8 px-3 cursor-pointer transition-colors flex items-center gap-1.5 whitespace-nowrap border-l border-[#ebeef5] ${
                     viewScope === 'all'
                       ? 'bg-[#409eff] text-white font-medium'
                       : 'text-[#606266] hover:bg-[#f5f7fa]'
                   }`}
                   title="查看全部流程"
                 >
-                  <span>全部流程</span>
+                  <span className="whitespace-nowrap">全部流程</span>
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none ${
                       viewScope === 'all'
-                        ? 'bg-white/20 text-white font-bold'
+                        ? 'bg-white/25 text-white'
                         : 'bg-[#f0f2f5] text-[#909399]'
                     }`}
                   >
@@ -761,29 +776,29 @@ export function MyResponsibleView({
                 fetchFlows();
                 showToast('已同步最新流程资料与责任人数据', 'info');
               }}
-              className="h-7 px-2.5 rounded border border-[#dcdfe6] bg-white hover:border-[#409eff] hover:text-[#409eff] text-[#606266] text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+              className="h-8 px-3 rounded-md border border-[#dcdfe6] bg-white hover:border-[#409eff] hover:text-[#409eff] text-[#606266] text-xs flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 whitespace-nowrap shadow-2xs font-medium"
               title="重新获取最新流程与责任人数据"
             >
-              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin text-[#409eff]' : ''}`} />
-              <span className="hidden sm:inline">刷新数据</span>
+              <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${loading ? 'animate-spin text-[#409eff]' : ''}`} />
+              <span className="whitespace-nowrap">刷新数据</span>
             </button>
 
             <button
               onClick={() => setColumnConfigModalOpen(true)}
-              className="h-7 px-2.5 rounded border border-[#dcdfe6] bg-white hover:border-[#409eff] hover:text-[#409eff] text-[#606266] text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-              title="支持栏位排序、显隐、冻结与精确尺寸定义"
+              className="h-8 px-3 rounded-md border border-[#b3d8ff] bg-[#ecf5ff] hover:bg-[#d9ecff] text-[#1677ff] text-xs flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 whitespace-nowrap shadow-2xs font-medium"
+              title="支持栏位排序、显隐、冻结与精确列宽尺寸自定义"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#409eff]" />
-              <span>定义尺寸 & 栏位配置</span>
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#1677ff] shrink-0" />
+              <span className="whitespace-nowrap">定义尺寸 &amp; 栏位配置</span>
             </button>
 
             <button
               onClick={handleResetColumns}
-              className="h-7 px-2 rounded border border-[#dcdfe6] bg-white hover:border-[#409eff] hover:text-[#409eff] text-[#606266] text-xs flex items-center gap-1 cursor-pointer transition-colors"
+              className="h-8 px-2.5 rounded-md border border-[#dcdfe6] bg-white hover:border-[#409eff] hover:text-[#409eff] text-[#606266] text-xs flex items-center gap-1 cursor-pointer transition-colors shrink-0 whitespace-nowrap shadow-2xs"
               title="重置栏位到初始尺寸和顺序"
             >
-              <ResetIcon className="w-3 h-3" />
-              <span className="hidden sm:inline">重置栏位</span>
+              <ResetIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap">重置栏位</span>
             </button>
           </div>
         </div>
@@ -841,18 +856,19 @@ export function MyResponsibleView({
                       key={col.key}
                       style={{
                         width: `${col.width}px`,
+                        minWidth: `${col.minWidth || 90}px`,
                         ...stickyStyle,
                       }}
                       draggable
                       onDragStart={(e) => handleDragStart(e, col.key)}
                       onDragOver={(e) => handleDragOver(e, col.key)}
                       onDrop={(e) => handleDrop(e, col.key)}
-                      className={`relative px-3 py-3 text-xs bg-[#f8f9fb] border-r border-[#ebeef5] transition-colors group cursor-move ${
+                      className={`relative px-3 py-3 text-xs bg-[#f8f9fb] border-r border-[#ebeef5] transition-colors group cursor-move select-none whitespace-nowrap ${
                         isDraggingThis ? 'opacity-40 bg-[#ecf5ff]' : ''
                       } ${isDragOverThis ? 'border-l-2 border-l-[#409eff] bg-[#ecf5ff]' : ''}`}
                     >
                       <div
-                        className={`flex items-center gap-1.5 ${
+                        className={`flex items-center gap-1.5 whitespace-nowrap overflow-hidden ${
                           col.align === 'center'
                             ? 'justify-center'
                             : col.align === 'right'
@@ -861,11 +877,11 @@ export function MyResponsibleView({
                         }`}
                       >
                         <GripVertical className="w-3 h-3 text-[#c0c4cc] group-hover:text-[#409eff] shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
-                        <span className="font-medium text-[#303133] truncate">{col.title}</span>
+                        <span className="font-medium text-[#303133] truncate whitespace-nowrap">{col.title}</span>
                         {col.fixed && (
                           <Pin className="w-2.5 h-2.5 text-[#409eff] shrink-0" />
                         )}
-                        <span className="text-[10px] text-[#909399] opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] text-[#909399] opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                           ({col.width}px)
                         </span>
                       </div>
@@ -1211,11 +1227,11 @@ export function MyResponsibleView({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-[#f8f9fb] text-[#606266] border-b border-[#ebeef5]">
-                      <th className="py-2 px-3 w-12 text-center">显示</th>
-                      <th className="py-2 px-3 w-28">栏位名称</th>
-                      <th className="py-2 px-3 w-40">自定义宽度尺寸 (px)</th>
-                      <th className="py-2 px-3 w-28">固定列</th>
-                      <th className="py-2 px-3 text-center w-24">栏位移动</th>
+                      <th className="py-2.5 px-3 w-12 text-center">显示</th>
+                      <th className="py-2.5 px-3 w-28">栏位名称</th>
+                      <th className="py-2.5 px-3 w-64">自定义宽度尺寸 (px)</th>
+                      <th className="py-2.5 px-3 w-28">固定列</th>
+                      <th className="py-2.5 px-3 text-center w-24">栏位移动</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1240,7 +1256,7 @@ export function MyResponsibleView({
                           {col.title}
                         </td>
                         <td className="py-2 px-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <input
                               type="number"
                               min={col.minWidth || 70}
@@ -1255,9 +1271,9 @@ export function MyResponsibleView({
                                   )
                                 );
                               }}
-                              className="w-20 h-7 px-2 rounded border border-[#dcdfe6] text-xs focus:border-[#409eff] outline-none"
+                              className="w-16 h-7 px-1.5 rounded border border-[#dcdfe6] text-xs focus:border-[#409eff] outline-none"
                             />
-                            <span className="text-[#909399]">px</span>
+                            <span className="text-[#909399] text-[11px]">px</span>
                             <input
                               type="range"
                               min={col.minWidth || 70}
@@ -1271,8 +1287,34 @@ export function MyResponsibleView({
                                   )
                                 );
                               }}
-                              className="flex-1 accent-[#409eff] cursor-pointer"
+                              className="w-20 accent-[#409eff] cursor-pointer"
                             />
+                            <div className="flex items-center gap-1 shrink-0">
+                              {[
+                                { label: '紧凑', val: 120 },
+                                { label: '标准', val: 180 },
+                                { label: '宽展', val: 260 },
+                              ].map((preset) => (
+                                <button
+                                  key={preset.label}
+                                  type="button"
+                                  onClick={() => {
+                                    setColumns((prev) =>
+                                      prev.map((c) =>
+                                        c.key === col.key ? { ...c, width: preset.val } : c
+                                      )
+                                    );
+                                  }}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] cursor-pointer border transition-colors ${
+                                    col.width === preset.val
+                                      ? 'bg-[#409eff] text-white border-[#409eff]'
+                                      : 'bg-white text-[#606266] border-[#dcdfe6] hover:border-[#409eff]'
+                                  }`}
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </td>
                         <td className="py-2 px-3">

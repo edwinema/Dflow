@@ -133,6 +133,24 @@ function syncCategoryCounts() {
 }
 
 app.get('/api/flow/fulltypes', (_req, res) => {
+  if (!archTypes || archTypes.length === 0 || !archTypes.some((a: any) => !a.parentId || a.id === 'arch_root')) {
+    archTypes.unshift({
+      id: 'arch_root',
+      parentId: '',
+      label: '企业流程架构全景',
+      level: 'L0',
+      archNo: 'ARCH-CORP-000',
+      versionNo: 'V2',
+      status: 'published',
+      publishUserName: '系统管理员',
+      publishTime: '2026-03-20 14:00:00',
+    });
+  } else {
+    const root = archTypes.find((a: any) => !a.parentId || a.id === 'arch_root');
+    if (root && (!root.label || root.label === '企业流程架构' || root.label === '根架构' || root.label === 'ROOT')) {
+      root.label = '企业流程架构全景';
+    }
+  }
   res.json({ status: 1, data: archTypes, info: 'ok' });
 });
 
@@ -141,7 +159,18 @@ app.get('/api/flow/fullSimpleModels', (_req, res) => {
 });
 
 app.get('/api/flow/type', (req, res) => {
-  const found = archTypes.find((a) => a.id === req.query.id);
+  if (!archTypes.some((a: any) => !a.parentId || a.id === 'arch_root')) {
+    archTypes.unshift({
+      id: 'arch_root',
+      parentId: '',
+      label: '企业流程架构全景',
+      level: 'L0',
+      archNo: 'ARCH-CORP-000',
+      versionNo: 'V2',
+      status: 'published',
+    });
+  }
+  const found = archTypes.find((a) => a.id === req.query.id) || archTypes[0];
   res.json({ status: 1, data: found, info: 'ok' });
 });
 
@@ -215,17 +244,18 @@ app.put('/api/flow/model/full', (req, res) => {
 });
 
 app.post('/api/flow/model', (req, res) => {
-  const { parentId, label, flowNo, xml } = req.body;
-  const parentArch = archTypes.find((a) => a.id === parentId);
+  const { parentId, label, flowNo, xml, flowLevel, ownerName, versionNo, description } = req.body;
+  const parentArch = archTypes.find((a) => a.id === parentId) || archTypes[0];
   const newFlow = {
     id: 'flow_' + randomUUID(),
     parentId: parentArch.id,
     archName: parentArch.label,
     label: label || '新建流程',
-    flowNo: flowNo || 'FLOW-' + randomUUID(),
-    ownerName: currentActiveUser.userName,
-    flowLevel: 'L3',
-    versionNo: 'V1',
+    flowNo: flowNo || 'FLOW-' + randomUUID().substring(0, 8),
+    ownerName: ownerName || currentActiveUser.userName,
+    flowLevel: flowLevel || 'L3',
+    versionNo: versionNo || 'V1',
+    description: description || '',
     publishUserName: currentActiveUser.userName,
     publishTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
     status: 'draft',
@@ -522,28 +552,213 @@ app.get('/api/flow/repeals', (_req, res) => {
 });
 
 app.post('/api/flow/repeal/apply', (req, res) => {
-  const { modelId, reason, replaceFlowName } = req.body || {};
-  const targetFlow = flows.find((f) => f.id === modelId);
+  const { modelId, reasonType, reason, replaceFlowName, impactScope, applicant } = req.body || {};
+  const targetFlow = flows.find((f) => f.id === modelId) || flows[0];
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const repId = 'repeal_' + randomUUID();
+
+  targetFlow.repealApplyStatus = '待审核';
+  targetFlow.repealApplyId = repId;
+
   const newRec = {
-    id: 'repeal_' + randomUUID(),
+    id: repId,
     modelId: targetFlow.id,
     flowCode: targetFlow.flowNo,
     flowName: targetFlow.label,
-    versionNo: targetFlow.versionNo,
-    archPath: targetFlow.archName,
-    reason,
-    replaceFlowName,
-    status: '待审核',
-    applyTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    versionNo: targetFlow.versionNo || 'V1',
+    flowLevel: targetFlow.flowLevel || 'L3',
+    archId: targetFlow.parentId,
+    archPath: targetFlow.archName || '企业流程架构全景',
+    ownerName: targetFlow.ownerName || currentActiveUser?.userName,
+    reasonType: reasonType || '业务模式变革调整',
+    reason: reason || '业务优化升级与流程整合',
+    replaceFlowName: replaceFlowName || '',
+    impactScope: impactScope || '全公司相关业务部门',
+    applicant: applicant || currentActiveUser?.userName || '流程管理员',
+    applyTime: nowStr,
+    stage: '待部门审批',
+    status: '待部门审批',
+    approvalLogs: [
+      {
+        stepName: '发起建议废止',
+        role: '流程责任人 / 发起人',
+        operator: applicant || currentActiveUser?.userName || '流程管理员',
+        action: '已提交申请',
+        time: nowStr,
+        opinion: reason || '发起流程废止审批申请',
+      },
+      {
+        stepName: '部门流程负责人审批',
+        role: '业务部门总监',
+        operator: '业务总监 (李维)',
+        action: '待审批',
+        time: '',
+        opinion: '',
+      },
+      {
+        stepName: '流程运营合规复核',
+        role: '流程合规经理',
+        operator: '合规专家 (王志敏)',
+        action: '待审核',
+        time: '',
+        opinion: '',
+      },
+      {
+        stepName: '集团流程管理员确认并归档',
+        role: '集团流程管理部',
+        operator: '集团流程管理员',
+        action: '待归档确认',
+        time: '',
+        opinion: '',
+      },
+    ],
   };
+
   flowRepealRecords.unshift(newRec);
   res.json({ status: 1, data: newRec, list: flowRepealRecords, info: 'ok' });
+});
+
+app.post('/api/flow/repeal/approveStep', (req, res) => {
+  const { id, action, opinion, operator } = req.body || {};
+  const target = flowRepealRecords.find((r) => r.id === id);
+  if (!target) return res.status(404).json({ status: 0, info: '未找到废止申请记录' });
+
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const targetFlow = flows.find((f) => f.id === target.modelId);
+
+  if (action === 'reject') {
+    target.stage = '已驳回';
+    target.status = '已驳回';
+    if (!target.approvalLogs) target.approvalLogs = [];
+    target.approvalLogs.push({
+      stepName: '审批驳回',
+      role: '审批责任人',
+      operator: operator || currentActiveUser?.userName || '审批人员',
+      action: '已驳回',
+      time: nowStr,
+      opinion: opinion || '不满足废止条件，予以驳回',
+    });
+    if (targetFlow) {
+      targetFlow.repealApplyStatus = '已驳回';
+    }
+    return res.json({ status: 1, data: target, list: flowRepealRecords, info: '已驳回废止申请' });
+  }
+
+  if (target.stage === '待部门审批' || target.status === '待部门审批') {
+    target.stage = '待合规复核';
+    target.status = '待合规复核';
+    const logItem = (target.approvalLogs || []).find((l: any) => l.stepName === '部门流程负责人审批');
+    if (logItem) {
+      logItem.action = '审批通过';
+      logItem.time = nowStr;
+      logItem.operator = operator || logItem.operator;
+      logItem.opinion = opinion || '同意建议废止，业务衔接方案合理。';
+    }
+  } else if (target.stage === '待合规复核' || target.status === '待合规复核') {
+    target.stage = '待集团流程管理员确认归档';
+    target.status = '待集团流程管理员确认归档';
+    const logItem = (target.approvalLogs || []).find((l: any) => l.stepName === '流程运营合规复核');
+    if (logItem) {
+      logItem.action = '审核通过';
+      logItem.time = nowStr;
+      logItem.operator = operator || logItem.operator;
+      logItem.opinion = opinion || '制度与合规影响评估完成，准予进入集团归档阶段。';
+    }
+  }
+
+  res.json({ status: 1, data: target, list: flowRepealRecords, info: '审批已通过并流转下一节点' });
+});
+
+app.post('/api/flow/repeal/confirmArchive', (req, res) => {
+  const { id, opinion, operator } = req.body || {};
+  const target = flowRepealRecords.find((r) => r.id === id);
+  if (!target) return res.status(404).json({ status: 0, info: '未找到废止申请记录' });
+
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const targetFlow = flows.find((f) => f.id === target.modelId);
+  const archiveNo = 'ARC-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(100 + Math.random() * 900);
+
+  target.stage = '已废止归档';
+  target.status = '已废止归档';
+  target.archiveNo = archiveNo;
+  target.archiveUser = operator || currentActiveUser?.userName || '集团流程管理员';
+  target.archiveTime = nowStr;
+  target.archiveOpinion = opinion || '经集团流程管理部最终核验，所有关联业务已顺利割接，正式废止并归档入库。';
+
+  const logItem = (target.approvalLogs || []).find((l: any) => l.stepName === '集团流程管理员确认并归档');
+  if (logItem) {
+    logItem.action = '已确认并归档';
+    logItem.time = nowStr;
+    logItem.operator = target.archiveUser;
+    logItem.opinion = target.archiveOpinion;
+  }
+
+  if (targetFlow) {
+    targetFlow.status = 'repealed';
+    targetFlow.repealApplyStatus = '已废止归档';
+    targetFlow.repealedTime = nowStr;
+    targetFlow.repealedBy = target.archiveUser;
+    targetFlow.archiveNo = archiveNo;
+  }
+
+  res.json({ status: 1, data: target, list: flowRepealRecords, info: '流程已完成集团确认并归档入库' });
+});
+
+app.post('/api/flow/repeal/restore', (req, res) => {
+  const { id, modelId, targetParentId, restoreStatus, restoreReason, operator } = req.body || {};
+  const repealRecord = flowRepealRecords.find((r) => r.id === id || r.modelId === modelId);
+  const targetFlow = flows.find((f) => f.id === (modelId || repealRecord?.modelId));
+
+  if (!targetFlow) {
+    return res.status(404).json({ status: 0, info: '未找到对应业务流程数据' });
+  }
+
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+  targetFlow.status = restoreStatus || 'published';
+  targetFlow.repealApplyStatus = '';
+  delete targetFlow.repealedTime;
+  delete targetFlow.repealedBy;
+  targetFlow.restoredTime = nowStr;
+  targetFlow.restoredBy = operator || currentActiveUser?.userName || '集团流程管理员';
+  targetFlow.restoreReason = restoreReason || '业务重启恢复启用';
+
+  if (targetParentId) {
+    targetFlow.parentId = targetParentId;
+    const parentArch = archTypes.find((a) => a.id === targetParentId);
+    if (parentArch) {
+      targetFlow.archName = parentArch.label;
+    }
+  }
+
+  if (repealRecord) {
+    repealRecord.status = '已还原';
+    repealRecord.stage = '已还原';
+    if (!repealRecord.restoreLogs) repealRecord.restoreLogs = [];
+    repealRecord.restoreLogs.unshift({
+      time: nowStr,
+      operator: targetFlow.restoredBy,
+      targetArch: targetFlow.archName,
+      restoreStatus: targetFlow.status,
+      reason: restoreReason || '因业务需要重新启用并还原入库',
+    });
+  }
+
+  res.json({ status: 1, data: targetFlow, repealRecord, info: '流程已成功还原' });
 });
 
 app.post('/api/flow/repeal/action', (req, res) => {
   const { id, action } = req.body || {};
   const target = flowRepealRecords.find((r) => r.id === id);
-  if (target && action === 'approve') target.status = '已废止';
+  if (target && action === 'approve') {
+    target.status = '已废止归档';
+    target.stage = '已废止归档';
+    const flowItem = flows.find((f) => f.id === target.modelId);
+    if (flowItem) {
+      flowItem.status = 'repealed';
+      flowItem.repealApplyStatus = '已废止归档';
+    }
+  }
   res.json({ status: 1, data: target, list: flowRepealRecords, info: 'ok' });
 });
 
@@ -764,6 +979,41 @@ app.post('/api/flowdoc/manuals/:id/archive', (req, res) => {
   });
 });
 
+function findCategoryInTree(tree: any[], id: string): any | null {
+  if (!Array.isArray(tree)) return null;
+  for (const node of tree) {
+    if (node.id === id) return node;
+    if (Array.isArray(node.children) && node.children.length > 0) {
+      const found = findCategoryInTree(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function removeCategoryFromTree(tree: any[], id: string): any | null {
+  if (!Array.isArray(tree)) return null;
+  for (let i = 0; i < tree.length; i++) {
+    if (tree[i].id === id) {
+      return tree.splice(i, 1)[0];
+    }
+    if (Array.isArray(tree[i].children) && tree[i].children.length > 0) {
+      const removed = removeCategoryFromTree(tree[i].children, id);
+      if (removed) return removed;
+    }
+  }
+  return null;
+}
+
+function isDescendantCategory(node: any, targetId: string): boolean {
+  if (!node || !Array.isArray(node.children)) return false;
+  for (const child of node.children) {
+    if (child.id === targetId) return true;
+    if (isDescendantCategory(child, targetId)) return true;
+  }
+  return false;
+}
+
 app.post('/api/flowdoc/manuals/:id/categories', (req, res) => {
   const target = dutyManuals.find((m) => m.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到该手册' });
@@ -771,22 +1021,24 @@ app.post('/api/flowdoc/manuals/:id/categories', (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ status: 0, info: '分类名称不能为空' });
 
   if (!Array.isArray(target.categoryTree)) target.categoryTree = [];
+  const targetParentId = parentId ? String(parentId).trim() : null;
   const newCat: any = {
     id: 'cat_' + randomUUID(),
     name: name.trim(),
-    parentId: parentId || null,
+    parentId: targetParentId,
     orderNum: 99,
+    children: [],
   };
 
-  if (!parentId) {
-    newCat.children = [];
+  if (!targetParentId) {
     target.categoryTree.push(newCat);
   } else {
-    const parent = target.categoryTree.find((r: any) => r.id === parentId);
+    const parent = findCategoryInTree(target.categoryTree, targetParentId);
     if (parent) {
       if (!Array.isArray(parent.children)) parent.children = [];
       parent.children.push(newCat);
     } else {
+      newCat.parentId = null;
       target.categoryTree.push(newCat);
     }
   }
@@ -797,22 +1049,50 @@ app.post('/api/flowdoc/manuals/:id/categories', (req, res) => {
 app.put('/api/flowdoc/manuals/:id/categories/:catId', (req, res) => {
   const target = dutyManuals.find((m) => m.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到该手册' });
-  const { name } = req.body || {};
-  if (!name || !name.trim()) return res.status(400).json({ status: 0, info: '分类名称不能为空' });
+  const { name, parentId } = req.body || {};
+  if (name !== undefined && !name.trim()) return res.status(400).json({ status: 0, info: '分类名称不能为空' });
 
-  let found = false;
-  target.categoryTree?.forEach((r: any) => {
-    if (r.id === req.params.catId) {
-      r.name = name.trim();
-      found = true;
-    }
-    r.children?.forEach((c: any) => {
-      if (c.id === req.params.catId) {
-        c.name = name.trim();
-        found = true;
+  if (!Array.isArray(target.categoryTree)) target.categoryTree = [];
+  const existingNode = findCategoryInTree(target.categoryTree, req.params.catId);
+  if (!existingNode) return res.status(404).json({ status: 0, info: '未找到该分类' });
+
+  if (name && name.trim()) {
+    existingNode.name = name.trim();
+  }
+
+  // Support changing directory / hierarchy parent
+  if (parentId !== undefined) {
+    const targetParentId = parentId ? String(parentId).trim() : null;
+    const currentParentId = existingNode.parentId || null;
+
+    if (targetParentId !== currentParentId) {
+      if (targetParentId === req.params.catId) {
+        return res.status(400).json({ status: 0, info: '不能选择自身作为上级目录' });
       }
-    });
-  });
+      if (targetParentId && isDescendantCategory(existingNode, targetParentId)) {
+        return res.status(400).json({ status: 0, info: '不能选择下级子分类作为上级目录' });
+      }
+
+      const detachedNode = removeCategoryFromTree(target.categoryTree, req.params.catId);
+      if (detachedNode) {
+        detachedNode.parentId = targetParentId;
+        if (!targetParentId) {
+          target.categoryTree.push(detachedNode);
+        } else {
+          const newParent = findCategoryInTree(target.categoryTree, targetParentId);
+          if (newParent) {
+            if (!Array.isArray(newParent.children)) newParent.children = [];
+            newParent.children.push(detachedNode);
+          } else {
+            detachedNode.parentId = null;
+            target.categoryTree.push(detachedNode);
+          }
+        }
+      }
+    }
+  }
+
+  recalculateManualCounts(target);
   res.json({ status: 1, data: target.categoryTree, info: '更新分类成功' });
 });
 
@@ -820,17 +1100,7 @@ app.delete('/api/flowdoc/manuals/:id/categories/:catId', (req, res) => {
   const target = dutyManuals.find((m) => m.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到该手册' });
 
-  const rootIdx = target.categoryTree?.findIndex((r: any) => r.id === req.params.catId);
-  if (rootIdx !== undefined && rootIdx !== -1) {
-    target.categoryTree.splice(rootIdx, 1);
-  } else {
-    target.categoryTree?.forEach((r: any) => {
-      const cIdx = r.children?.findIndex((c: any) => c.id === req.params.catId);
-      if (cIdx !== undefined && cIdx !== -1) {
-        r.children.splice(cIdx, 1);
-      }
-    });
-  }
+  removeCategoryFromTree(target.categoryTree || [], req.params.catId);
   recalculateManualCounts(target);
   res.json({ status: 1, data: target.categoryTree, info: '删除分类成功' });
 });
