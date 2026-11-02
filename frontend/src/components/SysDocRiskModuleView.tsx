@@ -519,6 +519,71 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
   const [previewDetailMaximized, setPreviewDetailMaximized] = useState(false);
   const [onlinePreviewDoc, setOnlinePreviewDoc] = useState<any | null>(null);
 
+  // Check if a field represents start date or end date
+  const isStartDateField = (field: any) => {
+    const label = field?.label || '';
+    const key = (field?.fieldKey || '').toLowerCase();
+    return label.includes('开始') || label.includes('起') || key.includes('start') || key === 'effectivedate';
+  };
+
+  const isEndDateField = (field: any) => {
+    const label = field?.label || '';
+    const key = (field?.fieldKey || '').toLowerCase();
+    return label.includes('截止') || label.includes('结束') || label.includes('止') || key.includes('end') || key.includes('expire');
+  };
+
+  // Derive validity period string from start date and end date
+  const deriveValidityPeriod = (form: any, fields: any[] = customFields) => {
+    if (!form) return '';
+    let start = '';
+    let end = '';
+
+    // First scan custom fields
+    if (Array.isArray(fields)) {
+      for (const f of fields) {
+        const val = form[f.fieldKey];
+        if (val) {
+          if (isStartDateField(f) && !start) start = String(val).trim();
+          if (isEndDateField(f) && !end) end = String(val).trim();
+        }
+      }
+    }
+
+    // Direct property fallbacks
+    if (!start) {
+      start = form.effectiveStartDate || form.startDate || form.validityStartDate || form.effectiveDate || '';
+    }
+    if (!end) {
+      end = form.effectiveEndDate || form.endDate || form.validityEndDate || form.expireDate || '';
+    }
+
+    if (start && end) {
+      return `${start} 至 ${end}`;
+    }
+    if (start && !end) {
+      return `${start} 起生效 (长期有效)`;
+    }
+    if (!start && end) {
+      return `截至 ${end}`;
+    }
+    return '';
+  };
+
+  const handleOpenEditItem = (row: any) => {
+    const form = { ...row };
+    if (!isRisk) {
+      const autoPeriod = deriveValidityPeriod(form, customFields);
+      if (autoPeriod) {
+        form.validityPeriod = autoPeriod;
+      }
+    }
+    setItemModal({
+      open: true,
+      isEdit: true,
+      form,
+    });
+  };
+
   useEffect(() => {
     const root = (isRisk ? dictBundle?.riskTree : dictBundle?.sysDocTree)?.find(
       (n: any) => !n.parentId
@@ -660,29 +725,38 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         },
       });
     } else {
+      const initForm: any = {
+        folderId: defaultFolderId,
+        docNo: 'ZD-2026-' + Math.floor(100 + Math.random() * 900),
+        label: '',
+        category: categoryPath,
+        versionNo: 'V1.0',
+        fileSize: '1.5 MB',
+        ownerName: '制度规范组',
+        status: 'approved',
+        effectiveStartDate: '2026-04-02',
+        effectiveEndDate: '2026-12-30',
+        validityPeriod: '2026-04-02 至 2026-12-30',
+      };
       setItemModal({
         open: true,
         isEdit: false,
-        form: {
-          folderId: defaultFolderId,
-          docNo: 'ZD-2026-' + Math.floor(100 + Math.random() * 900),
-          label: '',
-          category: categoryPath,
-          versionNo: 'V1.0',
-          fileSize: '1.5 MB',
-          ownerName: '制度规范组',
-          status: 'approved',
-          validityPeriod: '2026-03-17 至 2029-03-16 (长期有效)',
-        },
+        form: initForm,
       });
     }
   };
 
   const handleSaveItem = async () => {
-    const f = itemModal.form;
+    const f = { ...itemModal.form };
     if (!f.label?.trim()) {
       showToast(isRisk ? '请输入风险合规名称' : '请输入制度文件名称', 'warning');
       return;
+    }
+    if (!isRisk) {
+      const autoPeriod = deriveValidityPeriod(f, customFields);
+      if (autoPeriod) {
+        f.validityPeriod = autoPeriod;
+      }
     }
     const categoryPath = buildFolderPath(tree, f.folderId || '');
     await fetch('/api/dict/item', {
@@ -1026,13 +1100,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 )}
                 <button
                   type="button"
-                  onClick={() =>
-                    setItemModal({
-                      open: true,
-                      isEdit: true,
-                      form: { ...row },
-                    })
-                  }
+                  onClick={() => handleOpenEditItem(row)}
                   className="text-[#409eff] hover:underline font-medium cursor-pointer"
                 >
                   编辑
@@ -1247,13 +1315,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
               )}
               <button
                 type="button"
-                onClick={() =>
-                  setItemModal({
-                    open: true,
-                    isEdit: true,
-                    form: { ...row },
-                  })
-                }
+                onClick={() => handleOpenEditItem(row)}
                 className="text-[#409eff] hover:underline font-medium cursor-pointer"
               >
                 编辑
@@ -1878,11 +1940,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                     const target = previewItem;
                     setPreviewItem(null);
                     setPreviewDetailMaximized(false);
-                    setItemModal({
-                      open: true,
-                      isEdit: true,
-                      form: { ...target },
-                    });
+                    handleOpenEditItem(target);
                   }}
                   className="h-8 px-4 rounded bg-[#409eff] hover:bg-[#3390ff] text-white font-medium cursor-pointer shadow-2xs"
                 >
@@ -2084,7 +2142,35 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-[#606266] mb-1 font-medium">制度文件有效期</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[#606266] font-medium flex items-center gap-1.5">
+                        <span>制度文件有效期</span>
+                        <span className="text-[10px] text-[#409eff] bg-[#ecf5ff] px-1.5 py-0.5 rounded border border-[#d9ecff] font-normal">
+                          自动同步自生效开始与截止日期
+                        </span>
+                      </label>
+                      {(() => {
+                        const autoP = deriveValidityPeriod(itemModal.form, customFields);
+                        if (autoP && autoP !== itemModal.form.validityPeriod) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setItemModal({
+                                  ...itemModal,
+                                  form: { ...itemModal.form, validityPeriod: autoP },
+                                })
+                              }
+                              className="text-[11px] text-[#409eff] hover:underline cursor-pointer"
+                              title="点击同步为下方生效起止日期"
+                            >
+                              一键同步为: {autoP}
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
                     <input
                       type="text"
                       value={itemModal.form.validityPeriod || ''}
@@ -2094,8 +2180,8 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                           form: { ...itemModal.form, validityPeriod: e.target.value },
                         })
                       }
-                      placeholder="如：2026-03-17 至 2029-03-16 (长期有效) 或 长期有效"
-                      className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] outline-none"
+                      placeholder="自动取自下方生效开始与截止日期，如：2026-04-02 至 2026-12-30"
+                      className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none text-xs bg-white font-mono-tabular"
                     />
                   </div>
                 </div>
@@ -2162,9 +2248,16 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                           ? itemModal.form[f.fieldKey]
                           : f.defaultValue ?? '';
                       const updateField = (newVal: any) => {
+                        const nextForm = { ...itemModal.form, [f.fieldKey]: newVal };
+                        if (isStartDateField(f) || isEndDateField(f)) {
+                          const autoP = deriveValidityPeriod(nextForm, customFields);
+                          if (autoP) {
+                            nextForm.validityPeriod = autoP;
+                          }
+                        }
                         setItemModal({
                           ...itemModal,
-                          form: { ...itemModal.form, [f.fieldKey]: newVal },
+                          form: nextForm,
                         });
                       };
                       return (
@@ -2232,6 +2325,14 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                               modalDescription={`支持手工输入中英文姓名或从组织架构部门挑选【${f.label}】`}
                               className="w-full text-xs"
                               showToast={showToast}
+                            />
+                          ) : f.type === 'date' || (f.label && f.label.includes('日期')) ? (
+                            <input
+                              type="date"
+                              value={val}
+                              onChange={(e) => updateField(e.target.value)}
+                              placeholder={f.placeholder || 'YYYY-MM-DD'}
+                              className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none text-xs bg-white font-mono-tabular cursor-pointer"
                             />
                           ) : (
                             <input
