@@ -70,6 +70,12 @@ export interface ProcessTaskRecord {
   createTime: string;
   submitTime: string;
   steps: ProcessTaskStep[];
+  execSystem?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  progressStatus?: string;
+  reportFile?: { name: string; size: string; type?: string; url?: string } | null;
+  processRemark?: string;
 }
 
 export interface SystemUserItem {
@@ -161,6 +167,22 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
   // Delete modals
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<ProcessTaskRecord | null>(null);
   const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
+
+  // Sorting state (controls column sorting across all tasks)
+  const [sortField, setSortField] = useState<string | null>('createTime');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>('desc');
+
+  // Immediate Process Modal state (matches design mockup image_1f9f6afa.png)
+  const [immediateModalOpen, setImmediateModalOpen] = useState(false);
+  const [handlingTask, setHandlingTask] = useState<ProcessTaskRecord | null>(null);
+  const [execSystem, setExecSystem] = useState<string>('');
+  const [periodStart, setPeriodStart] = useState<string>('');
+  const [periodEnd, setPeriodEnd] = useState<string>('');
+  const [processProgress, setProcessProgress] = useState<string>('处理完成');
+  const [reportFile, setReportFile] = useState<{ name: string; size: string; type?: string } | null>(null);
+  const [processRemark, setProcessRemark] = useState<string>('');
+  const [isSubmittingProcess, setIsSubmittingProcess] = useState(false);
+  const reportFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadAllData = async () => {
     setLoading(true);
@@ -285,11 +307,36 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
     });
   }, [tasks, appliedFilters]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / pageSize));
+  const sortedFilteredTasks = useMemo(() => {
+    const list = [...filteredTasks];
+    if (!sortField || !sortOrder) return list;
+    return list.sort((a: any, b: any) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+      if (sortField === 'progress') {
+        const doneA = (a.steps || []).filter((s: any) => s.status === '已办').length;
+        const doneB = (b.steps || []).filter((s: any) => s.status === '已办').length;
+        valA = doneA;
+        valB = doneB;
+      }
+      if (valA === valB) return 0;
+      if (valA === null || valA === undefined || valA === '') return 1;
+      if (valB === null || valB === undefined || valB === '') return -1;
+      let comp = 0;
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        comp = valA - valB;
+      } else {
+        comp = String(valA).localeCompare(String(valB), 'zh-CN');
+      }
+      return sortOrder === 'asc' ? comp : -comp;
+    });
+  }, [filteredTasks, sortField, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedFilteredTasks.length / pageSize));
   const pagedTasks = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredTasks.slice(start, start + pageSize);
-  }, [filteredTasks, currentPage, pageSize]);
+    return sortedFilteredTasks.slice(start, start + pageSize);
+  }, [sortedFilteredTasks, currentPage, pageSize]);
 
   // Handle task selection toggling
   const handleToggleSelectTask = (id: string) => {
@@ -588,6 +635,119 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
     }
   };
 
+  const handleOpenImmediateProcess = (task: ProcessTaskRecord) => {
+    setHandlingTask(task);
+    setExecSystem(task.execSystem || 'ERP系统');
+    const today = new Date().toISOString().slice(0, 10);
+    const twoWeeksLater = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    setPeriodStart(task.periodStart || today);
+    setPeriodEnd(task.periodEnd || twoWeeksLater);
+    setProcessProgress(task.progressStatus || '处理完成');
+    setReportFile(
+      task.reportFile || {
+        name: `${task.flowCode || 'FLOW'}_阶段验收与测试报告.pdf`,
+        size: '2.4 MB',
+      }
+    );
+    setProcessRemark(task.processRemark || '');
+    setImmediateModalOpen(true);
+  };
+
+  const handleReportFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+    const sizeStr = file.size > 1024 * 1024 ? `${sizeMb} MB` : `${Math.round(file.size / 1024)} KB`;
+    setReportFile({
+      name: file.name,
+      size: sizeStr,
+      type: file.type || 'application/octet-stream',
+    });
+    showToast(`附件【${file.name}】已载入`, 'success');
+  };
+
+  const handleConfirmImmediateProcess = async () => {
+    if (!handlingTask) return;
+    if (!execSystem) {
+      showToast('请选择执行系统', 'warning');
+      return;
+    }
+    if (!periodStart || !periodEnd) {
+      showToast('请完整选择实施周期起止日期', 'warning');
+      return;
+    }
+    if (periodStart > periodEnd) {
+      showToast('实施周期开始日期不能晚于结束日期', 'warning');
+      return;
+    }
+    if (!processProgress) {
+      showToast('请选择处理进度', 'warning');
+      return;
+    }
+    if (!reportFile) {
+      showToast('请上传验收报告附件', 'warning');
+      return;
+    }
+
+    setIsSubmittingProcess(true);
+    try {
+      const isCompleted = processProgress === '处理完成';
+      const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+      const updatedSteps = (handlingTask.steps || []).map((s) =>
+        isCompleted
+          ? {
+              ...s,
+              status: '已办' as const,
+              endTime: s.endTime || nowStr,
+              completionNote: s.completionNote || `经【${execSystem}】实施处理完成`,
+            }
+          : s
+      );
+
+      const newStatus: '已办结' | '进行中' = isCompleted ? '已办结' : '进行中';
+      const updatePayload = {
+        status: newStatus,
+        submitTime: isCompleted ? nowStr : handlingTask.submitTime || '',
+        execSystem,
+        periodStart,
+        periodEnd,
+        progressStatus: processProgress,
+        reportFile,
+        processRemark: processRemark.trim(),
+        steps: updatedSteps,
+      };
+
+      const res = await fetch(`/api/execute/tasks/${handlingTask.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload),
+      }).then((r) => r.json());
+
+      if (res.status === 1) {
+        if (res.list) {
+          setTasks(res.list);
+        } else {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === handlingTask.id ? { ...t, ...updatePayload } : t))
+          );
+        }
+        showToast(
+          `流程任务【${handlingTask.flowName || handlingTask.taskName}】处理已提交并保存！`,
+          'success'
+        );
+        setImmediateModalOpen(false);
+        setHandlingTask(null);
+      } else {
+        showToast(res.info || '提交失败', 'error');
+      }
+    } catch {
+      showToast('网络请求异常，请稍后重试', 'error');
+    } finally {
+      setIsSubmittingProcess(false);
+    }
+  };
+
   const availableSystemFiles = useMemo(() => {
     const docs = (dictBundle.sysDoc || [])
       .filter((d: any) => d.status === 'approved')
@@ -679,6 +839,7 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'seq',
         label: '序号',
+        title: '序号',
         defaultWidth: 68,
         minWidth: 56,
         align: 'center',
@@ -692,6 +853,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'taskName',
         label: '任务名称',
+        title: '任务名称',
+        sortable: true,
         defaultWidth: 220,
         minWidth: 160,
         fixed: 'left',
@@ -712,6 +875,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'status',
         label: '任务状态',
+        title: '任务状态',
+        sortable: true,
         defaultWidth: 100,
         minWidth: 86,
         align: 'center',
@@ -720,6 +885,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'progress',
         label: '节点进度',
+        title: '节点进度',
+        sortable: true,
         defaultWidth: 96,
         minWidth: 80,
         align: 'center',
@@ -737,6 +904,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'assignee',
         label: '经办责任人',
+        title: '经办责任人',
+        sortable: true,
         defaultWidth: 145,
         minWidth: 115,
         align: 'center',
@@ -759,6 +928,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'flowCode',
         label: '流程编号',
+        title: '流程编号',
+        sortable: true,
         defaultWidth: 130,
         minWidth: 100,
         align: 'center',
@@ -769,6 +940,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'flowName',
         label: '所属流程',
+        title: '所属流程',
+        sortable: true,
         defaultWidth: 170,
         minWidth: 120,
         align: 'center',
@@ -781,6 +954,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'archPath',
         label: '业务架构归属',
+        title: '业务架构归属',
+        sortable: true,
         defaultWidth: 260,
         minWidth: 170,
         render: (row) => (
@@ -792,6 +967,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'versionNo',
         label: '版本号',
+        title: '版本号',
+        sortable: true,
         defaultWidth: 78,
         minWidth: 66,
         align: 'center',
@@ -802,6 +979,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'creator',
         label: '发起人',
+        title: '发起人',
+        sortable: true,
         defaultWidth: 110,
         minWidth: 90,
         align: 'center',
@@ -810,6 +989,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'createTime',
         label: '创建时间',
+        title: '创建时间',
+        sortable: true,
         defaultWidth: 162,
         minWidth: 140,
         align: 'center',
@@ -820,6 +1001,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'submitTime',
         label: '办结时间',
+        title: '办结时间',
+        sortable: true,
         defaultWidth: 162,
         minWidth: 140,
         align: 'center',
@@ -830,6 +1013,7 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
       {
         key: 'actions',
         label: '操作',
+        title: '操作',
         defaultWidth: 210,
         minWidth: 190,
         align: 'center',
@@ -850,10 +1034,10 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setActiveTaskId(row.id);
-                setViewMode('update');
+                handleOpenImmediateProcess(row);
               }}
               className="text-[#409eff] hover:text-[#3390ff] inline-flex items-center gap-1 cursor-pointer font-medium"
+              title="立即处理此流程"
             >
               <Edit3 className="w-3.5 h-3.5" />
               <span>处理</span>
@@ -941,13 +1125,23 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
               </button>
             )}
             {viewMode === 'update' && activeTask.status !== '已办结' && (
-              <button
-                onClick={handleSubmitWholeTask}
-                className="h-8 px-4 rounded bg-[#67c23a] hover:bg-[#5daf34] text-white text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>标记整单办结</span>
-              </button>
+              <>
+                <button
+                  onClick={() => handleOpenImmediateProcess(activeTask)}
+                  className="h-8 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                  title="打开立即处理并提交验收记录"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>立即处理</span>
+                </button>
+                <button
+                  onClick={handleSubmitWholeTask}
+                  className="h-8 px-4 rounded bg-[#67c23a] hover:bg-[#5daf34] text-white text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>标记整单办结</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1599,7 +1793,7 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 text-xs text-[#909399]">
-            <span>共 {filteredTasks.length} 项任务</span>
+            <span>共 {sortedFilteredTasks.length} 项任务</span>
           </div>
         </div>
 
@@ -1611,6 +1805,13 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
           selectedKeys={selectedTaskIds}
           rowKey={(r) => r.id}
           onRowClick={(row) => handleToggleSelectTask(row.id)}
+          sortKey={sortField}
+          sortOrder={sortOrder}
+          onSortChange={(field, order) => {
+            setSortField(field);
+            setSortOrder(order);
+            setCurrentPage(1);
+          }}
           emptyText="暂无流程运行任务"
           maxHeight="calc(100vh - 350px)"
         />
@@ -1620,8 +1821,8 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
           <div className="flex items-center gap-3">
             <span>
               显示第 {(currentPage - 1) * pageSize + 1} 到{' '}
-              {Math.min(currentPage * pageSize, filteredTasks.length)} 条，共{' '}
-              {filteredTasks.length} 条
+              {Math.min(currentPage * pageSize, sortedFilteredTasks.length)} 条，共{' '}
+              {sortedFilteredTasks.length} 条
             </span>
             {selectedTaskIds.length > 0 && (
               <span className="text-[#409eff] font-medium">
@@ -1892,6 +2093,198 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
               >
                 确认批量删除
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Immediate Process Modal (立即处理) - Strictly matching design mockup image_1f9f6afa.png */}
+      {immediateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-[620px] overflow-hidden border border-[#ebeef5]">
+            {/* Modal Header: Blue vertical bar | 立即处理 and close button */}
+            <div className="flex items-center justify-between px-7 py-4 border-b border-[#f0f2f5]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-[4px] h-[18px] bg-[#2F7BFE] rounded-full" />
+                <h3 className="text-[17px] font-semibold text-[#1f2937]">立即处理</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImmediateModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-100 cursor-pointer"
+                title="关闭"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <div className="px-9 py-7 space-y-5 text-sm">
+              {/* Row 1: 流程名称 */}
+              <div className="flex items-center">
+                <label className="w-20 text-right pr-4 text-[#606266] shrink-0 font-normal text-sm">
+                  流程名称
+                </label>
+                <div className="flex-1">
+                  <span className="text-[#2F7BFE] font-medium text-[15px] select-all">
+                    {handlingTask?.flowName || handlingTask?.taskName || '12345'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 2: 执行系统 */}
+              <div className="flex items-center">
+                <label className="w-20 text-right pr-4 text-[#606266] shrink-0 font-normal text-sm">
+                  <span className="text-[#f56c6c] mr-1">*</span>执行系统
+                </label>
+                <div className="relative flex-1">
+                  <select
+                    value={execSystem}
+                    onChange={(e) => setExecSystem(e.target.value)}
+                    className="w-full h-9 px-3 pr-8 rounded border border-[#dcdfe6] bg-white text-xs text-[#303133] appearance-none outline-none focus:border-[#2F7BFE] focus:ring-1 focus:ring-[#2F7BFE]/20 transition-all cursor-pointer"
+                  >
+                    <option value="" disabled className="text-[#909399]">
+                      请选择
+                    </option>
+                    <option value="ERP系统">ERP系统</option>
+                    <option value="PLM系统">PLM系统</option>
+                    <option value="OA系统">OA系统</option>
+                    <option value="MES系统">MES系统</option>
+                    <option value="CRM系统">CRM系统</option>
+                    <option value="金蝶云星空">金蝶云星空</option>
+                    <option value="用友BIP平台">用友BIP平台</option>
+                    <option value="供应链协同平台">供应链协同平台</option>
+                    <option value="自建微服务平台">自建微服务平台</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#909399] absolute right-2.5 top-2.5 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Row 3: 实施周期 */}
+              <div className="flex items-center">
+                <label className="w-20 text-right pr-4 text-[#606266] shrink-0 font-normal text-sm">
+                  <span className="text-[#f56c6c] mr-1">*</span>实施周期
+                </label>
+                <div className="flex-1 flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="date"
+                      value={periodStart}
+                      onChange={(e) => setPeriodStart(e.target.value)}
+                      className="w-full h-9 px-3 rounded border border-[#dcdfe6] bg-white text-xs text-[#303133] outline-none focus:border-[#2F7BFE] focus:ring-1 focus:ring-[#2F7BFE]/20 transition-all cursor-pointer"
+                      placeholder="选择日期"
+                    />
+                  </div>
+                  <span className="text-[#909399] px-0.5">-</span>
+                  <div className="relative flex-1">
+                    <input
+                      type="date"
+                      value={periodEnd}
+                      onChange={(e) => setPeriodEnd(e.target.value)}
+                      className="w-full h-9 px-3 rounded border border-[#dcdfe6] bg-white text-xs text-[#303133] outline-none focus:border-[#2F7BFE] focus:ring-1 focus:ring-[#2F7BFE]/20 transition-all cursor-pointer"
+                      placeholder="选择日期"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: 处理进度 */}
+              <div className="flex items-center">
+                <label className="w-20 text-right pr-4 text-[#606266] shrink-0 font-normal text-sm">
+                  <span className="text-[#f56c6c] mr-1">*</span>处理进度
+                </label>
+                <div className="relative flex-1">
+                  <select
+                    value={processProgress}
+                    onChange={(e) => setProcessProgress(e.target.value)}
+                    className="w-full h-9 px-3 pr-8 rounded border border-[#dcdfe6] bg-white text-xs text-[#303133] appearance-none outline-none focus:border-[#2F7BFE] focus:ring-1 focus:ring-[#2F7BFE]/20 transition-all cursor-pointer"
+                  >
+                    <option value="处理完成">处理完成</option>
+                    <option value="处理中">处理中</option>
+                    <option value="阶段交付">阶段交付</option>
+                    <option value="待复核">待复核</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#909399] absolute right-2.5 top-2.5 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Row 5: 验收报告 */}
+              <div className="flex items-start">
+                <label className="w-20 text-right pr-4 pt-1.5 text-[#606266] shrink-0 font-normal text-sm">
+                  <span className="text-[#f56c6c] mr-1">*</span>验收报告
+                </label>
+                <div className="flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex items-center justify-center px-4 py-1.5 bg-[#2F7BFE] hover:bg-[#2563EB] active:bg-[#1d4ed8] text-white text-xs font-medium rounded shadow-sm cursor-pointer transition-colors">
+                      <span>上传附件</span>
+                      <input
+                        type="file"
+                        ref={reportFileInputRef}
+                        onChange={handleReportFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {reportFile && (
+                      <div className="flex items-center gap-2 px-2.5 py-1 bg-[#f5f7fa] border border-[#e4e7ed] rounded text-xs text-[#303133]">
+                        <FileText className="w-3.5 h-3.5 text-[#2F7BFE] shrink-0" />
+                        <span className="font-medium max-w-[220px] truncate" title={reportFile.name}>
+                          {reportFile.name}
+                        </span>
+                        <span className="text-[#909399] text-[11px] shrink-0">
+                          ({reportFile.size})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setReportFile(null)}
+                          className="text-[#909399] hover:text-[#f56c6c] ml-1 p-0.5 rounded cursor-pointer transition-colors"
+                          title="移除附件"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 6: 备注描述 */}
+              <div className="flex items-start">
+                <label className="w-20 text-right pr-4 pt-2 text-[#606266] shrink-0 font-normal text-sm">
+                  备注描述
+                </label>
+                <div className="flex-1 relative">
+                  <textarea
+                    value={processRemark}
+                    maxLength={200}
+                    onChange={(e) => setProcessRemark(e.target.value)}
+                    rows={3}
+                    placeholder=""
+                    className="w-full p-2.5 pb-6 rounded border border-[#dcdfe6] text-xs text-[#303133] outline-none focus:border-[#2F7BFE] focus:ring-1 focus:ring-[#2F7BFE]/20 transition-all resize-none leading-relaxed"
+                  />
+                  <div className="absolute right-2.5 bottom-2 text-[11px] text-[#909399] pointer-events-none font-mono">
+                    {processRemark.length}/200
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons (aligned with inputs, pl-20) */}
+              <div className="flex items-center gap-3 pl-20 pt-1 pb-1">
+                <button
+                  type="button"
+                  disabled={isSubmittingProcess}
+                  onClick={handleConfirmImmediateProcess}
+                  className="px-6 py-1.5 bg-[#2F7BFE] hover:bg-[#2563EB] active:bg-[#1d4ed8] text-white text-xs font-medium rounded shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingProcess ? '提交中...' : '提交'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImmediateModalOpen(false)}
+                  className="px-6 py-1.5 bg-white border border-[#dcdfe6] hover:bg-[#f5f7fa] text-[#606266] text-xs font-medium rounded transition-all cursor-pointer"
+                >
+                  取消
+                </button>
+              </div>
             </div>
           </div>
         </div>

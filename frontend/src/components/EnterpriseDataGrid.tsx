@@ -7,6 +7,9 @@ import {
   ChevronRight,
   MoveHorizontal,
   RotateCcw,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 
 export interface DataGridColumn<T = any> {
@@ -43,6 +46,9 @@ export interface EnterpriseDataGridProps<T = any> {
   selectedKeys?: string[];
   onSelectionChange?: (keys: string[]) => void;
   defaultPageSize?: number;
+  sortKey?: string | null;
+  sortOrder?: 'asc' | 'desc' | null;
+  onSortChange?: (sortKey: string | null, sortOrder: 'asc' | 'desc' | null) => void;
 }
 
 export function EnterpriseDataGrid<T = any>({
@@ -59,7 +65,35 @@ export function EnterpriseDataGrid<T = any>({
   showToolbar = true,
   onRowClick,
   selectedKeys,
+  sortKey,
+  sortOrder,
+  onSortChange,
 }: EnterpriseDataGridProps<T>) {
+  const [internalSortKey, setInternalSortKey] = useState<string | null>(null);
+  const [internalSortOrder, setInternalSortOrder] = useState<'asc' | 'desc' | null>(null);
+
+  const activeSortKey = sortKey !== undefined ? sortKey : internalSortKey;
+  const activeSortOrder = sortOrder !== undefined ? sortOrder : internalSortOrder;
+
+  const displayData = useMemo(() => {
+    if (onSortChange || !activeSortKey || !activeSortOrder) {
+      return data;
+    }
+    return [...data].sort((a: any, b: any) => {
+      const valA = a[activeSortKey];
+      const valB = b[activeSortKey];
+      if (valA === valB) return 0;
+      if (valA === null || valA === undefined || valA === '') return 1;
+      if (valB === null || valB === undefined || valB === '') return -1;
+      let comp = 0;
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        comp = valA - valB;
+      } else {
+        comp = String(valA).localeCompare(String(valB), 'zh-CN');
+      }
+      return activeSortOrder === 'asc' ? comp : -comp;
+    });
+  }, [data, activeSortKey, activeSortOrder, onSortChange]);
   const defaultWidths = useMemo(() => {
     const map: Record<string, number> = {};
     initialColumns.forEach((c) => {
@@ -440,6 +474,32 @@ export function EnterpriseDataGrid<T = any>({
           </div>
           <div className="flex items-center gap-2">
             {toolbarExtra}
+            {activeSortKey && activeSortOrder && (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#ecf5ff] text-[#409eff] border border-[#d9ecff] rounded text-[11px]">
+                <span>
+                  排序:{' '}
+                  {orderedColumns.find((c) => c.key === activeSortKey)?.title ||
+                    (typeof orderedColumns.find((c) => c.key === activeSortKey)?.label === 'string'
+                      ? (orderedColumns.find((c) => c.key === activeSortKey)?.label as string)
+                      : activeSortKey)}{' '}
+                  ({activeSortOrder === 'asc' ? '升序 ↑' : '降序 ↓'})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onSortChange) onSortChange(null, null);
+                    else {
+                      setInternalSortKey(null);
+                      setInternalSortOrder(null);
+                    }
+                  }}
+                  className="hover:text-[#f56c6c] ml-0.5 cursor-pointer font-bold leading-none"
+                  title="清除排序"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             <div className="flex items-center rounded border border-[#dcdfe6] bg-white overflow-hidden">
               <button
                 type="button"
@@ -585,12 +645,61 @@ export function EnterpriseDataGrid<T = any>({
                         <span title="拖拽调整列顺序" className="inline-flex shrink-0">
                           <GripVertical className="w-3 h-3 text-[#c0c4cc] opacity-0 group-hover:opacity-100 cursor-grab shrink-0 transition-opacity" />
                         </span>
-                        <span
-                          className="truncate"
-                          title={typeof col.label === 'string' ? col.label : col.title || ''}
-                        >
-                          {col.label ?? col.title ?? ''}
-                        </span>
+                        {(() => {
+                          const isSortable = Boolean(col.sortable);
+                          const isColSorted = activeSortKey === col.key;
+                          const handleSortClick = (e: React.MouseEvent) => {
+                            if (!isSortable) return;
+                            e.stopPropagation();
+                            let nextOrder: 'asc' | 'desc' | null = 'asc';
+                            if (isColSorted) {
+                              if (activeSortOrder === 'asc') nextOrder = 'desc';
+                              else if (activeSortOrder === 'desc') nextOrder = null;
+                              else nextOrder = 'asc';
+                            }
+                            if (onSortChange) {
+                              onSortChange(nextOrder ? col.key : null, nextOrder);
+                            } else {
+                              setInternalSortKey(nextOrder ? col.key : null);
+                              setInternalSortOrder(nextOrder);
+                            }
+                          };
+                          return (
+                            <div
+                              onClick={isSortable ? handleSortClick : undefined}
+                              className={`flex items-center gap-1 min-w-0 ${
+                                isSortable ? 'cursor-pointer hover:text-[#409eff] transition-colors' : ''
+                              }`}
+                              title={
+                                isSortable
+                                  ? isColSorted
+                                    ? `当前按【${col.title || col.label}】${
+                                        activeSortOrder === 'asc' ? '升序 ↑' : '降序 ↓'
+                                      }，点击${activeSortOrder === 'asc' ? '切换降序' : '清除排序'}`
+                                    : `点击按【${col.title || col.label}】升序排序`
+                                  : undefined
+                              }
+                            >
+                              <span
+                                className={`truncate ${isColSorted ? 'text-[#409eff] font-bold' : ''}`}
+                                title={typeof col.label === 'string' ? col.label : col.title || ''}
+                              >
+                                {col.label ?? col.title ?? ''}
+                              </span>
+                              {isSortable && (
+                                <span className="inline-flex items-center shrink-0 ml-0.5">
+                                  {isColSorted && activeSortOrder === 'asc' ? (
+                                    <ArrowUp className="w-3.5 h-3.5 text-[#409eff] stroke-[2.5]" />
+                                  ) : isColSorted && activeSortOrder === 'desc' ? (
+                                    <ArrowDown className="w-3.5 h-3.5 text-[#409eff] stroke-[2.5]" />
+                                  ) : (
+                                    <ArrowUpDown className="w-3 h-3 text-[#b0b4bc] opacity-50 group-hover:opacity-100 transition-opacity" />
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <button
                           type="button"
                           onClick={(e) => togglePinColumn(e, col)}
@@ -642,7 +751,7 @@ export function EnterpriseDataGrid<T = any>({
                     数据加载中...
                   </td>
                 </tr>
-              ) : data.length === 0 ? (
+              ) : displayData.length === 0 ? (
                 <tr>
                   <td
                     colSpan={orderedColumns.length}
@@ -652,7 +761,7 @@ export function EnterpriseDataGrid<T = any>({
                   </td>
                 </tr>
               ) : (
-                data.map((row, rowIndex) => {
+                displayData.map((row, rowIndex) => {
                   const rKey = rowKey(row, rowIndex);
                   const isEven = rowIndex % 2 === 1;
                   const isSelected = !!selectedKeys?.includes(rKey);
