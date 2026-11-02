@@ -30,6 +30,8 @@ import {
   UserX,
   FileText,
   MoveHorizontal,
+  Lock,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   useTableDnDAndResize,
@@ -192,6 +194,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
   // 3. 权限管理 State
   // =========================================================================
   const [selectedRoleId, setSelectedRoleId] = useState<string>('orole_1');
+  const [activePermissionTab, setActivePermissionTab] = useState<'menu' | 'field'>('menu');
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({
     orole_1: ['all', 'collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk', 'system'],
     orole_2: ['collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk'],
@@ -199,8 +202,35 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
     orole_4: ['collab', 'property', 'risk', 'duty'],
     orole_5: ['collab', 'property', 'duty', 'risk', 'system'],
     orole_6: ['collab', 'property', 'design', 'execute', 'duty'],
-    orole_7: ['collab', 'property'],
+    orole_7: ['sysdoc_query', 'risk_query', '/sysdoc/indexview', '/risk/riskview', '制度查阅', '风险查阅'],
     orole_8: ['collab', 'property', 'execute', 'mining', 'duty', 'risk'],
+  });
+
+  const [roleFeaturePermissions, setRoleFeaturePermissions] = useState<Record<string, {
+    sysDoc: { readOnly: boolean; canDownload: boolean; previewOnly: boolean };
+    risk: { readOnly: boolean; canDownload: boolean; previewOnly: boolean };
+  }>>({
+    orole_1: {
+      sysDoc: { readOnly: false, canDownload: true, previewOnly: false },
+      risk: { readOnly: false, canDownload: true, previewOnly: false },
+    },
+    orole_7: {
+      sysDoc: { readOnly: true, canDownload: false, previewOnly: true },
+      risk: { readOnly: true, canDownload: false, previewOnly: true },
+    },
+  });
+
+  const [roleFieldPermissions, setRoleFieldPermissions] = useState<Record<string, Record<string, Record<string, string>>>>({
+    orole_7: {
+      form_sysdoc: {
+        docNo: 'masked',
+        secretLevel: 'masked',
+        approver: 'masked',
+      },
+      form_flowdoc: {
+        riskNo: 'masked',
+      },
+    },
   });
 
   // Load Org Bundle
@@ -215,6 +245,19 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
         setJobTitles(json.data.jobTitles || []);
         setUsers(json.data.users || []);
         setRoles(json.data.roles || []);
+        if (json.data.roles) {
+          const pMap: Record<string, string[]> = {};
+          const fMap: Record<string, any> = {};
+          const fieldMap: Record<string, any> = {};
+          json.data.roles.forEach((r: any) => {
+            if (r.menuPermissions) pMap[r.id] = r.menuPermissions;
+            if (r.featurePermissions) fMap[r.id] = r.featurePermissions;
+            if (r.fieldPermissions) fieldMap[r.id] = r.fieldPermissions;
+          });
+          setRolePermissions((prev) => ({ ...prev, ...pMap }));
+          setRoleFeaturePermissions((prev) => ({ ...prev, ...fMap }));
+          setRoleFieldPermissions((prev) => ({ ...prev, ...fieldMap }));
+        }
       }
     } catch (e) {
       console.error('Failed to fetch org bundle', e);
@@ -2268,26 +2311,99 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
 
           {/* Right Role Permission Matrix */}
           <div className="flex-1 bg-white rounded border border-[#E4E7ED] p-4 flex flex-col min-h-0 overflow-hidden shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E4E7ED] mb-3 shrink-0">
-              <div>
-                <h3 className="font-semibold text-sm text-[#303133]">
-                  角色菜单与功能操作权限配置 ·{' '}
-                  <span className="text-[#2F7BFE]">
-                    {roles.find((r) => r.id === selectedRoleId)?.roleName || '角色'}
-                  </span>
-                </h3>
-                <p className="text-xs text-[#909399] mt-0.5">
-                  勾选对应模块即为该角色开通系统菜单查阅、设计建模与审批运维权能
-                </p>
+            {/* Top Sub-tabs & Action Bar */}
+            <div className="flex flex-wrap items-center justify-between pb-3 border-b border-[#E4E7ED] mb-3 gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActivePermissionTab('menu')}
+                  className={`px-3.5 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors ${
+                    activePermissionTab === 'menu'
+                      ? 'bg-[#2F7BFE] text-white shadow-xs'
+                      : 'bg-[#F4F4F5] text-[#606266] hover:bg-[#E4E7ED]'
+                  }`}
+                >
+                  菜单与功能操作权限配置
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePermissionTab('field')}
+                  className={`px-3.5 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5 ${
+                    activePermissionTab === 'field'
+                      ? 'bg-[#2F7BFE] text-white shadow-xs'
+                      : 'bg-[#F4F4F5] text-[#606266] hover:bg-[#E4E7ED]'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>字段级权限与敏感数据脱敏</span>
+                </button>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    const allKeys = ['collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk', 'system'];
+                    // Apply restricted preset for 制度查阅 + 风险查阅
+                    setRolePermissions((prev) => ({
+                      ...prev,
+                      [selectedRoleId]: [
+                        'sysdoc_query',
+                        'risk_query',
+                        '/sysdoc/indexview',
+                        '/risk/riskview',
+                        '制度查阅',
+                        '风险查阅',
+                      ],
+                    }));
+                    setRoleFeaturePermissions((prev) => ({
+                      ...prev,
+                      [selectedRoleId]: {
+                        sysDoc: { readOnly: true, canDownload: false, previewOnly: true },
+                        risk: { readOnly: true, canDownload: false, previewOnly: true },
+                      },
+                    }));
+                    setRoleFieldPermissions((prev) => ({
+                      ...prev,
+                      [selectedRoleId]: {
+                        form_sysdoc: { docNo: 'masked', secretLevel: 'masked', approver: 'masked' },
+                        form_flowdoc: { riskNo: 'masked' },
+                      },
+                    }));
+                    showToast(
+                      '已加载【仅制度与风险只读查阅 (受限仅预览+脱敏)】预设，请点击保存权限矩阵生效',
+                      'success'
+                    );
+                  }}
+                  className="h-8 px-3 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border border-amber-300 text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  title="一键将该角色设置为：仅可查阅制度与风险2个菜单，强制只读且仅限在线预览不可下载，敏感字段脱敏"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>一键配置: 制度与风险受限查阅 (普通员工模式)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allKeys = [
+                      'collab',
+                      'property',
+                      'design',
+                      'execute',
+                      'mining',
+                      'duty',
+                      'risk',
+                      'system',
+                      'all',
+                      '全部菜单',
+                    ];
                     setRolePermissions((prev) => ({ ...prev, [selectedRoleId]: allKeys }));
-                    showToast('已全选所有 8 大业务模块权限', 'info');
+                    setRoleFeaturePermissions((prev) => ({
+                      ...prev,
+                      [selectedRoleId]: {
+                        sysDoc: { readOnly: false, canDownload: true, previewOnly: false },
+                        risk: { readOnly: false, canDownload: true, previewOnly: false },
+                      },
+                    }));
+                    showToast('已全选所有业务模块与高级操作权限', 'info');
                   }}
                   className="h-8 px-3 rounded border border-[#DCDFE6] text-[#606266] hover:bg-[#F5F7FA] text-xs cursor-pointer"
                 >
@@ -2307,31 +2423,35 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                   type="button"
                   onClick={async () => {
                     const currentPerms = rolePermissions[selectedRoleId] || [];
-                    const moduleNameMap: Record<string, string> = {
-                      collab: '协同工作',
-                      property: '流程资产',
-                      design: '流程设计',
-                      execute: '流程运行',
-                      mining: '流程挖掘',
-                      duty: '权责管控',
-                      risk: '风控合规',
-                      system: '组织系统',
+                    const currentFeatures = roleFeaturePermissions[selectedRoleId] || {
+                      sysDoc: { readOnly: true, canDownload: false, previewOnly: true },
+                      risk: { readOnly: true, canDownload: false, previewOnly: true },
                     };
-                    const mappedNames = currentPerms
-                      .filter((p) => p !== 'all')
-                      .map((p) => moduleNameMap[p] || p);
+                    const currentFields = roleFieldPermissions[selectedRoleId] || {};
+
                     try {
                       await fetch(`/api/org/roles/${selectedRoleId}/permissions`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ menuPermissions: mappedNames }),
+                        body: JSON.stringify({
+                          menuPermissions: currentPerms,
+                          featurePermissions: currentFeatures,
+                          fieldPermissions: currentFields,
+                        }),
                       });
                       setRoles((prev) =>
                         prev.map((r) =>
-                          r.id === selectedRoleId ? { ...r, menuPermissions: mappedNames } : r
+                          r.id === selectedRoleId
+                            ? {
+                                ...r,
+                                menuPermissions: currentPerms,
+                                featurePermissions: currentFeatures,
+                                fieldPermissions: currentFields,
+                              }
+                            : r
                         )
                       );
-                      showToast('权限配置已即时生效并同步至用户访问网关', 'success');
+                      showToast('角色菜单、功能及字段级权限配置已保存并即时生效', 'success');
                     } catch {
                       showToast('保存权限配置失败', 'error');
                     }
@@ -2344,109 +2464,580 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2.5">
-              {[
-                {
-                  id: 'collab',
-                  title: '协同工作 (综合首页、待办任务、已办任务、流程培训)',
-                  desc: '员工工作台、待办流转、催办预警与业务流程必修/选修培训课件学习',
-                  actions: ['查阅待办', '流转审批', '发起培训', '考核评定', '学习进度追踪'],
-                },
-                {
-                  id: 'property',
-                  title: '流程资产 (我的主责、流程概览、流程集成、我的参与、流程目录)',
-                  desc: '企业主干流程架构全景(L0-L4)、资产健康度统计、版本双屏对比与跨系统集成图谱',
-                  actions: ['资产盘点', '全景穿透', '版本基线对比', '健康度评估', '导出资产报表'],
-                },
-                {
-                  id: 'design',
-                  title: '流程设计 (流程设计、流程审核、流程废止、流程角色、专业术语)',
-                  desc: 'Drawio在线流程画板建模、节点扩展属性、废止下线归档审批与流程标准角色库',
-                  actions: ['在线建模', '模型提交送审', '废止归档', '流程角色维护', '术语管理'],
-                },
-                {
-                  id: 'execute',
-                  title: '流程运行 (流程执行、工单驱动与流转监控)',
-                  desc: '业务流程实例在线发起、任务节点调度、审批轨迹记录与异常干预督办',
-                  actions: ['发起流程工单', '审批决议', '委托加签', '催办督办', '日志追溯'],
-                },
-                {
-                  id: 'mining',
-                  title: '流程挖掘 (挖掘引擎、时序回放与瓶颈洞察)',
-                  desc: 'IT系统业务日志时序重放、真实流程变体发现、吞吐瓶颈分析与合规偏离度诊断',
-                  actions: ['日志抽取接入', '时序轨迹回放', '变体路径发现', '瓶颈下钻分析', '挖掘报告'],
-                },
-                {
-                  id: 'duty',
-                  title: '权责管控 (权责清单、权责审核与DOA授权矩阵)',
-                  desc: '业务事项权责清单、决策审批层级、金额阈值区间、RACI责任矩阵与权责手册发布',
-                  actions: ['权责事项编制', 'DOA矩阵设定', '权责行权审核', '导出手册', '交叉校验'],
-                },
-                {
-                  id: 'risk',
-                  title: '风控合规 (制度清单、制度预览、风险清单、风险看板)',
-                  desc: '规章制度发文归档、条款强关联标引、风险控制矩阵与关键控制点(KCP)合规审查',
-                  actions: ['制度草拟发布', '条款结构化拆解', '风险识别录入', 'KCP控制点关联', '合规看板'],
-                },
-                {
-                  id: 'system',
-                  title: '组织系统 (部门组织、用户管理、权限管理、表单引擎、公司信息、接口管理)',
-                  desc: '组织架构与岗位编制、用户账号与角色权限矩阵、低代码表单引擎、商业授权与OpenAPI网关',
-                  actions: ['部门用户维护', '角色授权分派', '表单字段设计', '商业授权更新', 'API接口调试'],
-                },
-              ].map((module) => {
-                const currentPerms = rolePermissions[selectedRoleId] || [];
-                const isChecked = currentPerms.includes('all') || currentPerms.includes(module.id);
+            {/* Tab 1: 菜单与功能权限配置 */}
+            {activePermissionTab === 'menu' && (
+              <div className="flex-1 overflow-y-auto space-y-2.5">
+                {[
+                  {
+                    id: 'collab',
+                    title: '协同工作 (综合首页、待办任务、已办任务、流程培训)',
+                    desc: '员工工作台、待办流转、催办预警与业务流程必修/选修培训课件学习',
+                    actions: ['查阅待办', '流转审批', '发起培训', '考核评定', '学习进度追踪'],
+                  },
+                  {
+                    id: 'property',
+                    title: '流程资产 (我的主责、流程概览、流程集成、我的参与、流程目录)',
+                    desc: '企业主干流程架构全景(L0-L4)、资产健康度统计、版本双屏对比与跨系统集成图谱',
+                    actions: ['资产盘点', '全景穿透', '版本基线对比', '健康度评估', '导出资产报表'],
+                  },
+                  {
+                    id: 'design',
+                    title: '流程设计 (流程设计、流程审核、流程废止、流程角色、专业术语)',
+                    desc: 'Drawio在线流程画板建模、节点扩展属性、废止下线归档审批与流程标准角色库',
+                    actions: ['在线建模', '模型提交送审', '废止归档', '流程角色维护', '术语管理'],
+                  },
+                  {
+                    id: 'execute',
+                    title: '流程运行 (流程执行、工单驱动与流转监控)',
+                    desc: '业务流程实例在线发起、任务节点调度、审批轨迹记录与异常干预督办',
+                    actions: ['发起流程工单', '审批决议', '委托加签', '催办督办', '日志追溯'],
+                  },
+                  {
+                    id: 'mining',
+                    title: '流程挖掘 (挖掘引擎、时序回放与瓶颈洞察)',
+                    desc: 'IT系统业务日志时序重放、真实流程变体发现、吞吐瓶颈分析与合规偏离度诊断',
+                    actions: ['日志抽取接入', '时序轨迹回放', '变体路径发现', '瓶颈下钻分析', '挖掘报告'],
+                  },
+                  {
+                    id: 'duty',
+                    title: '权责管控 (权责清单、权责审核与DOA授权矩阵)',
+                    desc: '业务事项权责清单、决策审批层级、金额阈值区间、RACI责任矩阵与权责手册发布',
+                    actions: ['权责事项编制', 'DOA矩阵设定', '权责行权审核', '导出手册', '交叉校验'],
+                  },
+                  {
+                    id: 'risk',
+                    title: '风控合规 (制度文件库、制度查阅、风险合规库、风险查阅、流程废止归档)',
+                    desc: '规章制度发文归档、制度查阅、风险控制矩阵、风险查阅与只读受限下载',
+                    actions: ['制度查阅', '在线预览', '源文件下载', '条款编制', '风险识别', '合规看板'],
+                    isRiskModule: true,
+                  },
+                  {
+                    id: 'system',
+                    title: '组织系统 (部门组织、用户管理、权限管理、表单引擎、公司信息、接口管理)',
+                    desc: '组织架构与岗位编制、用户账号与角色权限矩阵、低代码表单引擎、商业授权与OpenAPI网关',
+                    actions: ['部门用户维护', '角色授权分派', '表单字段设计', '商业授权更新', 'API接口调试'],
+                  },
+                ].map((module) => {
+                  const currentPerms = rolePermissions[selectedRoleId] || [];
+                  const isChecked = currentPerms.includes('all') || currentPerms.includes('全部菜单') || currentPerms.includes(module.id);
+                  const isSysDocQueryPermitted = currentPerms.includes('sysdoc_query') || currentPerms.includes('/sysdoc/indexview') || currentPerms.includes('制度查阅') || isChecked;
+                  const isRiskQueryPermitted = currentPerms.includes('risk_query') || currentPerms.includes('/risk/riskview') || currentPerms.includes('风险查阅') || isChecked;
+                  const isSysDocLibPermitted = currentPerms.includes('sysdoc_lib') || currentPerms.includes('/sysdoc/index2') || currentPerms.includes('制度文件库') || isChecked;
+                  const isRiskLibPermitted = currentPerms.includes('risk_lib') || currentPerms.includes('/risk/index') || currentPerms.includes('风险合规库') || isChecked;
 
-                return (
-                  <div
-                    key={module.id}
-                    className="p-3.5 rounded border border-[#E4E7ED] bg-[#FAFAFA] flex items-start justify-between gap-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => {
-                          const nextPerms = e.target.checked
-                            ? [...currentPerms.filter((p) => p !== 'all'), module.id]
-                            : currentPerms.filter((p) => p !== module.id && p !== 'all');
-                          setRolePermissions((prev) => ({
-                            ...prev,
-                            [selectedRoleId]: nextPerms,
-                          }));
-                        }}
-                        className="w-4 h-4 mt-0.5 rounded border-[#DCDFE6] text-[#2F7BFE] cursor-pointer"
-                      />
-                      <div>
-                        <div className="font-semibold text-xs text-[#303133] mb-0.5">
-                          {module.title}
-                        </div>
-                        <div className="text-[11px] text-[#909399]">{module.desc}</div>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {module.actions.map((act) => (
-                            <span
-                              key={act}
-                              className="px-2 py-0.5 rounded bg-white border border-[#E4E7ED] text-[11px] text-[#606266]"
-                            >
-                              {act}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                  const featureConfig = roleFeaturePermissions[selectedRoleId] || {
+                    sysDoc: { readOnly: true, canDownload: false, previewOnly: true },
+                    risk: { readOnly: true, canDownload: false, previewOnly: true },
+                  };
 
-                    <span
-                      className={`px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${
-                        isChecked ? 'bg-[#E8F3FF] text-[#2F7BFE]' : 'bg-[#F2F3F5] text-[#86909C]'
+                  return (
+                    <div
+                      key={module.id}
+                      className={`p-3.5 rounded border transition-all ${
+                        module.isRiskModule
+                          ? 'border-[#B3D8FF] bg-[#F8FAFF]'
+                          : 'border-[#E4E7ED] bg-[#FAFAFA]'
                       }`}
                     >
-                      {isChecked ? '已授权' : '未授权'}
-                    </span>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked || (module.isRiskModule && (isSysDocQueryPermitted || isRiskQueryPermitted))}
+                            onChange={(e) => {
+                              const nextPerms = e.target.checked
+                                ? [...currentPerms.filter((p) => p !== 'all'), module.id]
+                                : currentPerms.filter((p) => p !== module.id && p !== 'all' && !['sysdoc_query', 'risk_query', 'sysdoc_lib', 'risk_lib', '/sysdoc/indexview', '/risk/riskview', '制度查阅', '风险查阅'].includes(p));
+                              setRolePermissions((prev) => ({
+                                ...prev,
+                                [selectedRoleId]: nextPerms,
+                              }));
+                            }}
+                            className="w-4 h-4 mt-0.5 rounded border-[#DCDFE6] text-[#2F7BFE] cursor-pointer"
+                          />
+                          <div>
+                            <div className="font-semibold text-xs text-[#303133] mb-0.5 flex items-center gap-2">
+                              <span>{module.title}</span>
+                              {module.isRiskModule && (
+                                <span className="px-2 py-0.2 rounded bg-[#EBF5FF] text-[#2F7BFE] text-[10px] font-bold border border-[#B3D8FF]">
+                                  支持子菜单只读/下载/预览精细化控制
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-[#909399]">{module.desc}</div>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${
+                            isChecked || (module.isRiskModule && (isSysDocQueryPermitted || isRiskQueryPermitted))
+                              ? 'bg-[#E8F3FF] text-[#2F7BFE]'
+                              : 'bg-[#F2F3F5] text-[#86909C]'
+                          }`}
+                        >
+                          {isChecked || (module.isRiskModule && (isSysDocQueryPermitted || isRiskQueryPermitted)) ? '已授权' : '未授权'}
+                        </span>
+                      </div>
+
+                      {/* Specialized Granular Submenu Controls for 风控合规 */}
+                      {module.isRiskModule && (
+                        <div className="mt-3 pt-3 border-t border-[#D9ECFF] grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {/* 1. 制度查阅 子菜单项 */}
+                          <div className="p-2.5 rounded bg-white border border-[#D9ECFF] shadow-2xs">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-[#1F2733]">
+                                <input
+                                  type="checkbox"
+                                  checked={isSysDocQueryPermitted}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? Array.from(new Set([...currentPerms, 'sysdoc_query', '/sysdoc/indexview', '制度查阅']))
+                                      : currentPerms.filter((p) => !['sysdoc_query', '/sysdoc/indexview', '制度查阅'].includes(p));
+                                    setRolePermissions((prev) => ({ ...prev, [selectedRoleId]: next }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                                <span>菜单: 制度查阅 (/sysdoc/indexview)</span>
+                              </label>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium border border-blue-200">
+                                红框菜单 1
+                              </span>
+                            </div>
+
+                            <div className="bg-[#F8FAFC] p-2 rounded border border-[#E2E8F0] space-y-1.5 text-[11px]">
+                              <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-[#475569] font-medium">是否只读 (强制禁止新增/修改/删除)</span>
+                                <input
+                                  type="checkbox"
+                                  checked={featureConfig.sysDoc?.readOnly ?? true}
+                                  onChange={(e) => {
+                                    setRoleFeaturePermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...featureConfig,
+                                        sysDoc: {
+                                          ...featureConfig.sysDoc,
+                                          readOnly: e.target.checked,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                              </label>
+
+                              <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-[#475569] font-medium">是否有下载权限 (可导出/下载源文件)</span>
+                                <input
+                                  type="checkbox"
+                                  checked={featureConfig.sysDoc?.canDownload ?? false}
+                                  onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setRoleFeaturePermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...featureConfig,
+                                        sysDoc: {
+                                          ...featureConfig.sysDoc,
+                                          canDownload: val,
+                                          previewOnly: val ? false : featureConfig.sysDoc?.previewOnly,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                              </label>
+
+                              <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-[#475569] font-medium">是否只能显示预览 (禁止下载打印)</span>
+                                <input
+                                  type="checkbox"
+                                  checked={featureConfig.sysDoc?.previewOnly ?? true}
+                                  onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setRoleFeaturePermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...featureConfig,
+                                        sysDoc: {
+                                          ...featureConfig.sysDoc,
+                                          previewOnly: val,
+                                          canDownload: val ? false : featureConfig.sysDoc?.canDownload,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* 2. 风险查阅 子菜单项 */}
+                          <div className="p-2.5 rounded bg-white border border-[#D9ECFF] shadow-2xs">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-[#1F2733]">
+                                <input
+                                  type="checkbox"
+                                  checked={isRiskQueryPermitted}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? Array.from(new Set([...currentPerms, 'risk_query', '/risk/riskview', '风险查阅']))
+                                      : currentPerms.filter((p) => !['risk_query', '/risk/riskview', '风险查阅'].includes(p));
+                                    setRolePermissions((prev) => ({ ...prev, [selectedRoleId]: next }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                                <span>菜单: 风险查阅 (/risk/riskview)</span>
+                              </label>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium border border-blue-200">
+                                红框菜单 2
+                              </span>
+                            </div>
+
+                            <div className="bg-[#F8FAFC] p-2 rounded border border-[#E2E8F0] space-y-1.5 text-[11px]">
+                              <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-[#475569] font-medium">是否只读 (强制禁止新增/修改/删除)</span>
+                                <input
+                                  type="checkbox"
+                                  checked={featureConfig.risk?.readOnly ?? true}
+                                  onChange={(e) => {
+                                    setRoleFeaturePermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...featureConfig,
+                                        risk: {
+                                          ...featureConfig.risk,
+                                          readOnly: e.target.checked,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                              </label>
+
+                              <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-[#475569] font-medium">是否有导出下载权限</span>
+                                <input
+                                  type="checkbox"
+                                  checked={featureConfig.risk?.canDownload ?? false}
+                                  onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setRoleFeaturePermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...featureConfig,
+                                        risk: {
+                                          ...featureConfig.risk,
+                                          canDownload: val,
+                                          previewOnly: val ? false : featureConfig.risk?.previewOnly,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                              </label>
+
+                              <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-[#475569] font-medium">是否只能显示预览 (禁止导出台账)</span>
+                                <input
+                                  type="checkbox"
+                                  checked={featureConfig.risk?.previewOnly ?? true}
+                                  onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setRoleFeaturePermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...featureConfig,
+                                        risk: {
+                                          ...featureConfig.risk,
+                                          previewOnly: val,
+                                          canDownload: val ? false : featureConfig.risk?.canDownload,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* 3. 其它管理级子菜单 (制度文件库 / 风险合规库 / 废止归档) */}
+                          <div className="col-span-full bg-white p-2.5 rounded border border-[#E2E8F0] flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <span className="text-[#64748B] font-medium text-[11px]">
+                              管理维护级子菜单 (普通员工受限模式下建议取消勾选)：
+                            </span>
+                            <div className="flex items-center gap-4">
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[#475569]">
+                                <input
+                                  type="checkbox"
+                                  checked={isSysDocLibPermitted}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? Array.from(new Set([...currentPerms, 'sysdoc_lib', '/sysdoc/index2']))
+                                      : currentPerms.filter((p) => !['sysdoc_lib', '/sysdoc/index2', '制度文件库'].includes(p));
+                                    setRolePermissions((prev) => ({ ...prev, [selectedRoleId]: next }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                                <span>制度文件库</span>
+                              </label>
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[#475569]">
+                                <input
+                                  type="checkbox"
+                                  checked={isRiskLibPermitted}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? Array.from(new Set([...currentPerms, 'risk_lib', '/risk/index']))
+                                      : currentPerms.filter((p) => !['risk_lib', '/risk/index', '风险合规库'].includes(p));
+                                    setRolePermissions((prev) => ({ ...prev, [selectedRoleId]: next }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded text-[#2F7BFE]"
+                                />
+                                <span>风险合规库</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Tab 2: 字段级权限与敏感数据脱敏 */}
+            {activePermissionTab === 'field' && (
+              <div className="flex-1 overflow-y-auto space-y-3.5 text-xs">
+                <div className="bg-[#F0F7FF] p-3 rounded border border-[#B3D8FF] text-[#1E3A8A]">
+                  <div className="font-semibold text-xs mb-1 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#2F7BFE]" />
+                    <span>字段级安全策略说明 (Field-Level Permissions)</span>
                   </div>
-                );
-              })}
-            </div>
+                  <p className="text-[11px] text-[#475569] leading-relaxed">
+                    系统现已支持控制到【菜单级】与【字段级】。针对当前所选角色，您可以设定在制度查阅和风险查阅中，各个业务字段的公开性与脱敏规则。当设为【脱敏掩码】时，系统将在表格和预览中自动将内部核心编号、密级及决策人打码保护。
+                  </p>
+                </div>
+
+                {/* 1. 制度表单 (form_sysdoc) 字段规则 */}
+                <div className="bg-white rounded border border-[#E4E7ED] p-3 shadow-2xs">
+                  <div className="font-bold text-xs text-[#303133] mb-2.5 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-[#2F7BFE]" />
+                      <span>制度文件表单 (form_sysdoc) · 字段访问与脱敏控制</span>
+                    </span>
+                    <span className="text-[10px] text-[#909399]">对应制度查阅页面字段</span>
+                  </div>
+
+                  <div className="border border-[#E4E7ED] rounded overflow-hidden">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="bg-[#F8F9FA] text-[#606266] border-b border-[#E4E7ED]">
+                        <tr>
+                          <th className="py-2 px-3">字段标识</th>
+                          <th className="py-2 px-3">业务名称</th>
+                          <th className="py-2 px-3 text-center">完全公开</th>
+                          <th className="py-2 px-3 text-center text-amber-600">脱敏掩码 (如 ***)</th>
+                          <th className="py-2 px-3 text-center text-red-600">隐藏不显示</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E4E7ED]">
+                        {[
+                          { key: 'docNo', label: '制度编码', sample: 'ZD-MKT-2026-01', masked: 'ZD-***-01' },
+                          { key: 'secretLevel', label: '涉密等级', sample: '内部受限(工作秘密)', masked: '***(受限)' },
+                          { key: 'docOfficialNo', label: '发文红头文号', sample: '全源发〔2026〕088号', masked: '全源发〔2026〕***号' },
+                          { key: 'approver', label: '合规审核人', sample: '李合规 (审计专员)', masked: '合规部 (脱敏)' },
+                          { key: 'signer', label: '签发决策人', sample: '王副总 (分管副总裁)', masked: '高管办 (脱敏)' },
+                        ].map((f) => {
+                          const currentSetting =
+                            roleFieldPermissions[selectedRoleId]?.form_sysdoc?.[f.key] || 'normal';
+                          return (
+                            <tr key={f.key} className="hover:bg-[#F8FAFC]">
+                              <td className="py-2 px-3 font-mono text-[11px] text-[#909399]">{f.key}</td>
+                              <td className="py-2 px-3 font-medium text-[#303133]">
+                                <div>{f.label}</div>
+                                <div className="text-[10px] text-[#909399]">
+                                  脱敏示例: <span className="font-mono text-[#D97706]">{f.masked}</span>
+                                </div>
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="radio"
+                                  name={`f_doc_${f.key}`}
+                                  checked={currentSetting === 'normal'}
+                                  onChange={() => {
+                                    setRoleFieldPermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...prev[selectedRoleId],
+                                        form_sysdoc: {
+                                          ...(prev[selectedRoleId]?.form_sysdoc || {}),
+                                          [f.key]: 'normal',
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 text-[#2F7BFE] cursor-pointer"
+                                />
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="radio"
+                                  name={`f_doc_${f.key}`}
+                                  checked={currentSetting === 'masked'}
+                                  onChange={() => {
+                                    setRoleFieldPermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...prev[selectedRoleId],
+                                        form_sysdoc: {
+                                          ...(prev[selectedRoleId]?.form_sysdoc || {}),
+                                          [f.key]: 'masked',
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 text-amber-600 cursor-pointer"
+                                />
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="radio"
+                                  name={`f_doc_${f.key}`}
+                                  checked={currentSetting === 'hidden'}
+                                  onChange={() => {
+                                    setRoleFieldPermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...prev[selectedRoleId],
+                                        form_sysdoc: {
+                                          ...(prev[selectedRoleId]?.form_sysdoc || {}),
+                                          [f.key]: 'hidden',
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 text-red-600 cursor-pointer"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 2. 风险表单 (form_flowdoc) 字段规则 */}
+                <div className="bg-white rounded border border-[#E4E7ED] p-3 shadow-2xs">
+                  <div className="font-bold text-xs text-[#303133] mb-2.5 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                      <span>风险合规表单 (form_flowdoc) · 字段访问与脱敏控制</span>
+                    </span>
+                    <span className="text-[10px] text-[#909399]">对应风险查阅页面字段</span>
+                  </div>
+
+                  <div className="border border-[#E4E7ED] rounded overflow-hidden">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="bg-[#F8F9FA] text-[#606266] border-b border-[#E4E7ED]">
+                        <tr>
+                          <th className="py-2 px-3">字段标识</th>
+                          <th className="py-2 px-3">业务名称</th>
+                          <th className="py-2 px-3 text-center">完全公开</th>
+                          <th className="py-2 px-3 text-center text-amber-600">脱敏掩码 (如 ***)</th>
+                          <th className="py-2 px-3 text-center text-red-600">隐藏不显示</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E4E7ED]">
+                        {[
+                          { key: 'riskNo', label: '风险编号', sample: 'RSK-2026-001', masked: 'RSK-***-001' },
+                          { key: 'target', label: '控制目标', sample: '全流程受控避免财务坏账', masked: '***(内部管控)' },
+                          { key: 'lossEstimate', label: '预估损失金额', sample: '500万元', masked: '***(商业机密)' },
+                        ].map((f) => {
+                          const currentSetting =
+                            roleFieldPermissions[selectedRoleId]?.form_flowdoc?.[f.key] || 'normal';
+                          return (
+                            <tr key={f.key} className="hover:bg-[#F8FAFC]">
+                              <td className="py-2 px-3 font-mono text-[11px] text-[#909399]">{f.key}</td>
+                              <td className="py-2 px-3 font-medium text-[#303133]">
+                                <div>{f.label}</div>
+                                <div className="text-[10px] text-[#909399]">
+                                  脱敏示例: <span className="font-mono text-[#D97706]">{f.masked}</span>
+                                </div>
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="radio"
+                                  name={`f_risk_${f.key}`}
+                                  checked={currentSetting === 'normal'}
+                                  onChange={() => {
+                                    setRoleFieldPermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...prev[selectedRoleId],
+                                        form_flowdoc: {
+                                          ...(prev[selectedRoleId]?.form_flowdoc || {}),
+                                          [f.key]: 'normal',
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 text-[#2F7BFE] cursor-pointer"
+                                />
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="radio"
+                                  name={`f_risk_${f.key}`}
+                                  checked={currentSetting === 'masked'}
+                                  onChange={() => {
+                                    setRoleFieldPermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...prev[selectedRoleId],
+                                        form_flowdoc: {
+                                          ...(prev[selectedRoleId]?.form_flowdoc || {}),
+                                          [f.key]: 'masked',
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 text-amber-600 cursor-pointer"
+                                />
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="radio"
+                                  name={`f_risk_${f.key}`}
+                                  checked={currentSetting === 'hidden'}
+                                  onChange={() => {
+                                    setRoleFieldPermissions((prev) => ({
+                                      ...prev,
+                                      [selectedRoleId]: {
+                                        ...prev[selectedRoleId],
+                                        form_flowdoc: {
+                                          ...(prev[selectedRoleId]?.form_flowdoc || {}),
+                                          [f.key]: 'hidden',
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  className="w-3.5 h-3.5 text-red-600 cursor-pointer"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

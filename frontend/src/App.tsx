@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -13,6 +13,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Info,
+  Lock,
 } from 'lucide-react';
 import { MENU_ROUTES } from './config/menuRoutes';
 import { DashboardView } from './components/DashboardView';
@@ -126,6 +127,79 @@ export default function App() {
         .catch(() => {});
     }
   }, [token, currentPath, fullScreenMode]);
+
+  const isPathAllowed = (path: string, user: any): boolean => {
+    if (!user) return true;
+    const perms: string[] = user.menuPermissions || [];
+    if (
+      perms.includes('all') ||
+      perms.includes('全部菜单') ||
+      user.roleLabel === '超级管理员' ||
+      (user.roleNames && user.roleNames.includes('超级管理员'))
+    ) {
+      return true;
+    }
+    if (perms.length === 0) return true;
+
+    const pathKeyMap: Record<string, string[]> = {
+      '/dashboard/index': ['collab', '协同工作', 'workspace', 'dashboard', '综合首页'],
+      '/task/todolist': ['collab', '协同工作', 'workspace', 'task_todo', '待办任务'],
+      '/task/finishlist': ['collab', '协同工作', 'workspace', 'task_finish', '已办任务'],
+      '/task/learning': ['collab', '协同工作', 'workspace', 'task_learning', '流程培训'],
+      '/property/verify': ['collab', '协同工作', 'workspace', '我的负责'],
+      '/property/partake': ['collab', '协同工作', 'workspace', '我的参与'],
+      '/property/overview': ['property', '流程资产', '架构全景'],
+      '/property/integrate': ['property', '流程资产', '业务集成'],
+      '/property/catalog': ['property', '流程资产', '目录清单'],
+      '/build/design': ['design', '流程设计'],
+      '/build/verify': ['design', '流程设计', '流程审核'],
+      '/build/roles': ['design', '流程设计', '流程角色'],
+      '/build/terms': ['design', '流程设计', '流程术语'],
+      '/execute/process': ['execute', '流程运行', '流程实例运行'],
+      '/mining/engine': ['mining', '流程挖掘', '流程挖掘诊断'],
+      '/flowdoc/duty': ['duty', '权责管控', '权责清单与手册'],
+      '/flowdoc/verify': ['duty', '权责管控', '权责审核'],
+      '/sysdoc/index2': ['governance', '风控合规', 'sysdoc_lib', '制度文件库'],
+      '/sysdoc/indexview': ['governance', '风控合规', 'sysdoc_query', '制度查阅', '/sysdoc/indexview'],
+      '/risk/index': ['governance', '风控合规', 'risk_lib', '风险合规库'],
+      '/risk/riskview': ['governance', '风控合规', 'risk_query', '风险查阅', '/risk/riskview'],
+      '/build/repeal': ['governance', '风控合规', 'flow_obsolete', '流程废止归档'],
+      '/org/dept': ['system', '组织系统', '部门组织'],
+      '/org/user': ['system', '组织系统', '用户管理'],
+      '/org/role': ['system', '组织系统', '权限管理'],
+      '/system/column': ['system', '组织系统', '表单引擎'],
+      '/system/company': ['system', '组织系统', '公司授权'],
+      '/system/api': ['system', '组织系统', 'API管理'],
+    };
+
+    const keys = pathKeyMap[path] || [];
+    return perms.some((p) => p === path || keys.includes(p));
+  };
+
+  const filteredMenuRoutes = useMemo(() => {
+    return MENU_ROUTES.map((group) => {
+      const validChildren = group.children.filter((child) => isPathAllowed(child.path, currentUser));
+      return {
+        ...group,
+        children: validChildren,
+      };
+    }).filter((group) => group.children.length > 0);
+  }, [currentUser]);
+
+  // Route guard: auto redirect if user lands on an unauthorized menu
+  useEffect(() => {
+    if (filteredMenuRoutes.length > 0) {
+      const allAllowedPaths = filteredMenuRoutes.flatMap((g) => g.children.map((c) => c.path));
+      if (!allAllowedPaths.includes(currentPath)) {
+        const targetPath = allAllowedPaths[0];
+        if (targetPath) {
+          setCurrentPath(targetPath);
+          const parentGroup = filteredMenuRoutes.find((g) => g.children.some((c) => c.path === targetPath));
+          if (parentGroup) setExpandedMenuId(parentGroup.id);
+        }
+      }
+    }
+  }, [filteredMenuRoutes, currentPath]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -438,7 +512,7 @@ export default function App() {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-1 sidebar-transparent-scroll">
-          {MENU_ROUTES.map((group) => {
+          {filteredMenuRoutes.map((group) => {
             const IconComp = group.icon;
             const isSingle = group.children.length === 1;
             const isExpanded = expandedMenuId === group.id;
@@ -699,6 +773,7 @@ export default function App() {
             <SysDocRiskModuleView
               moduleType="sysdoc"
               subPath={currentPath}
+              currentUser={currentUser}
               dictBundle={dictBundle}
               onRefreshDict={refreshDictBundle}
               onNavigate={handleNavigate}
@@ -708,6 +783,7 @@ export default function App() {
             <SysDocRiskModuleView
               moduleType="risk"
               subPath={currentPath}
+              currentUser={currentUser}
               dictBundle={dictBundle}
               onRefreshDict={refreshDictBundle}
               onNavigate={handleNavigate}
