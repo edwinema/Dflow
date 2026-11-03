@@ -7802,7 +7802,6 @@ async function startServer() {
   });
 }
 
-// If invoked directly via tsx server.ts
-if (process.argv[1]?.endsWith('server.ts')) {
-  startServer();
-}
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+});
