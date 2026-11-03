@@ -1332,38 +1332,7 @@ let orgRoles: any[] = [
   { id: 'orole_4', roleNo: 4, roleName: '合规风控官', roleKey: 'risk_officer', roleType: '风险合规', roleSort: 4, dataScope: '全合规业务域', boundPositions: ['合规风控总监', '内控合规审查官'], menuPermissions: ['协同工作', '流程资产', '风控合规', '权责管控'], userCount: 3, syncSource: '本地创建', status: '0', remark: '负责规章制度库、风险控制矩阵与关键控制点(KCP)合规审查', createTime: '2024-03-15 09:45:00' },
   { id: 'orole_5', roleNo: 5, roleName: '知识与权责管理员', roleKey: 'duty_admin', roleType: '业务管理', roleSort: 5, dataScope: '全公司权责资产', boundPositions: ['权责核准主管', '知识运营专家'], menuPermissions: ['协同工作', '流程资产', '权责管控', '风控合规', '组织系统'], userCount: 4, syncSource: '本地创建', status: '0', remark: '负责权责清单、授权矩阵(DOA)审批维护与权责手册发布', createTime: '2024-03-15 09:50:00' },
   { id: 'orole_6', roleNo: 6, roleName: '业务部门主管', roleKey: 'business_director', roleType: '业务管理', roleSort: 6, dataScope: '本部门及下属数据', boundPositions: ['业务中心总经理', '部门经理'], menuPermissions: ['协同工作', '流程资产', '流程设计', '流程运行', '权责管控'], userCount: 8, syncSource: 'HR系统', status: '0', remark: '负责业务域内流程变更提报、流程废止部门审批与业务工单签批', createTime: '2024-03-15 09:55:00' },
-  {
-    id: 'orole_7',
-    roleNo: 7,
-    roleName: '普通员工',
-    roleKey: 'employee',
-    roleType: '基础角色',
-    roleSort: 7,
-    dataScope: '仅制度与风险只读',
-    boundPositions: ['研发执行工程师', '测试工程师', '销售代表'],
-    menuPermissions: ['/sysdoc/indexview', '/risk/riskview', 'sysdoc_query', 'risk_query', '制度查阅', '风险查阅'],
-    featurePermissions: {
-      readOnly: true,
-      canDownload: false,
-      previewOnly: true,
-      sysDoc: { readOnly: true, canDownload: false, previewOnly: true },
-      risk: { readOnly: true, canDownload: false, previewOnly: true },
-    },
-    fieldPermissions: {
-      form_sysdoc: {
-        docNo: 'masked',
-        secretLevel: 'masked',
-      },
-      form_flowdoc: {
-        riskNo: 'masked',
-      },
-    },
-    userCount: 65,
-    syncSource: '本地创建',
-    status: '0',
-    remark: '仅被授予风控合规下的制度查阅和风险查阅权限，只读模式且仅限在线预览',
-    createTime: '2024-03-15 10:00:00',
-  },
+  { id: 'orole_7', roleNo: 7, roleName: '普通员工', roleKey: 'employee', roleType: '基础角色', roleSort: 7, dataScope: '仅本人数据', boundPositions: ['研发执行工程师', '测试工程师', '销售代表'], menuPermissions: ['协同工作', '流程资产'], userCount: 65, syncSource: '本地创建', status: '0', remark: '查阅本人负责与参与流程、处理个人待办与发起工单', createTime: '2024-03-15 10:00:00' },
   { id: 'orole_8', roleNo: 8, roleName: '审计监督员', roleKey: 'auditor', roleType: '合规审计', roleSort: 8, dataScope: '全部只读数据', boundPositions: ['高级内审督察专家'], menuPermissions: ['协同工作', '流程资产', '流程运行', '流程挖掘', '权责管控', '风控合规'], userCount: 2, syncSource: '本地创建', status: '0', remark: '负责全生命周期流程执行抽检、废止归档审计与运行挖掘日志调阅', createTime: '2024-03-15 10:05:00' },
 ];
 
@@ -2464,47 +2433,15 @@ app.post('/api/session', (req, res) => {
         u.id === userId
     );
     if (found) {
-      const userRoles = orgRoles.filter((r) => (found.roleNames || []).includes(r.roleName));
-      let mergedMenuPermissions: string[] = [];
-      let mergedFeaturePermissions: any = {};
-      let mergedFieldPermissions: any = {};
-
-      userRoles.forEach((r) => {
-        if (Array.isArray(r.menuPermissions)) {
-          mergedMenuPermissions.push(...r.menuPermissions);
-        }
-        if (r.featurePermissions) {
-          mergedFeaturePermissions = { ...mergedFeaturePermissions, ...r.featurePermissions };
-        }
-        if (r.fieldPermissions) {
-          mergedFieldPermissions = { ...mergedFieldPermissions, ...r.fieldPermissions };
-        }
-      });
-
-      if (found.userName === 'admin' || (found.roleNames && found.roleNames.includes('超级管理员'))) {
-        mergedMenuPermissions = ['all', '全部菜单'];
-        mergedFeaturePermissions = {
-          readOnly: false,
-          canDownload: true,
-          previewOnly: false,
-          sysDoc: { readOnly: false, canDownload: true, previewOnly: false },
-          risk: { readOnly: false, canDownload: true, previewOnly: false },
-        };
-      }
-
       currentActiveUser = {
         userId: found.userName,
         userName: found.nickName || found.userName,
         nickName: found.nickName || found.userName,
         empNo: found.empNo,
         roleLabel: (found.roleNames && found.roleNames[0]) || '流程管理员',
-        roleNames: found.roleNames || ['普通员工'],
         jobTitle: found.positionName || '高级流程经理',
         deptName: found.deptName || '流程管理部',
         companyName: companyAuthData?.companyName || '测试集团有限公司',
-        menuPermissions: mergedMenuPermissions,
-        featurePermissions: mergedFeaturePermissions,
-        fieldPermissions: mergedFieldPermissions,
       };
     } else {
       currentActiveUser = {
@@ -2512,17 +2449,9 @@ app.post('/api/session', (req, res) => {
         userName: userId,
         nickName: userId,
         roleLabel: '流程管理员',
-        roleNames: ['流程管理员'],
         jobTitle: '经理',
         deptName: '流程管理部',
         companyName: companyAuthData?.companyName || '测试集团有限公司',
-        menuPermissions: ['all', '全部菜单'],
-        featurePermissions: {
-          readOnly: false,
-          canDownload: true,
-          previewOnly: false,
-        },
-        fieldPermissions: {},
       };
     }
   }
@@ -5200,24 +5129,9 @@ app.delete('/api/org/roles/:id', (req, res) => {
 app.post('/api/org/roles/:id/permissions', (req, res) => {
   const target = orgRoles.find((r) => r.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到指定角色' });
-  const { menuPermissions = [], featurePermissions = {}, fieldPermissions = {} } = req.body || {};
+  const { menuPermissions = [] } = req.body || {};
   target.menuPermissions = menuPermissions;
-  if (featurePermissions && Object.keys(featurePermissions).length > 0) {
-    target.featurePermissions = featurePermissions;
-  }
-  if (fieldPermissions && Object.keys(fieldPermissions).length > 0) {
-    target.fieldPermissions = fieldPermissions;
-  }
-  // Sync if current active user belongs to this role
-  if (
-    currentActiveUser?.roleLabel === target.roleName ||
-    (currentActiveUser?.roleNames && currentActiveUser.roleNames.includes(target.roleName))
-  ) {
-    currentActiveUser.menuPermissions = target.menuPermissions;
-    currentActiveUser.featurePermissions = target.featurePermissions || {};
-    currentActiveUser.fieldPermissions = target.fieldPermissions || {};
-  }
-  res.json({ status: 1, data: target, list: orgRoles, info: '角色菜单、功能及字段级权限配置已保存并即时生效' });
+  res.json({ status: 1, data: target, list: orgRoles, info: '角色权限配置已保存并即时生效' });
 });
 
 app.post('/api/org/depts', (req, res) => {
@@ -7802,6 +7716,7 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-});
+// If invoked directly via tsx server.ts
+if (process.argv[1]?.endsWith('server.ts')) {
+  startServer();
+}
