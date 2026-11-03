@@ -24,6 +24,8 @@ import {
   ExternalLink,
   Layers,
   FileCode,
+  Lock,
+  ShieldAlert,
 } from 'lucide-react';
 
 export interface DocumentItem {
@@ -41,10 +43,12 @@ export interface DocumentItem {
   [key: string]: any;
 }
 
-interface OnlineDocumentPreviewModalProps {
+export interface OnlineDocumentPreviewModalProps {
   document: DocumentItem;
   onClose: () => void;
   showToast?: (msg: string, type?: any) => void;
+  allowDownload?: boolean;
+  previewOnly?: boolean;
 }
 
 export const getFileExtension = (filename: string): string => {
@@ -105,7 +109,10 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
   document: doc,
   onClose,
   showToast,
+  allowDownload = true,
+  previewOnly = false,
 }) => {
+  const isRestrictedPreview = previewOnly || allowDownload === false;
   const format = useMemo(() => getDocumentFormat(doc.label), [doc.label]);
   const [zoom, setZoom] = useState<number>(100);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -123,10 +130,18 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
   const totalPptSlides = 5;
 
   const handleDownload = () => {
+    if (isRestrictedPreview) {
+      showToast?.('当前账号仅具备只读预览权限，已被禁止下载文件', 'warning');
+      return;
+    }
     downloadDocumentFile(doc, showToast);
   };
 
   const handlePrint = () => {
+    if (isRestrictedPreview) {
+      showToast?.('当前模式禁止打印文件', 'warning');
+      return;
+    }
     window.print();
   };
 
@@ -245,26 +260,35 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
             </div>
 
             {/* Print Button */}
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="h-8 px-2.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs flex items-center gap-1 cursor-pointer transition-colors"
-              title="打印文件"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">打印</span>
-            </button>
+            {!isRestrictedPreview && (
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="h-8 px-2.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                title="打印文件"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">打印</span>
+              </button>
+            )}
 
-            {/* Download Button */}
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="h-8 px-3 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
-              title="自动下载该文件"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>下载文件</span>
-            </button>
+            {/* Download Button / Restricted Indicator */}
+            {!isRestrictedPreview ? (
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="h-8 px-3 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                title="自动下载该文件"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>下载文件</span>
+              </button>
+            ) : (
+              <div className="h-8 px-2.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-1.5 whitespace-nowrap" title="当前角色权限为仅预览模式，已被授予限制下载/打印">
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+                <span>仅在线预览 · 无下载权限</span>
+              </div>
+            )}
 
             {/* Fullscreen toggle */}
             <button

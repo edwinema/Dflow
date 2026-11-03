@@ -30,6 +30,7 @@ import {
   ExternalLink,
   Maximize2,
   Minimize2,
+  Lock,
 } from 'lucide-react';
 import { EnterpriseDataGrid, DataGridColumn } from './EnterpriseDataGrid';
 import {
@@ -444,6 +445,7 @@ export const ApprovedTreePickerModal: React.FC<ApprovedTreePickerModalProps> = (
 interface SysDocRiskModuleViewProps {
   moduleType: 'sysdoc' | 'risk';
   subPath: string;
+  currentUser?: any;
   dictBundle: any;
   onRefreshDict: () => void;
   onNavigate?: (path: string, formKey?: string) => void;
@@ -453,6 +455,7 @@ interface SysDocRiskModuleViewProps {
 export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
   moduleType,
   subPath,
+  currentUser,
   dictBundle,
   onRefreshDict,
   onNavigate,
@@ -460,6 +463,49 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
 }) => {
   const isRisk = moduleType === 'risk';
   const isPublishedViewOnly = subPath.includes('view');
+
+  const isReadOnly = useMemo(() => {
+    if (isPublishedViewOnly) return true;
+    if (currentUser?.featurePermissions?.readOnly) return true;
+    if (isRisk && currentUser?.featurePermissions?.risk?.readOnly) return true;
+    if (!isRisk && currentUser?.featurePermissions?.sysDoc?.readOnly) return true;
+    return false;
+  }, [isPublishedViewOnly, isRisk, currentUser]);
+
+  const canDownload = useMemo(() => {
+    if (currentUser?.featurePermissions?.previewOnly) return false;
+    if (isRisk && currentUser?.featurePermissions?.risk?.previewOnly) return false;
+    if (!isRisk && currentUser?.featurePermissions?.sysDoc?.previewOnly) return false;
+
+    if (isRisk) {
+      if (currentUser?.featurePermissions?.risk?.canDownload !== undefined) {
+        return Boolean(currentUser.featurePermissions.risk.canDownload);
+      }
+    } else {
+      if (currentUser?.featurePermissions?.sysDoc?.canDownload !== undefined) {
+        return Boolean(currentUser.featurePermissions.sysDoc.canDownload);
+      }
+    }
+    if (currentUser?.featurePermissions?.canDownload !== undefined) {
+      return Boolean(currentUser.featurePermissions.canDownload);
+    }
+    if (currentUser?.roleNames && currentUser.roleNames.includes('普通员工')) {
+      return false;
+    }
+    return true;
+  }, [isRisk, currentUser]);
+
+  const previewOnly = useMemo(() => {
+    return !canDownload || Boolean(
+      currentUser?.featurePermissions?.previewOnly ||
+      (isRisk ? currentUser?.featurePermissions?.risk?.previewOnly : currentUser?.featurePermissions?.sysDoc?.previewOnly)
+    );
+  }, [canDownload, isRisk, currentUser]);
+
+  const fieldPerms = useMemo(() => {
+    const fKey = isRisk ? 'form_flowdoc' : 'form_sysdoc';
+    return currentUser?.fieldPermissions?.[fKey] || {};
+  }, [isRisk, currentUser]);
 
   const [formSchema, setFormSchema] = useState<any>(null);
   useEffect(() => {
@@ -1071,12 +1117,28 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         {
           key: 'actions',
           label: '操作',
-          defaultWidth: 210,
-          minWidth: 185,
+          defaultWidth: isReadOnly ? 110 : 210,
+          minWidth: isReadOnly ? 95 : 185,
           align: 'center',
           fixed: 'right',
           render: (row) => {
             const isApproved = (row.status || 'approved') === 'approved';
+            if (isReadOnly) {
+              return (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center justify-center gap-2 whitespace-nowrap"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPreviewItem(row)}
+                    className="text-[#409eff] hover:underline font-medium cursor-pointer"
+                  >
+                    预览详情
+                  </button>
+                </div>
+              );
+            }
             return (
               <div
                 onClick={(e) => e.stopPropagation()}
@@ -1126,12 +1188,17 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         defaultWidth: 150,
         minWidth: 125,
         fixed: 'left',
-        tooltipText: (row) => row.docNo,
-        render: (row) => (
-          <span className="font-mono-tabular font-medium text-[#1f2733] whitespace-nowrap">
-            {row.docNo}
-          </span>
-        ),
+        tooltipText: (row) => fieldPerms.docNo === 'masked' ? (row.docNo || '').replace(/-[A-Z0-9]+-/, '-***-') : row.docNo,
+        render: (row) => {
+          const displayNo = fieldPerms.docNo === 'masked'
+            ? (row.docNo || '').replace(/-[A-Z0-9]+-/, '-***-')
+            : row.docNo;
+          return (
+            <span className="font-mono-tabular font-medium text-[#1f2733] whitespace-nowrap">
+              {displayNo}
+            </span>
+          );
+        },
       },
       {
         key: 'label',
@@ -1267,12 +1334,57 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
       {
         key: 'actions',
         label: '操作',
-        defaultWidth: 240,
-        minWidth: 210,
+        defaultWidth: isReadOnly ? 190 : 240,
+        minWidth: isReadOnly ? 170 : 210,
         align: 'center',
         fixed: 'right',
         render: (row) => {
           const isApproved = (row.status || 'approved') === 'approved';
+          if (isReadOnly) {
+            return (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewItem(row)}
+                  className="text-[#606266] hover:text-[#409eff] font-medium cursor-pointer"
+                  title="查看详情信息"
+                >
+                  详情
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOnlinePreviewDoc(row)}
+                  className="text-[#409eff] hover:underline font-medium cursor-pointer flex items-center gap-0.5"
+                  title="在线预览正文内容"
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>预览</span>
+                </button>
+                {canDownload && !previewOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => downloadDocumentFile(row, showToast)}
+                    className="text-[#67c23a] hover:underline font-medium cursor-pointer flex items-center gap-0.5"
+                    title="自动下载该文件"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>下载</span>
+                  </button>
+                ) : (
+                  <span
+                    className="text-[#909399] bg-[#f4f4f5] px-1.5 py-0.5 rounded text-[11px] flex items-center gap-0.5 cursor-not-allowed select-none"
+                    title="当前权限仅允许在线预览，无下载权限"
+                  >
+                    <Lock className="w-3 h-3 text-[#c0c4cc]" />
+                    <span>禁下载</span>
+                  </span>
+                )}
+              </div>
+            );
+          }
           return (
             <div
               onClick={(e) => e.stopPropagation()}
@@ -1527,23 +1639,46 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onNavigate?.('/system/column', isRisk ? 'form_flowdoc' : 'form_sysdoc')}
-                title="通过表单引擎自定义业务字段"
-                className="h-8 px-3 rounded border border-[#b3d8ff] bg-[#ecf5ff] text-[#409eff] hover:bg-[#409eff] hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>自定义字段 ({customFields.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenAddItem}
-                className="h-8 px-3.5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {isRisk ? '新增风险条款' : '新增制度文件'}
-              </button>
+              {isReadOnly ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-[#f4f4f5] border border-[#dcdfe6] text-xs">
+                  <span className="flex items-center gap-1 font-medium text-[#606266]">
+                    <ShieldAlert className="w-3.5 h-3.5 text-[#409eff]" />
+                    <span>只读查阅模式</span>
+                  </span>
+                  <span className="text-[#dcdfe6]">|</span>
+                  {previewOnly ? (
+                    <span className="text-[11px] font-semibold text-[#e6a23c] flex items-center gap-1 bg-[#fdf6ec] px-1.5 py-0.5 rounded border border-[#faecd8]">
+                      <Lock className="w-3 h-3 text-[#e6a23c]" />
+                      <span>仅限在线预览 · 限制下载</span>
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-[#67c23a] font-medium flex items-center gap-1">
+                      <Download className="w-3 h-3" />
+                      <span>允许查阅与下载</span>
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate?.('/system/column', isRisk ? 'form_flowdoc' : 'form_sysdoc')}
+                    title="通过表单引擎自定义业务字段"
+                    className="h-8 px-3 rounded border border-[#b3d8ff] bg-[#ecf5ff] text-[#409eff] hover:bg-[#409eff] hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>自定义字段 ({customFields.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddItem}
+                    className="h-8 px-3.5 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    {isRisk ? '新增风险条款' : '新增制度文件'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -1751,15 +1886,22 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                       <Eye className="w-3.5 h-3.5" />
                       <span>在线预览</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => downloadDocumentFile(previewItem, showToast)}
-                      className="h-7 px-3 rounded bg-[#f4f4f5] hover:bg-[#67c23a] text-[#606266] hover:text-white border border-[#dcdfe6] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                      title="点击自动下载该文件"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>下载文件</span>
-                    </button>
+                    {canDownload && !previewOnly ? (
+                      <button
+                        type="button"
+                        onClick={() => downloadDocumentFile(previewItem, showToast)}
+                        className="h-7 px-3 rounded bg-[#f4f4f5] hover:bg-[#67c23a] text-[#606266] hover:text-white border border-[#dcdfe6] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                        title="点击自动下载该文件"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>下载文件</span>
+                      </button>
+                    ) : (
+                      <span className="h-7 px-2.5 rounded bg-amber-50 border border-amber-200 text-amber-600 text-xs flex items-center gap-1 select-none" title="当前角色仅具备预览权限，已被限制下载">
+                        <Lock className="w-3 h-3 text-amber-500" />
+                        <span>仅预览·禁下载</span>
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -1920,7 +2062,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 <div />
               )}
               <div className="flex items-center gap-2 ml-auto">
-                {(previewItem.status || 'approved') !== 'approved' && (
+                {!isReadOnly && (previewItem.status || 'approved') !== 'approved' && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1934,18 +2076,20 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                     审核通过
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const target = previewItem;
-                    setPreviewItem(null);
-                    setPreviewDetailMaximized(false);
-                    handleOpenEditItem(target);
-                  }}
-                  className="h-8 px-4 rounded bg-[#409eff] hover:bg-[#3390ff] text-white font-medium cursor-pointer shadow-2xs"
-                >
-                  编辑
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = previewItem;
+                      setPreviewItem(null);
+                      setPreviewDetailMaximized(false);
+                      handleOpenEditItem(target);
+                    }}
+                    className="h-8 px-4 rounded bg-[#409eff] hover:bg-[#3390ff] text-white font-medium cursor-pointer shadow-2xs"
+                  >
+                    编辑
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -2373,6 +2517,8 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
           document={onlinePreviewDoc}
           onClose={() => setOnlinePreviewDoc(null)}
           showToast={showToast}
+          allowDownload={canDownload}
+          previewOnly={previewOnly}
         />
       )}
     </div>

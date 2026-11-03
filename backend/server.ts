@@ -7686,6 +7686,8 @@ app.post('/api/mining/ai-diagnose', async (req, res) => {
 });
 
 async function startServer() {
+  const PORT = Number(process.env.PORT) || 3000;
+
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: 'spa',
@@ -7710,13 +7712,20 @@ async function startServer() {
     }
   });
 
-  const PORT = 3000;
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`dflow Enterprise Platform running on http://0.0.0.0:${PORT}`);
+  });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`Port ${PORT} in use, will wait or retry...`);
+    } else {
+      console.error('Server listen error:', err);
+    }
   });
 }
 
-// If invoked directly via tsx server.ts
-if (process.argv[1]?.endsWith('server.ts')) {
-  startServer();
-}
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
