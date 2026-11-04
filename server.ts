@@ -2839,50 +2839,200 @@ app.post('/api/flow/reorder', (req, res) => {
   res.json({ status: 1, info: '排序已保存' });
 });
 
-app.post('/api/flow/model/publish', (req, res) => {
-  const { id, audit } = req.body;
-  const found = flows.find((f) => f.id === id);
-  const nextVer = found ? `V${parseInt((found.versionNo || 'V1').slice(1)) + 1}` : 'V2';
-  if (found) {
-    found.versionNo = nextVer;
-    found.status = audit ? 'verified' : 'published';
-
-    if (audit) {
-      const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
-      const existingIdx = flowAuditRecords.findIndex((r) => r.modelId === found.id && r.auditStatus === '待审核');
-      const auditItem = {
-        id: 'audit_' + Date.now().toString(36),
-        flowId: parseInt(found.id.replace(/\D/g, '')) || Math.floor(Math.random() * 900 + 100),
-        modelId: found.id,
-        flowCode: found.flowNo || 'FLOW-NEW',
-        flowName: found.label || '新流程',
-        versionNo: nextVer,
-        archPath: found.archName || '企业流程架构全景 > 业务流程',
-        businessDomain: (found.archName || '').split('>')[1]?.trim() || '1.0 集成产品开发 IPD',
-        changeType: '版本升级',
-        changeSummary: '在流程设计器中完成拓扑结构与活动节点配置，提交发布审核',
-        urgency: '普通',
-        submitTime: nowStr,
-        submitUser: currentActiveUser.userName || '系统管理员',
-        submitUserDept: currentActiveUser.deptName || '数字化运营部',
-        auditStatus: '待审核',
-        auditResult: '待审核',
-        auditUser: '流程治理委员会',
-        auditTime: '',
-        auditOpinion: '',
-        kcpCount: 2,
-        activityCount: 4,
-        boundDocsCount: 2,
-        effectiveDate: nowStr.slice(0, 10),
-      };
-      if (existingIdx !== -1) {
-        flowAuditRecords[existingIdx] = { ...flowAuditRecords[existingIdx], ...auditItem, id: flowAuditRecords[existingIdx].id };
-      } else {
-        flowAuditRecords.unshift(auditItem);
+function checkAndAutoPublishScheduledFlows() {
+  const now = new Date();
+  const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
+  flows.forEach((flow) => {
+    if (flow.status === 'scheduled' && flow.scheduledTime) {
+      const schDate = new Date(flow.scheduledTime.replace(/-/g, '/'));
+      if (!isNaN(schDate.getTime()) && schDate <= now) {
+        flow.status = 'published';
+        flow.versionNo = flow.targetVersion || flow.versionNo || 'V2';
+        flow.publishTime = flow.scheduledTime;
+        flow.publishUserName = '系统自动发布 (预约任务)';
+        console.log(`[Scheduled Publish Triggered] Flow ${flow.label} (${flow.id}) automatically published to ${flow.versionNo}`);
       }
     }
+  });
+}
+
+setInterval(checkAndAutoPublishScheduledFlows, 5000);
+
+app.post('/api/flow/model/publish', (req, res) => {
+  try {
+    const {
+      id,
+      audit,
+      publishPolicy = 'immediate',
+      scheduledTime,
+      approvalLevels = [],
+      changeType,
+      changeSummary,
+      urgency = '普通',
+      submitUser,
+      submitUserDept,
+      flowName,
+      label,
+      flowNo,
+      archPath,
+    } = req.body;
+
+    let found = flows.find(
+      (f) =>
+        String(f.id) === String(id) ||
+        (id && String(f.id).replace(/\D/g, '') === String(id).replace(/\D/g, ''))
+    );
+
+    if (!found && id) {
+      found = {
+        id: String(id),
+        parentId: 'arch_root',
+        label: label || flowName || '新流程',
+        flowNo: flowNo || 'FLOW-' + Math.floor(100 + Math.random() * 900),
+        versionNo: 'V1',
+        status: 'draft',
+        archName: archPath || '企业流程架构全景 > 业务流程',
+      };
+      flows.push(found);
+    }
+
+    const nextVer = found ? `V${parseInt((found.versionNo || 'V1').replace(/\D/g, '') || '1') + 1}` : 'V2';
+    const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    if (found) {
+      found.publishPolicy = publishPolicy;
+      found.scheduledTime = publishPolicy === 'scheduled' ? scheduledTime : '';
+      found.targetVersion = nextVer;
+
+      if (audit) {
+        found.status = 'verified';
+        const existingIdx = flowAuditRecords.findIndex(
+          (r) => (r.modelId === found.id || String(r.flowId) === String(found.id)) && r.auditStatus === '待审核'
+        );
+
+        const configuredLevels =
+          Array.isArray(approvalLevels) && approvalLevels.length > 0
+            ? approvalLevels.map((lvl: any, i: number) => ({
+                level: i + 1,
+                levelName: lvl.levelName || `第${i + 1}级审批`,
+                approverType: lvl.approverType || 'committee',
+                approverName: lvl.approverName || '流程治理委员会',
+                deptName: lvl.deptName || '',
+                roleName: lvl.roleName || '',
+                signType: lvl.signType || 'or',
+                description: lvl.description || '',
+                status: i === 0 ? 'pending' : 'waiting',
+              }))
+            : [
+                {
+                  level: 1,
+                  levelName: '第1级: 审批部门负责人初审',
+                  approverType: 'deptHead',
+                  approverName: '集成电路设计院 (部门负责人: 王建军 · 院长)',
+                  deptName: '集成电路设计院',
+                  roleName: '部门负责人',
+                  signType: 'or',
+                  status: 'pending',
+                },
+                {
+                  level: 2,
+                  levelName: '第2级: 质量与合规复核',
+                  approverType: 'person',
+                  approverName: '陈静',
+                  deptName: '质量控制部',
+                  roleName: '质量总监',
+                  signType: 'or',
+                  status: 'waiting',
+                },
+                {
+                  level: 3,
+                  levelName: '第3级: 流程委员会终审',
+                  approverType: 'committee',
+                  approverName: '流程治理委员会',
+                  deptName: '流程治理委员会',
+                  roleName: '流程治理委员会',
+                  signType: 'or',
+                  status: 'waiting',
+                },
+              ];
+
+        const parsedNumericId = parseInt(String(found.id).replace(/\D/g, '')) || Math.floor(Math.random() * 900 + 100);
+
+        const auditItem = {
+          id: 'audit_' + Date.now().toString(36),
+          flowId: parsedNumericId,
+          modelId: String(found.id),
+          flowCode: found.flowNo || flowNo || 'FLOW-NEW',
+          flowName: found.label || flowName || '新流程',
+          versionNo: nextVer,
+          archPath: found.archName || archPath || '企业流程架构全景 > 业务流程',
+          businessDomain: ((found.archName || archPath || '').split('>')[1] || '').trim() || '1.0 集成产品开发 IPD',
+          changeType: changeType || '版本升级',
+          changeSummary: changeSummary || '在流程设计器中完成拓扑结构与活动节点配置，提交发布审核',
+          urgency: urgency || '普通',
+          submitTime: nowStr,
+          submitUser: submitUser || currentActiveUser?.userName || '系统管理员',
+          submitUserDept: submitUserDept || currentActiveUser?.deptName || '数字化运营部',
+          auditStatus: '待审核',
+          auditResult: '待审核',
+          auditUser: configuredLevels[0]?.approverName || '流程治理委员会',
+          auditTime: '',
+          auditOpinion: '',
+          kcpCount: 2,
+          activityCount: 4,
+          boundDocsCount: 2,
+          effectiveDate:
+            publishPolicy === 'scheduled' && scheduledTime && typeof scheduledTime === 'string'
+              ? scheduledTime.slice(0, 10)
+              : nowStr.slice(0, 10),
+          publishPolicy,
+          scheduledTime: publishPolicy === 'scheduled' ? scheduledTime : '',
+          approvalLevels: configuredLevels,
+          currentLevel: 1,
+        };
+
+        if (existingIdx !== -1) {
+          flowAuditRecords[existingIdx] = {
+            ...flowAuditRecords[existingIdx],
+            ...auditItem,
+            id: flowAuditRecords[existingIdx].id,
+          };
+        } else {
+          flowAuditRecords.unshift(auditItem);
+        }
+      } else {
+        // Direct Publish
+        if (
+          publishPolicy === 'scheduled' &&
+          scheduledTime &&
+          typeof scheduledTime === 'string' &&
+          new Date(scheduledTime.replace(/-/g, '/')) > new Date()
+        ) {
+          found.status = 'scheduled';
+        } else {
+          found.status = 'published';
+          found.versionNo = nextVer;
+          found.publishTime = nowStr;
+          found.publishUserName = submitUser || currentActiveUser?.userName || '系统管理员';
+        }
+      }
+    }
+
+    return res.json({
+      status: 1,
+      data: {
+        versionNo: nextVer,
+        status: found?.status,
+        publishPolicy,
+        scheduledTime: found?.scheduledTime,
+      },
+      list: flowAuditRecords,
+      info: 'ok',
+    });
+  } catch (err: any) {
+    console.error('Error in /api/flow/model/publish:', err);
+    return res.status(500).json({ status: 0, info: err?.message || '发布接口执行异常' });
   }
-  res.json({ status: 1, data: { versionNo: nextVer }, list: flowAuditRecords, info: 'ok' });
 });
 
 // Helper to build realistic multi-version histories for any flow
@@ -3366,21 +3516,68 @@ app.post('/api/flow/audits/action', (req, res) => {
 
   if (target) {
     if (action === 'approve') {
-      target.auditStatus = '已审核';
-      target.auditResult = '同意发布';
-      target.auditTime = nowStr;
-      target.auditUser = currentActiveUser.userName || '系统管理员';
-      if (effectiveDate) target.effectiveDate = effectiveDate;
+      const levels = target.approvalLevels || [];
+      const currentLevelIdx = (target.currentLevel || 1) - 1;
 
-      // Update flow status to published
-      const flowTarget = flows.find((f) => f.id === target.modelId);
-      if (flowTarget) {
-        flowTarget.status = 'published';
-        flowTarget.versionNo = target.versionNo;
-        flowTarget.publishTime = nowStr;
-        flowTarget.publishUserName = target.auditUser;
+      // Check if there are further levels in the multi-level chain
+      if (levels.length > 0 && currentLevelIdx < levels.length - 1) {
+        levels[currentLevelIdx].status = 'approved';
+        levels[currentLevelIdx].auditTime = nowStr;
+        levels[currentLevelIdx].opinion = opinion || '审查同意，流转下一级';
+        levels[currentLevelIdx].operator = currentActiveUser.userName || '系统管理员';
+
+        // Advance to next level
+        target.currentLevel = currentLevelIdx + 2;
+        if (levels[currentLevelIdx + 1]) {
+          levels[currentLevelIdx + 1].status = 'pending';
+          target.auditUser = levels[currentLevelIdx + 1].approverName;
+        }
+        target.auditStatus = '待审核';
+        target.auditResult = `第${target.currentLevel}级审批中`;
+      } else {
+        // All levels completed!
+        if (levels.length > 0 && levels[currentLevelIdx]) {
+          levels[currentLevelIdx].status = 'approved';
+          levels[currentLevelIdx].auditTime = nowStr;
+          levels[currentLevelIdx].opinion = opinion || '同意发布生产环境';
+          levels[currentLevelIdx].operator = currentActiveUser.userName || '系统管理员';
+        }
+        target.auditStatus = '已审核';
+        target.auditResult = '同意发布';
+        target.auditTime = nowStr;
+        target.auditUser = currentActiveUser.userName || '系统管理员';
+        if (effectiveDate) target.effectiveDate = effectiveDate;
+
+        // Check scheduled vs immediate publish policy
+        const flowTarget = flows.find((f) => f.id === target.modelId);
+        if (flowTarget) {
+          const isScheduledFuture =
+            target.publishPolicy === 'scheduled' &&
+            target.scheduledTime &&
+            new Date(target.scheduledTime.replace(/-/g, '/')) > new Date();
+
+          if (isScheduledFuture) {
+            flowTarget.status = 'scheduled';
+            flowTarget.scheduledTime = target.scheduledTime;
+            flowTarget.targetVersion = target.versionNo;
+            flowTarget.publishPolicy = 'scheduled';
+          } else {
+            flowTarget.status = 'published';
+            flowTarget.versionNo = target.versionNo;
+            flowTarget.publishTime = nowStr;
+            flowTarget.publishUserName = target.auditUser;
+          }
+        }
       }
     } else if (action === 'reject') {
+      const levels = target.approvalLevels || [];
+      const currentLevelIdx = (target.currentLevel || 1) - 1;
+      if (levels.length > 0 && levels[currentLevelIdx]) {
+        levels[currentLevelIdx].status = 'rejected';
+        levels[currentLevelIdx].auditTime = nowStr;
+        levels[currentLevelIdx].opinion = opinion || '驳回修改';
+        levels[currentLevelIdx].operator = currentActiveUser.userName || '系统管理员';
+      }
       target.auditStatus = '已驳回';
       target.auditResult = '驳回修改';
       target.auditTime = nowStr;
@@ -3426,10 +3623,22 @@ app.post('/api/flow/audits/batch-action', (req, res) => {
 
         const flowTarget = flows.find((f) => f.id === target.modelId);
         if (flowTarget) {
-          flowTarget.status = 'published';
-          flowTarget.versionNo = target.versionNo;
-          flowTarget.publishTime = nowStr;
-          flowTarget.publishUserName = target.auditUser;
+          const isScheduledFuture =
+            target.publishPolicy === 'scheduled' &&
+            target.scheduledTime &&
+            new Date(target.scheduledTime.replace(/-/g, '/')) > new Date();
+
+          if (isScheduledFuture) {
+            flowTarget.status = 'scheduled';
+            flowTarget.scheduledTime = target.scheduledTime;
+            flowTarget.targetVersion = target.versionNo;
+            flowTarget.publishPolicy = 'scheduled';
+          } else {
+            flowTarget.status = 'published';
+            flowTarget.versionNo = target.versionNo;
+            flowTarget.publishTime = nowStr;
+            flowTarget.publishUserName = target.auditUser;
+          }
         }
       } else if (action === 'reject') {
         target.auditStatus = '已驳回';

@@ -219,9 +219,16 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
     if (isIntegrateMode) {
       return { type: 'arch', id: 'arch_root' };
     }
+    if (initialSelectedFlowId && initialSelectedFlowId !== 'arch_root') {
+      const isArch = initialSelectedFlowId.startsWith('arch_');
+      return {
+        type: isArch ? 'arch' : 'flow',
+        id: initialSelectedFlowId,
+      };
+    }
     return {
-      type: 'flow',
-      id: initialSelectedFlowId || 'flow_101',
+      type: 'arch',
+      id: 'arch_root',
     };
   });
 
@@ -238,6 +245,17 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
       setArchTab('ywjcst');
     }
   }, [isIntegrateMode]);
+
+  useEffect(() => {
+    if (initialSelectedFlowId) {
+      if (initialSelectedFlowId === 'arch_root' || initialSelectedFlowId.startsWith('arch_')) {
+        setSelectedNode({ type: 'arch', id: initialSelectedFlowId });
+        setArchTab(isIntegrateMode ? 'ywjcst' : 'arch');
+      } else {
+        setSelectedNode({ type: 'flow', id: initialSelectedFlowId });
+      }
+    }
+  }, [initialSelectedFlowId, isIntegrateMode]);
   const [currentFlow, setCurrentFlow] = useState<any | null>(null);
   const [currentArch, setCurrentArch] = useState<any | null>(null);
   const [flowRefs, setFlowRefs] = useState<string[]>([]);
@@ -393,22 +411,27 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
         return true;
       });
 
-      if (selectedNode.type === 'flow') {
+      if (selectedNode.type === 'flow' && selectedNode.id !== 'arch_root') {
         const found = published.find((f: any) => f.id === selectedNode.id);
         if (found) {
           setCurrentFlow(found);
-        } else if (published.length > 0) {
-          const fallback = published[0];
-          setSelectedNode({ type: 'flow', id: fallback.id });
-          setCurrentFlow(fallback);
-        } else if (pubArchs[0]) {
-          setSelectedNode({ type: 'arch', id: pubArchs[0].id });
-          setCurrentArch(pubArchs[0]);
+        } else {
+          const rootArch = pubArchs.find((a: any) => a.id === 'arch_root') || pubArchs[0];
+          if (rootArch) {
+            setSelectedNode({ type: 'arch', id: rootArch.id });
+            setCurrentArch(rootArch);
+            setArchTab(isIntegrateMode ? 'ywjcst' : 'arch');
+          } else if (published.length > 0) {
+            setSelectedNode({ type: 'flow', id: published[0].id });
+            setCurrentFlow(published[0]);
+          }
         }
       } else {
-        const foundArch = pubArchs.find((a: any) => a.id === selectedNode.id) || pubArchs[0];
+        const foundArch = pubArchs.find((a: any) => a.id === selectedNode.id) || pubArchs.find((a: any) => a.id === 'arch_root') || pubArchs[0];
         if (foundArch) {
+          setSelectedNode({ type: 'arch', id: foundArch.id });
           setCurrentArch(foundArch);
+          setArchTab(isIntegrateMode ? 'ywjcst' : 'arch');
         } else if (published[0]) {
           setSelectedNode({ type: 'flow', id: published[0].id });
           setCurrentFlow(published[0]);

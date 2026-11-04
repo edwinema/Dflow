@@ -78,7 +78,8 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     title: '权责管控',
     icon: Scale,
     children: [
-      { path: '/flowdoc/duty', title: '权责清单与手册' },
+      { path: '/flowdoc/duty', title: '权责建设' },
+      { path: '/flowdoc/manual', title: '权责手册' },
       { path: '/flowdoc/verify', title: '权责审核' },
     ],
   },

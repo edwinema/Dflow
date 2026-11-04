@@ -32,8 +32,24 @@ import {
   Send,
   Workflow,
   FileSpreadsheet,
+  Zap,
 } from 'lucide-react';
 import { EnterpriseDataGrid } from './EnterpriseDataGrid';
+
+export interface ApprovalLevelItem {
+  level: number;
+  levelName: string;
+  approverType: 'deptHead' | 'person' | 'committee' | 'role';
+  approverName: string;
+  deptName?: string;
+  roleName?: string;
+  signType?: 'or' | 'and';
+  status?: 'waiting' | 'pending' | 'approved' | 'rejected';
+  auditTime?: string;
+  opinion?: string;
+  operator?: string;
+  description?: string;
+}
 
 export interface AuditRecord {
   id: string;
@@ -59,6 +75,10 @@ export interface AuditRecord {
   activityCount?: number;
   boundDocsCount?: number;
   effectiveDate?: string;
+  publishPolicy?: 'immediate' | 'scheduled';
+  scheduledTime?: string;
+  approvalLevels?: ApprovalLevelItem[];
+  currentLevel?: number;
 }
 
 interface FlowVerifyViewProps {
@@ -1163,6 +1183,50 @@ export const FlowVerifyView: React.FC<FlowVerifyViewProps> = ({
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] text-[#909399] bg-[#f4f4f5] border border-[#e4e7ed]">
                       已撤回
                     </span>
+                  );
+                },
+              },
+              {
+                key: 'publishPolicy',
+                label: '发布策略 & 审批流进度',
+                defaultWidth: 185,
+                minWidth: 160,
+                align: 'left',
+                render: (row) => {
+                  const isScheduled = row.publishPolicy === 'scheduled';
+                  const levels = row.approvalLevels;
+                  const curLvl = row.currentLevel || 1;
+                  return (
+                    <div className="flex flex-col gap-1 text-xs py-0.5">
+                      <div className="flex items-center gap-1.5">
+                        {isScheduled ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            <Clock className="w-2.5 h-2.5 text-amber-600" />
+                            预约发布
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                            <Zap className="w-2.5 h-2.5 text-blue-600" />
+                            立即生效
+                          </span>
+                        )}
+                        {isScheduled && row.scheduledTime && (
+                          <span className="text-[10px] font-mono text-amber-800 truncate" title={row.scheduledTime}>
+                            {row.scheduledTime.length > 16 ? row.scheduledTime.slice(5, 16) : row.scheduledTime}
+                          </span>
+                        )}
+                      </div>
+                      {levels && levels.length > 0 && (
+                        <div className="text-[10px] text-[#909399] flex items-center gap-1">
+                          <span className="px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-mono">
+                            第{curLvl}/{levels.length}级
+                          </span>
+                          <span className="truncate max-w-[110px]" title={levels[curLvl - 1]?.approverName}>
+                            {levels[curLvl - 1]?.approverName}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   );
                 },
               },
@@ -2281,12 +2345,22 @@ export const FlowVerifyView: React.FC<FlowVerifyViewProps> = ({
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 text-xs">
-              <div className="mb-5 px-3.5 py-2.5 rounded-lg bg-[#f8f9fb] border border-[#ebeef5] flex items-center justify-between">
+              <div className="mb-5 px-3.5 py-2.5 rounded-lg bg-[#f8f9fb] border border-[#ebeef5] flex items-center justify-between flex-wrap gap-2">
                 <span>
                   流程编码：
                   <strong className="font-mono-tabular text-[#1f2733] ml-1">
                     {progressModal.row.flowCode}
                   </strong>
+                </span>
+                <span>
+                  发布策略：
+                  {progressModal.row.publishPolicy === 'scheduled' ? (
+                    <strong className="text-[#e6a23c] ml-1 font-semibold">
+                      预约发布 ({progressModal.row.scheduledTime})
+                    </strong>
+                  ) : (
+                    <strong className="text-[#67c23a] ml-1 font-semibold">立即发布</strong>
+                  )}
                 </span>
                 <span>
                   当前节点：
@@ -2300,13 +2374,18 @@ export const FlowVerifyView: React.FC<FlowVerifyViewProps> = ({
                     }
                   >
                     {progressModal.row.auditStatus}
+                    {progressModal.row.approvalLevels &&
+                    progressModal.row.approvalLevels.length > 1 &&
+                    progressModal.row.auditStatus === '待审核'
+                      ? ` (第 ${progressModal.row.currentLevel || 1}/${progressModal.row.approvalLevels.length} 级)`
+                      : ''}
                   </strong>
                 </span>
               </div>
 
               {/* Vertical Timeline */}
               <div className="relative pl-7 space-y-6 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-[#e4e7ed]">
-                {/* Node 1 */}
+                {/* Node 1: 发起流程发布申请 */}
                 <div className="relative">
                   <div className="absolute -left-7 top-0.5 w-5 h-5 rounded-full bg-[#67c23a] text-white flex items-center justify-center shadow-xs">
                     <Check className="w-3 h-3" />
@@ -2329,74 +2408,151 @@ export const FlowVerifyView: React.FC<FlowVerifyViewProps> = ({
                   </div>
                 </div>
 
-                {/* Node 2 */}
-                <div className="relative">
-                  <div className="absolute -left-7 top-0.5 w-5 h-5 rounded-full bg-[#67c23a] text-white flex items-center justify-center shadow-xs">
-                    <Check className="w-3 h-3" />
-                  </div>
-                  <div className="bg-[#f8f9fb] rounded-lg border border-[#ebeef5] p-3.5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-[#1f2733]">2. 业务架构合规性预审</span>
-                      <span className="font-mono-tabular text-[#67c23a] font-medium">预审通过</span>
-                    </div>
-                    <div className="text-[#606266]">
-                      所属架构路径：{progressModal.row.archPath}
-                    </div>
-                    <div className="text-[11px] text-[#909399] mt-0.5">
-                      架构拓扑闭环检查达标，KCP控制点责任明确
-                    </div>
-                  </div>
-                </div>
+                {/* Multi-Level Approval Nodes */}
+                {progressModal.row.approvalLevels && progressModal.row.approvalLevels.length > 0 ? (
+                  progressModal.row.approvalLevels.map((lvl, lIdx) => {
+                    const stepNum = lIdx + 2;
+                    const isPassed = lvl.status === 'approved' || progressModal.row!.auditStatus === '已审核';
+                    const isCurrent =
+                      progressModal.row!.auditStatus === '待审核' &&
+                      (progressModal.row!.currentLevel || 1) === lvl.level;
+                    const isRejected = lvl.status === 'rejected' || (isCurrent && progressModal.row!.auditStatus === '已驳回');
 
-                {/* Node 3 */}
-                <div className="relative">
-                  <div
-                    className={`absolute -left-7 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-white shadow-xs ${
-                      progressModal.row.auditStatus === '已审核'
-                        ? 'bg-[#67c23a]'
-                        : progressModal.row.auditStatus === '待审核'
-                        ? 'bg-[#e6a23c]'
-                        : progressModal.row.auditStatus === '已驳回'
-                        ? 'bg-[#f56c6c]'
-                        : 'bg-[#909399]'
-                    }`}
-                  >
-                    {progressModal.row.auditStatus === '已审核' ? (
-                      <Check className="w-3 h-3" />
-                    ) : progressModal.row.auditStatus === '待审核' ? (
-                      <Clock className="w-3 h-3" />
-                    ) : (
-                      <AlertCircle className="w-3 h-3" />
-                    )}
-                  </div>
-                  <div className="bg-[#f8f9fb] rounded-lg border border-[#ebeef5] p-3.5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-[#1f2733]">3. 流程治理委员会终审</span>
-                      <span
-                        className={
-                          progressModal.row.auditStatus === '已审核'
-                            ? 'text-[#67c23a] font-bold'
-                            : progressModal.row.auditStatus === '待审核'
-                            ? 'text-[#e6a23c] font-bold'
-                            : 'text-[#f56c6c] font-bold'
-                        }
-                      >
-                        {progressModal.row.auditStatus}
-                      </span>
-                    </div>
-                    <div className="text-[#606266]">
-                      经办人：<strong>{progressModal.row.auditUser || '流程治理委员会'}</strong>
-                      {progressModal.row.auditTime && ` (${progressModal.row.auditTime})`}
-                    </div>
-                    {progressModal.row.auditOpinion && (
-                      <div className="mt-1.5 p-2 rounded bg-white border border-[#ebeef5] text-[#303133]">
-                        批语：{progressModal.row.auditOpinion}
+                    return (
+                      <div key={lIdx} className="relative">
+                        <div
+                          className={`absolute -left-7 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-white shadow-xs ${
+                            isPassed
+                              ? 'bg-[#67c23a]'
+                              : isCurrent
+                              ? 'bg-[#e6a23c]'
+                              : isRejected
+                              ? 'bg-[#f56c6c]'
+                              : 'bg-[#dcdfe6]'
+                          }`}
+                        >
+                          {isPassed ? (
+                            <Check className="w-3 h-3" />
+                          ) : isCurrent ? (
+                            <Clock className="w-3 h-3" />
+                          ) : isRejected ? (
+                            <X className="w-3 h-3" />
+                          ) : (
+                            <span className="text-[10px] text-white font-bold">{stepNum}</span>
+                          )}
+                        </div>
+                        <div className="bg-[#f8f9fb] rounded-lg border border-[#ebeef5] p-3.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-[#1f2733]">
+                              {stepNum}. {lvl.levelName}
+                            </span>
+                            <span
+                              className={`font-semibold ${
+                                isPassed
+                                  ? 'text-[#67c23a]'
+                                  : isCurrent
+                                  ? 'text-[#e6a23c]'
+                                  : isRejected
+                                  ? 'text-[#f56c6c]'
+                                  : 'text-[#909399]'
+                              }`}
+                            >
+                              {isPassed
+                                ? '审核通过'
+                                : isCurrent
+                                ? '正在本级审批中'
+                                : isRejected
+                                ? '已驳回'
+                                : '待流转'}
+                            </span>
+                          </div>
+                          <div className="text-[#606266] flex flex-wrap items-center gap-2">
+                            <span>
+                              审批主体: <strong>{lvl.approverName}</strong>
+                            </span>
+                            <span className="px-1.5 py-0.2 rounded bg-white border border-[#e4e7ed] text-[10px] text-[#909399]">
+                              {lvl.approverType === 'deptHead'
+                                ? '部门负责人'
+                                : lvl.approverType === 'committee'
+                                ? '流程委员会'
+                                : lvl.approverType === 'role'
+                                ? '业务主管'
+                                : '指定审批人'}
+                            </span>
+                            <span className="text-[11px] text-[#909399]">
+                              ({lvl.signType === 'and' ? '会签' : '或签'})
+                            </span>
+                          </div>
+                          {lvl.description && (
+                            <div className="mt-1 text-[11px] text-[#909399]">
+                              审查要求: {lvl.description}
+                            </div>
+                          )}
+                          {lvl.opinion && (
+                            <div className="mt-1.5 p-2 rounded bg-white border border-[#ebeef5] text-[#303133]">
+                              审核批语: {lvl.opinion}
+                              {lvl.auditTime && (
+                                <span className="ml-2 font-mono text-[10px] text-[#909399]">
+                                  ({lvl.auditTime})
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
+                    );
+                  })
+                ) : (
+                  <>
+                    {/* Fallback Node 2 */}
+                    <div className="relative">
+                      <div className="absolute -left-7 top-0.5 w-5 h-5 rounded-full bg-[#67c23a] text-white flex items-center justify-center shadow-xs">
+                        <Check className="w-3 h-3" />
+                      </div>
+                      <div className="bg-[#f8f9fb] rounded-lg border border-[#ebeef5] p-3.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-[#1f2733]">2. 审批部门负责人与架构预审</span>
+                          <span className="font-mono-tabular text-[#67c23a] font-medium">预审通过</span>
+                        </div>
+                        <div className="text-[#606266]">
+                          所属架构路径：{progressModal.row.archPath}
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Node 4 */}
+                    {/* Fallback Node 3 */}
+                    <div className="relative">
+                      <div
+                        className={`absolute -left-7 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-white shadow-xs ${
+                          progressModal.row.auditStatus === '已审核'
+                            ? 'bg-[#67c23a]'
+                            : progressModal.row.auditStatus === '待审核'
+                            ? 'bg-[#e6a23c]'
+                            : 'bg-[#f56c6c]'
+                        }`}
+                      >
+                        {progressModal.row.auditStatus === '已审核' ? (
+                          <Check className="w-3 h-3" />
+                        ) : progressModal.row.auditStatus === '待审核' ? (
+                          <Clock className="w-3 h-3" />
+                        ) : (
+                          <AlertCircle className="w-3 h-3" />
+                        )}
+                      </div>
+                      <div className="bg-[#f8f9fb] rounded-lg border border-[#ebeef5] p-3.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-[#1f2733]">3. 流程治理委员会终审</span>
+                          <span className="font-bold text-[#e6a23c]">{progressModal.row.auditStatus}</span>
+                        </div>
+                        <div className="text-[#606266]">
+                          经办人：<strong>{progressModal.row.auditUser || '流程治理委员会'}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Final Node: 发布生效 */}
                 <div className="relative">
                   <div
                     className={`absolute -left-7 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-white shadow-xs ${
@@ -2406,21 +2562,35 @@ export const FlowVerifyView: React.FC<FlowVerifyViewProps> = ({
                     {progressModal.row.auditStatus === '已审核' ? (
                       <CheckCircle2 className="w-3 h-3" />
                     ) : (
-                      <span className="text-[10px] text-[#909399]">4</span>
+                      <Clock className="w-3 h-3 text-[#909399]" />
                     )}
                   </div>
                   <div className="bg-[#f8f9fb] rounded-lg border border-[#ebeef5] p-3.5">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-[#1f2733]">4. 生产环境正式发布并归档</span>
+                      <span className="font-bold text-[#1f2733]">
+                        {progressModal.row.approvalLevels ? progressModal.row.approvalLevels.length + 2 : 4}. 生产发布与生效
+                      </span>
                       <span className="font-mono-tabular text-[#909399]">
                         {progressModal.row.auditStatus === '已审核'
                           ? progressModal.row.effectiveDate || progressModal.row.auditTime
-                          : '待归档'}
+                          : '待触发'}
                       </span>
                     </div>
-                    <div className="text-[#606266]">
-                      生效版本：<strong>{progressModal.row.versionNo}</strong> (
-                      {progressModal.row.auditStatus === '已审核' ? '生效运行中' : '尚未生效'})
+                    <div className="text-[#606266] space-y-1">
+                      <div>
+                        生效版本：<strong>{progressModal.row.versionNo}</strong> (
+                        {progressModal.row.auditStatus === '已审核' ? '生效运行中' : '尚未生效'})
+                      </div>
+                      <div className="text-[11px] text-[#909399]">
+                        发布策略：
+                        {progressModal.row.publishPolicy === 'scheduled' ? (
+                          <strong className="text-[#e6a23c]">
+                            按照时间预约自动发布 (定于【{progressModal.row.scheduledTime}】自动激活)
+                          </strong>
+                        ) : (
+                          <strong className="text-[#67c23a]">审批通过后立即发布生效</strong>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

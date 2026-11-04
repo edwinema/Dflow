@@ -48,7 +48,7 @@ export default function App() {
   });
 
   const [currentPath, setCurrentPath] = useState<string>('/dashboard/index');
-  const [selectedFlowId, setSelectedFlowId] = useState<string | null>('flow_101');
+  const [selectedFlowId, setSelectedFlowId] = useState<string | null>('arch_root');
   const [fullScreenMode, setFullScreenMode] = useState<'none' | 'designer' | 'viewer'>('none');
   const [activeDesignerFlowId, setActiveDesignerFlowId] = useState<string>('flow_101');
 
@@ -157,7 +157,9 @@ export default function App() {
       '/build/terms': ['design', '流程设计', '流程术语'],
       '/execute/process': ['execute', '流程运行', '流程实例运行'],
       '/mining/engine': ['mining', '流程挖掘', '流程挖掘诊断'],
-      '/flowdoc/duty': ['duty', '权责管控', '权责清单与手册'],
+      '/flowdoc/duty': ['duty', '权责管控', '权责建设', '权责清单与手册'],
+      '/flowdoc/manual': ['duty', '权责管控', '权责手册'],
+      '/flowdoc/dutyList': ['duty', '权责管控', '权责手册'],
       '/flowdoc/verify': ['duty', '权责管控', '权责审核'],
       '/sysdoc/index2': ['governance', '风控合规', 'sysdoc_lib', '制度文件库'],
       '/sysdoc/indexview': ['governance', '风控合规', 'sysdoc_query', '制度查阅', '/sysdoc/indexview'],
@@ -263,10 +265,14 @@ export default function App() {
   const handleNavigate = (path: string, extraParam?: string) => {
     const targetPath = !path || path === '/' ? '/dashboard/index' : path;
     if (extraParam) {
-      if (targetPath.startsWith('/build/')) {
+      if (targetPath.startsWith('/build/') || targetPath.startsWith('/property/')) {
         setSelectedFlowId(extraParam);
       } else if (targetPath === '/system/column' || targetPath === '/system/form') {
         setFormEngineActiveKey(extraParam);
+      }
+    } else {
+      if (targetPath === '/build/design' || targetPath === '/property/overview') {
+        setSelectedFlowId('arch_root');
       }
     }
     setCurrentPath(targetPath);
@@ -306,7 +312,10 @@ export default function App() {
         return { parentTitle: group.title, childTitle: child.title };
       }
     }
-    if (currentPath.startsWith('/flowdoc/')) return { parentTitle: '权责管控', childTitle: '权责清单与手册' };
+    if (currentPath === '/flowdoc/manual' || currentPath === '/flowdoc/dutyList') return { parentTitle: '权责管控', childTitle: '权责手册' };
+    if (currentPath === '/flowdoc/duty') return { parentTitle: '权责管控', childTitle: '权责建设' };
+    if (currentPath === '/flowdoc/verify') return { parentTitle: '权责管控', childTitle: '权责审核' };
+    if (currentPath.startsWith('/flowdoc/')) return { parentTitle: '权责管控', childTitle: '权责建设' };
     if (currentPath.startsWith('/sysdoc/')) return { parentTitle: '风控合规', childTitle: '制度文件库' };
     if (currentPath.startsWith('/risk/')) return { parentTitle: '风控合规', childTitle: '风险合规库' };
     if (currentPath.startsWith('/task/')) return { parentTitle: '协同工作', childTitle: currentPath === '/task/learning' ? '流程培训' : '待办任务' };
@@ -794,7 +803,7 @@ export default function App() {
               onNavigate={handleNavigate}
               showToast={showToast}
             />
-          ) : currentPath === '/flowdoc/duty' || currentPath === '/flowdoc/dutyList' || currentPath === '/flowdoc/file' ? (
+          ) : currentPath === '/flowdoc/duty' || currentPath === '/flowdoc/manual' || currentPath === '/flowdoc/dutyList' || currentPath === '/flowdoc/file' ? (
             <DutyBuildView
               subPath={currentPath}
               flows={flows}

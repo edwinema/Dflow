@@ -42,6 +42,7 @@ import {
   FileSpreadsheet,
   Send,
   MoveHorizontal,
+  BookOpen,
 } from 'lucide-react';
 import {
   useTableDnDAndResize,
@@ -332,9 +333,10 @@ interface RoleInputGroupProps {
   label: string;
   item: ApprovalRoleItem;
   onChange: (val: ApprovalRoleItem) => void;
+  disabled?: boolean;
 }
 
-const RoleInputGroup: React.FC<RoleInputGroupProps> = ({ label, item, onChange }) => {
+const RoleInputGroup: React.FC<RoleInputGroupProps> = ({ label, item, onChange, disabled }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [personModalOpen, setPersonModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -360,16 +362,21 @@ const RoleInputGroup: React.FC<RoleInputGroupProps> = ({ label, item, onChange }
       </span>
       <div
         ref={containerRef}
-        className="flex-1 flex items-center h-8 rounded border border-[#d9d9d9] bg-white relative focus-within:border-[#1890ff] transition-colors"
+        className={`flex-1 flex items-center h-8 rounded border border-[#d9d9d9] relative transition-colors ${
+          disabled ? 'bg-[#f5f5f5] cursor-not-allowed' : 'bg-white focus-within:border-[#1890ff]'
+        }`}
       >
         <input
           type="text"
           value={item.value || ''}
-          onChange={(e) => onChange({ ...item, value: e.target.value })}
-          placeholder={item.type === '人员' ? '输入姓名或点击右侧选人' : '请输入'}
-          className="flex-1 h-full px-3 text-xs text-[#262626] placeholder-[#bfbfbf] bg-transparent focus:outline-none"
+          onChange={(e) => !disabled && onChange({ ...item, value: e.target.value })}
+          disabled={disabled}
+          placeholder={disabled ? '-' : item.type === '人员' ? '输入姓名或点击右侧选人' : '请输入'}
+          className={`flex-1 h-full px-3 text-xs placeholder-[#bfbfbf] bg-transparent focus:outline-none ${
+            disabled ? 'text-[#595959] cursor-not-allowed' : 'text-[#262626]'
+          }`}
         />
-        {item.type === '人员' && (
+        {!disabled && item.type === '人员' && (
           <button
             type="button"
             title="从组织架构或模糊搜索中选择人员"
@@ -383,17 +390,24 @@ const RoleInputGroup: React.FC<RoleInputGroupProps> = ({ label, item, onChange }
         <div className="h-4 w-px bg-[#d9d9d9] shrink-0" />
         <button
           type="button"
-          onClick={() => setDropdownOpen(!dropdownOpen)}
-          className={`h-full px-3 flex items-center gap-1.5 text-xs cursor-pointer select-none transition-colors ${
-            dropdownOpen ? 'text-[#1890ff]' : 'text-[#595959] hover:text-[#1890ff]'
+          disabled={disabled}
+          onClick={() => !disabled && setDropdownOpen(!dropdownOpen)}
+          className={`h-full px-3 flex items-center gap-1.5 text-xs select-none transition-colors ${
+            disabled
+              ? 'text-[#8c8c8c] cursor-not-allowed'
+              : dropdownOpen
+              ? 'text-[#1890ff] cursor-pointer'
+              : 'text-[#595959] hover:text-[#1890ff] cursor-pointer'
           }`}
         >
           <span>{item.type || '通用'}</span>
-          <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform text-[#8c8c8c] ${
-              dropdownOpen ? 'rotate-180 text-[#1890ff]' : ''
-            }`}
-          />
+          {!disabled && (
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform text-[#8c8c8c] ${
+                dropdownOpen ? 'rotate-180 text-[#1890ff]' : ''
+              }`}
+            />
+          )}
         </button>
 
         {personModalOpen && (
@@ -443,8 +457,12 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
   showToast,
   onNavigate,
 }) => {
+  const isReadOnlyManual = subPath === '/flowdoc/manual' || subPath === '/flowdoc/dutyList';
+
   // Page mode: 'manualList' (权责建设手册列表) or 'contentConfig' (点击内容配置后的页面)
-  const [viewMode, setViewMode] = useState<'manualList' | 'contentConfig'>('manualList');
+  const [viewMode, setViewMode] = useState<'manualList' | 'contentConfig'>(
+    isReadOnlyManual ? 'contentConfig' : 'manualList'
+  );
   const [selectedManual, setSelectedManual] = useState<DutyManualRecord | null>(null);
 
   // Manual list state
@@ -666,8 +684,17 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
       const res = await fetch(url).then((r) => r.json());
       if (res.status === 1 && Array.isArray(res.data)) {
         setManuals(res.data);
-        // If currently in contentConfig, refresh selected manual data
-        if (selectedManual) {
+        if (isReadOnlyManual) {
+          setViewMode('contentConfig');
+          const defaultManual =
+            res.data.find((m: any) => m.id === 'manual_group_2025') ||
+            res.data.find((m: any) => m.status === '已发布') ||
+            res.data[0];
+          if (defaultManual) {
+            setSelectedManual(defaultManual);
+            loadManualDetail(defaultManual.id);
+          }
+        } else if (selectedManual) {
           const updated = res.data.find((m: any) => m.id === selectedManual.id);
           if (updated) setSelectedManual(updated);
         }
@@ -681,6 +708,9 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
 
   useEffect(() => {
     fetchManuals();
+    if (isReadOnlyManual) {
+      setViewMode('contentConfig');
+    }
   }, [subPath]);
 
   // Fetch Content Configuration details for selected manual
@@ -958,6 +988,44 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
       return true;
     });
   }, [dutyItems, selectedCategoryId, selectedCategoryNode, statusFilter, activeDutyNameQuery, activeDutyNoQuery]);
+
+  // Display columns: in read-only manual mode, hide selection checkbox column
+  const displayDutyColumns = useMemo(
+    () => (isReadOnlyManual ? dutyItemGrid.columns.filter((c) => c.key !== 'selection') : dutyItemGrid.columns),
+    [isReadOnlyManual, dutyItemGrid.columns]
+  );
+
+  // Export filtered duty items to CSV
+  const handleExportToCSV = () => {
+    try {
+      const headers = ['权责手册', '权责分类', '权责编号', '权责名称', '分支场景/最终批准人', '授权使用范围', '主责角色', '生效审批', '状态', '更新时间'];
+      const rows = filteredDutyItems.map((item) => [
+        `"${(item.manualName || selectedManual?.manualName || '').replace(/"/g, '""')}"`,
+        `"${(item.categoryName || '').replace(/"/g, '""')}"`,
+        `"${(item.dutyNo || '').replace(/"/g, '""')}"`,
+        `"${(item.dutyName || '').replace(/"/g, '""')}"`,
+        `"${(item.scenarioText || '').replace(/"/g, '""')}"`,
+        `"${(item.scope || '').replace(/"/g, '""')}"`,
+        `"${(item.primaryRole || '').replace(/"/g, '""')}"`,
+        `"${(item.effectiveApproval || '').replace(/"/g, '""')}"`,
+        `"${(item.status || '').replace(/"/g, '""')}"`,
+        `"${(item.updateTime || item.submitTime || '').replace(/"/g, '""')}"`,
+      ]);
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${selectedManual?.manualName || '权责手册'}_权责清单_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('已成功导出权责清单表格', 'success');
+    } catch {
+      showToast('导出表格失败', 'error');
+    }
+  };
 
   const totalDutyItems = filteredDutyItems.length;
   const totalDutyPages = Math.max(1, Math.ceil(totalDutyItems / dutyPageSize));
@@ -1398,21 +1466,23 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
-              <span className="text-[10px] text-[#bfbfbf] bg-[#fafafa] px-1 rounded font-mono border border-[#f0f0f0] group-hover:hidden">
+              <span className={`text-[10px] text-[#bfbfbf] bg-[#fafafa] px-1 rounded font-mono border border-[#f0f0f0] ${isReadOnlyManual ? '' : 'group-hover:hidden'}`}>
                 L{depth + 1}
               </span>
-              <button
-                type="button"
-                onClick={(e) => handleOpenCategoryMenu(e, node)}
-                className={`p-1 rounded cursor-pointer transition-opacity ${
-                  isSelected
-                    ? 'opacity-100 text-[#1890ff]'
-                    : 'opacity-0 group-hover:opacity-100 text-[#8c8c8c] hover:text-[#1890ff]'
-                }`}
-                title="分类操作（创建子分类 / 编辑分类 / 删除）"
-              >
-                <Edit3 className="w-3 h-3" />
-              </button>
+              {!isReadOnlyManual && (
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenCategoryMenu(e, node)}
+                  className={`p-1 rounded cursor-pointer transition-opacity ${
+                    isSelected
+                      ? 'opacity-100 text-[#1890ff]'
+                      : 'opacity-0 group-hover:opacity-100 text-[#8c8c8c] hover:text-[#1890ff]'
+                  }`}
+                  title="分类操作（创建子分类 / 编辑分类 / 删除）"
+                >
+                  <Edit3 className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1435,23 +1505,79 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
 
     return (
       <div className="flex flex-col gap-3 min-h-full select-none text-[#303133]">
-        {/* Top Header: ← 返回 [手册名称] */}
+        {/* Top Header */}
         <div className="bg-white rounded border border-[#ebeef5] px-4 py-3 shrink-0 shadow-xs flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleBackToManualList}
-              className="flex items-center gap-2 text-sm font-semibold text-[#262626] hover:text-[#1890ff] cursor-pointer transition-colors group"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#8c8c8c] group-hover:text-[#1890ff] transition-colors" />
-              <span>返回 {selectedManual.manualName}</span>
-            </button>
+          <div className="flex items-center gap-3">
+            {isReadOnlyManual ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#e6f7ff] text-[#1890ff] flex items-center justify-center font-bold shadow-2xs">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-[#262626]">权责手册</span>
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#f6ffed] text-[#52c41a] border border-[#b7eb8f] flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3" />
+                        公司级生效发布 · 只读查阅模式
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#8c8c8c] flex items-center gap-1.5 mt-0.5">
+                      <span>当前手册:</span>
+                      <span className="font-semibold text-[#262626]">{selectedManual.manualName}</span>
+                    </div>
+                  </div>
+                </div>
+                {manuals.length > 1 && (
+                  <div className="ml-2 flex items-center gap-1.5 bg-[#f5f7fa] border border-[#dcdfe6] px-2.5 py-1 rounded">
+                    <span className="text-xs text-[#606266]">切换手册:</span>
+                    <select
+                      value={selectedManual.id}
+                      onChange={(e) => {
+                        const found = manuals.find((m) => m.id === e.target.value);
+                        if (found) {
+                          setSelectedManual(found);
+                          loadManualDetail(found.id);
+                        }
+                      }}
+                      className="bg-transparent text-xs font-semibold text-[#1890ff] cursor-pointer focus:outline-none"
+                    >
+                      {manuals.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.manualName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleBackToManualList}
+                className="flex items-center gap-2 text-sm font-semibold text-[#262626] hover:text-[#1890ff] cursor-pointer transition-colors group"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#8c8c8c] group-hover:text-[#1890ff] transition-colors" />
+                <span>返回 {selectedManual.manualName}</span>
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2 text-xs text-[#8c8c8c]">
             <span className="font-mono bg-[#f5f5f5] px-2 py-0.5 rounded border border-[#e8e8e8]">
               {selectedManual.manualNo}
             </span>
-            <span>· 权责内容与场景配置中心</span>
+            <span>· {isReadOnlyManual ? '全公司权责清单与分权授权矩阵' : '权责内容与场景配置中心'}</span>
+            {isReadOnlyManual && (
+              <button
+                type="button"
+                onClick={handleExportToCSV}
+                className="ml-2 h-7 px-2.5 rounded bg-white hover:bg-[#f5f7fa] text-[#595959] hover:text-[#1890ff] border border-[#d9d9d9] hover:border-[#1890ff] flex items-center gap-1.5 cursor-pointer text-xs transition-colors"
+                title="导出当前权责清单为表格"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>导出清单</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -1473,23 +1599,25 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                   </button>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setCategoryActionModal({
-                    open: true,
-                    mode: 'create',
-                    targetNode: null,
-                    selectedParentId: selectedCategoryId || null,
-                    name: '',
-                  })
-                }
-                title="新建分类（可选择挂载目录）"
-                className="flex items-center gap-1 text-[11px] text-[#1890ff] hover:text-[#40a9ff] px-1.5 py-0.5 rounded hover:bg-[#e6f7ff] cursor-pointer transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>新建</span>
-              </button>
+              {!isReadOnlyManual && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCategoryActionModal({
+                      open: true,
+                      mode: 'create',
+                      targetNode: null,
+                      selectedParentId: selectedCategoryId || null,
+                      name: '',
+                    })
+                  }
+                  title="新建分类（可选择挂载目录）"
+                  className="flex items-center gap-1 text-[11px] text-[#1890ff] hover:text-[#40a9ff] px-1.5 py-0.5 rounded hover:bg-[#e6f7ff] cursor-pointer transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>新建</span>
+                </button>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-1.5 text-xs space-y-0.5 relative">
@@ -1589,81 +1717,117 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                 </div>
               </div>
 
-              {/* Row 2: Action Buttons (新增权责, 提交审核, 批量发布, 批量导入) */}
-              <div className="flex items-center gap-2 pt-1 border-t border-[#f5f5f5]">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDutyItemModal({
-                      open: true,
-                      mode: 'create',
-                      data: {
-                        dutyNo: `PR-AP-00${dutyItems.length + 10}`,
-                        dutyName: '',
-                        categoryName: selectedCategoryNode?.name || '财务管理中心',
-                        categoryId: selectedCategoryId,
-                        primaryRole: '财务主管',
-                        scope: '全集团各单位及下属子公司',
-                        effectiveApproval: '待发起审批',
-                        submitTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
-                        status: '草稿',
-                        scenarioText: '',
-                      },
-                    })
-                  }
-                  className="h-8 px-3.5 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>新增权责</span>
-                </button>
+              {/* Row 2: Action Buttons (新增权责, 提交审核, 批量发布, 批量导入 - 只在权责建设模式下显示) */}
+              {!isReadOnlyManual ? (
+                <div className="flex items-center gap-2 pt-1 border-t border-[#f5f5f5]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDutyItemModal({
+                        open: true,
+                        mode: 'create',
+                        data: {
+                          dutyNo: `PR-AP-00${dutyItems.length + 10}`,
+                          dutyName: '',
+                          categoryName: selectedCategoryNode?.name || '财务管理中心',
+                          categoryId: selectedCategoryId,
+                          primaryRole: '财务主管',
+                          scope: '全集团各单位及下属子公司',
+                          effectiveApproval: '待发起审批',
+                          submitTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+                          status: '草稿',
+                          scenarioText: '',
+                        },
+                      })
+                    }
+                    className="h-8 px-3.5 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>新增权责</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenAuditModal()}
-                  className="h-8 px-3.5 rounded bg-[#e6f7ff] hover:bg-[#bae7ff] text-[#1890ff] border border-[#91d5ff] text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-                  title="提交审核（支持配置多层级审批人并推送待办事项）"
-                >
-                  <FileCheck2 className="w-3.5 h-3.5" />
-                  <span>提交审核{selectedItemIds.length > 0 ? ` (${selectedItemIds.length})` : ''}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAuditModal()}
+                    className="h-8 px-3.5 rounded bg-[#e6f7ff] hover:bg-[#bae7ff] text-[#1890ff] border border-[#91d5ff] text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                    title="提交审核（支持配置多层级审批人并推送待办事项）"
+                  >
+                    <FileCheck2 className="w-3.5 h-3.5" />
+                    <span>提交审核{selectedItemIds.length > 0 ? ` (${selectedItemIds.length})` : ''}</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleBatchPublish}
-                  className="h-8 px-3.5 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>批量发布</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleBatchPublish}
+                    className="h-8 px-3.5 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>批量发布</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => setImportModalOpen(true)}
-                  className="h-8 px-3.5 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>批量导入</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportModalOpen(true)}
+                    className="h-8 px-3.5 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>批量导入</span>
+                  </button>
 
-                {selectedCategoryNode && (
-                  <div className="ml-auto flex items-center gap-1.5 text-xs text-[#595959] bg-[#f0f5ff] px-2.5 py-1 rounded border border-[#d6e4ff]">
-                    <Network className="w-3.5 h-3.5 text-[#1890ff] shrink-0" />
-                    <span>分类筛选：</span>
-                    <span className="font-semibold text-[#1890ff]">
-                      {selectedCategoryPath.map((p) => p.name).join(' > ')}
+                  {selectedCategoryNode && (
+                    <div className="ml-auto flex items-center gap-1.5 text-xs text-[#595959] bg-[#f0f5ff] px-2.5 py-1 rounded border border-[#d6e4ff]">
+                      <Network className="w-3.5 h-3.5 text-[#1890ff] shrink-0" />
+                      <span>分类筛选：</span>
+                      <span className="font-semibold text-[#1890ff]">
+                        {selectedCategoryPath.map((p) => p.name).join(' > ')}
+                      </span>
+                      <span className="text-[#8c8c8c] text-[11px]">({filteredDutyItems.length}项)</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategoryId('')}
+                        className="ml-1 text-[#8c8c8c] hover:text-[#ff4d4f] cursor-pointer"
+                        title="清除筛选查看全部"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between pt-1 border-t border-[#f5f5f5] text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-[#606266] bg-[#f5f7fa] px-2.5 py-1 rounded border border-[#e4e7ed]">
+                      共检索到 <strong className="text-[#1890ff] font-semibold">{filteredDutyItems.length}</strong> 项权责清单事项（只读模式）
                     </span>
-                    <span className="text-[#8c8c8c] text-[11px]">({filteredDutyItems.length}项)</span>
                     <button
                       type="button"
-                      onClick={() => setSelectedCategoryId('')}
-                      className="ml-1 text-[#8c8c8c] hover:text-[#ff4d4f] cursor-pointer"
-                      title="清除筛选查看全部"
+                      onClick={handleExportToCSV}
+                      className="h-7 px-3 rounded bg-white hover:bg-[#f5f7fa] text-[#1890ff] border border-[#91d5ff] flex items-center gap-1.5 cursor-pointer text-xs transition-colors font-medium shadow-2xs"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <Download className="w-3.5 h-3.5" />
+                      <span>导出权责清单</span>
                     </button>
                   </div>
-                )}
-              </div>
+                  {selectedCategoryNode && (
+                    <div className="flex items-center gap-1.5 text-xs text-[#595959] bg-[#f0f5ff] px-2.5 py-1 rounded border border-[#d6e4ff]">
+                      <Network className="w-3.5 h-3.5 text-[#1890ff] shrink-0" />
+                      <span>当前分类：</span>
+                      <span className="font-semibold text-[#1890ff]">
+                        {selectedCategoryPath.map((p) => p.name).join(' > ')}
+                      </span>
+                      <span className="text-[#8c8c8c] text-[11px]">({filteredDutyItems.length}项)</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategoryId('')}
+                        className="ml-1 text-[#8c8c8c] hover:text-[#ff4d4f] cursor-pointer"
+                        title="清除筛选查看全部"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Data Table Card (Design Draft Red Box 2) */}
@@ -1694,10 +1858,10 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                   style={{ width: `${dutyItemGrid.totalTableWidth}px`, minWidth: '100%' }}
                   className="text-left border-collapse text-xs table-fixed"
                 >
-                  <TableColGroup columns={dutyItemGrid.columns} colWidths={dutyItemGrid.colWidths} />
+                  <TableColGroup columns={displayDutyColumns} colWidths={dutyItemGrid.colWidths} />
                   <thead>
                     <tr className="bg-[#fafafa] border-b border-[#f0f0f0] text-[#595959] font-medium h-11">
-                      {dutyItemGrid.columns.map((col) => (
+                      {displayDutyColumns.map((col) => (
                         <TableHeaderCell
                           key={col.key}
                           col={col}
@@ -1729,7 +1893,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                   <tbody className="divide-y divide-[#f0f0f0]">
                     {paginatedDutyItems.length === 0 ? (
                       <tr>
-                        <td colSpan={dutyItemGrid.columns.length} className="py-16 text-center text-[#909399]">
+                        <td colSpan={displayDutyColumns.length} className="py-16 text-center text-[#909399]">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <FileCheck2 className="w-8 h-8 text-[#dcdfe6]" />
                             <span>该分类下暂无权责记录</span>
@@ -1750,7 +1914,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               isChecked ? 'bg-[#fafafa]' : ''
                             }`}
                           >
-                            {dutyItemGrid.columns.map((col) => {
+                            {displayDutyColumns.map((col) => {
                               const w = dutyItemGrid.colWidths[col.key] ?? col.defaultWidth;
                               const cellStyle = { width: `${w}px`, minWidth: `${col.minWidth ?? w}px` };
 
@@ -1925,70 +2089,104 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                                 case 'actions':
                                   return (
                                     <td key={col.key} style={cellStyle} className="py-3 px-4 text-center">
-                                      <div className="flex items-center justify-center gap-2.5 text-xs whitespace-nowrap">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setDutyItemModal({
-                                              open: true,
-                                              mode: 'edit',
-                                              data: { ...item },
-                                            })
-                                          }
-                                          className="text-[#1890ff] hover:underline cursor-pointer"
-                                        >
-                                          编辑
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setScenarioModal({
-                                              open: true,
-                                              item,
-                                              blocks: initScenarioBlocks(item),
-                                            })
-                                          }
-                                          className="text-[#1890ff] hover:underline cursor-pointer"
-                                        >
-                                          场景配置
-                                        </button>
-                                        {(item.status === '草稿' || item.status === '已驳回') && (
+                                      {isReadOnlyManual ? (
+                                        <div className="flex items-center justify-center gap-3 text-xs whitespace-nowrap">
                                           <button
                                             type="button"
-                                            onClick={() => handleOpenAuditModal(item.id)}
-                                            className="text-[#1890ff] font-medium hover:underline cursor-pointer"
-                                            title="配置多层级审批人并送审"
+                                            onClick={() =>
+                                              setScenarioModal({
+                                                open: true,
+                                                item,
+                                                blocks: initScenarioBlocks(item),
+                                              })
+                                            }
+                                            className="text-[#1890ff] hover:underline cursor-pointer flex items-center gap-1 font-medium"
+                                            title="查看分支场景与最终批准人"
                                           >
-                                            送审
+                                            <Eye className="w-3.5 h-3.5" />
+                                            <span>查看场景</span>
                                           </button>
-                                        )}
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setAuditProgressModal({
-                                              open: true,
-                                              item,
-                                            })
-                                          }
-                                          className="text-[#1890ff] hover:underline cursor-pointer"
-                                        >
-                                          审核进度
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCopyDutyItem(item)}
-                                          className="text-[#1890ff] hover:underline cursor-pointer"
-                                        >
-                                          复制
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteDutyItem(item)}
-                                          className="text-[#ff4d4f] hover:underline cursor-pointer"
-                                        >
-                                          删除
-                                        </button>
-                                      </div>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setAuditProgressModal({
+                                                open: true,
+                                                item,
+                                              })
+                                            }
+                                            className="text-[#1890ff] hover:underline cursor-pointer flex items-center gap-1 font-medium"
+                                            title="查看权责审核流转进度"
+                                          >
+                                            <Clock className="w-3.5 h-3.5" />
+                                            <span>审核进度</span>
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center justify-center gap-2.5 text-xs whitespace-nowrap">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setDutyItemModal({
+                                                open: true,
+                                                mode: 'edit',
+                                                data: { ...item },
+                                              })
+                                            }
+                                            className="text-[#1890ff] hover:underline cursor-pointer"
+                                          >
+                                            编辑
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setScenarioModal({
+                                                open: true,
+                                                item,
+                                                blocks: initScenarioBlocks(item),
+                                              })
+                                            }
+                                            className="text-[#1890ff] hover:underline cursor-pointer"
+                                          >
+                                            场景配置
+                                          </button>
+                                          {(item.status === '草稿' || item.status === '已驳回') && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleOpenAuditModal(item.id)}
+                                              className="text-[#1890ff] font-medium hover:underline cursor-pointer"
+                                              title="配置多层级审批人并送审"
+                                            >
+                                              送审
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setAuditProgressModal({
+                                                open: true,
+                                                item,
+                                              })
+                                            }
+                                            className="text-[#1890ff] hover:underline cursor-pointer"
+                                          >
+                                            审核进度
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleCopyDutyItem(item)}
+                                            className="text-[#1890ff] hover:underline cursor-pointer"
+                                          >
+                                            复制
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteDutyItem(item)}
+                                            className="text-[#ff4d4f] hover:underline cursor-pointer"
+                                          >
+                                            删除
+                                          </button>
+                                        </div>
+                                      )}
                                     </td>
                                   );
 
@@ -2075,7 +2273,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
         </div>
 
         {/* Category Context Popover Menu (Design Draft Context Menu outlined in red) */}
-        {categoryMenuState.nodeId && categoryMenuState.node && (
+        {categoryMenuState.nodeId && categoryMenuState.node && !isReadOnlyManual && (
           <div
             style={{
               position: 'fixed',
@@ -2544,7 +2742,9 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
               <div className="flex items-center justify-between px-6 py-4 border-b border-[#f0f0f0] shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-4 bg-[#1890ff] rounded-xs" />
-                  <h3 className="text-sm font-semibold text-[#262626]">场景配置</h3>
+                  <h3 className="text-sm font-semibold text-[#262626]">
+                    {isReadOnlyManual ? '分支场景与审批规则详情 (只读)' : '场景配置'}
+                  </h3>
                 </div>
                 <button
                   type="button"
@@ -2588,13 +2788,18 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               <input
                                 type="text"
                                 value={block.condition}
+                                disabled={isReadOnlyManual}
                                 onChange={(e) => {
                                   const updated = [...scenarioModal.blocks];
                                   updated[bIdx] = { ...updated[bIdx], condition: e.target.value };
                                   setScenarioModal({ ...scenarioModal, blocks: updated });
                                 }}
-                                placeholder="请输入分支场景条件，如：应付, >100, "
-                                className="w-full h-8 px-3 rounded border border-[#d9d9d9] bg-white text-xs text-[#262626] placeholder-[#bfbfbf] focus:border-[#1890ff] focus:outline-none transition-colors"
+                                placeholder={isReadOnlyManual ? '通用场景' : '请输入分支场景条件，如：应付, >100, '}
+                                className={`w-full h-8 px-3 rounded border border-[#d9d9d9] text-xs transition-colors ${
+                                  isReadOnlyManual
+                                    ? 'bg-[#f5f5f5] text-[#595959] cursor-not-allowed'
+                                    : 'bg-white text-[#262626] placeholder-[#bfbfbf] focus:border-[#1890ff] focus:outline-none'
+                                }`}
                               />
                             </div>
                           </div>
@@ -2610,6 +2815,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               <RoleInputGroup
                                 label="提案"
                                 item={block.propose}
+                                disabled={isReadOnlyManual}
                                 onChange={(val) => {
                                   const updated = [...scenarioModal.blocks];
                                   updated[bIdx] = { ...updated[bIdx], propose: val };
@@ -2621,6 +2827,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               <RoleInputGroup
                                 label="会审"
                                 item={block.jointReview}
+                                disabled={isReadOnlyManual}
                                 onChange={(val) => {
                                   const updated = [...scenarioModal.blocks];
                                   updated[bIdx] = { ...updated[bIdx], jointReview: val };
@@ -2634,8 +2841,10 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                                 <button
                                   type="button"
                                   role="switch"
+                                  disabled={isReadOnlyManual}
                                   aria-checked={block.jointReviewAllowReject}
                                   onClick={() => {
+                                    if (isReadOnlyManual) return;
                                     const updated = [...scenarioModal.blocks];
                                     updated[bIdx] = {
                                       ...updated[bIdx],
@@ -2643,7 +2852,9 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                                     };
                                     setScenarioModal({ ...scenarioModal, blocks: updated });
                                   }}
-                                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                    isReadOnlyManual ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                                  } ${
                                     block.jointReviewAllowReject ? 'bg-[#1890ff]' : 'bg-[#d9d9d9]'
                                   }`}
                                 >
@@ -2659,6 +2870,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               <RoleInputGroup
                                 label="批准1"
                                 item={block.approve1}
+                                disabled={isReadOnlyManual}
                                 onChange={(val) => {
                                   const updated = [...scenarioModal.blocks];
                                   updated[bIdx] = { ...updated[bIdx], approve1: val };
@@ -2670,6 +2882,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               <RoleInputGroup
                                 label="批准2"
                                 item={block.approve2}
+                                disabled={isReadOnlyManual}
                                 onChange={(val) => {
                                   const updated = [...scenarioModal.blocks];
                                   updated[bIdx] = { ...updated[bIdx], approve2: val };
@@ -2681,6 +2894,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               <RoleInputGroup
                                 label="备案"
                                 item={block.record}
+                                disabled={isReadOnlyManual}
                                 onChange={(val) => {
                                   const updated = [...scenarioModal.blocks];
                                   updated[bIdx] = { ...updated[bIdx], record: val };
@@ -2692,6 +2906,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               <RoleInputGroup
                                 label="其他"
                                 item={block.other}
+                                disabled={isReadOnlyManual}
                                 onChange={(val) => {
                                   const updated = [...scenarioModal.blocks];
                                   updated[bIdx] = { ...updated[bIdx], other: val };
@@ -2703,6 +2918,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                               <RoleInputGroup
                                 label="审批"
                                 item={block.audit}
+                                disabled={isReadOnlyManual}
                                 onChange={(val) => {
                                   const updated = [...scenarioModal.blocks];
                                   updated[bIdx] = { ...updated[bIdx], audit: val };
@@ -2713,74 +2929,88 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Action Buttons: 绿色加号 & 红色删除 (设计稿 image_6e96ed0a.png 红框标注) */}
-                        <div className="flex items-center gap-2 shrink-0 pt-2">
-                          {/* 绿色加号按钮: 支持在下方再增加一个和左侧灰色背景框内的所有内容一样的布局和内容 */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newBlock: ScenarioConfigBlock = JSON.parse(
-                                JSON.stringify(block)
-                              );
-                              newBlock.id =
-                                'block_' +
-                                Date.now().toString(36) +
-                                '_' +
-                                Math.random().toString(36).slice(2, 6);
-                              const updated = [...scenarioModal.blocks];
-                              updated.splice(bIdx + 1, 0, newBlock);
-                              setScenarioModal({ ...scenarioModal, blocks: updated });
-                              showToast('已在下方增加一个相同的场景配置', 'success');
-                            }}
-                            className="w-8 h-8 rounded-full bg-[#52c41a] hover:bg-[#73d13d] active:scale-95 text-white flex items-center justify-center cursor-pointer shadow-sm transition-all"
-                            title="在下方增加一个和左侧灰色背景框内的所有内容一样的布局和内容"
-                          >
-                            <Plus className="w-4 h-4 stroke-[2.5]" />
-                          </button>
+                        {/* Action Buttons: 绿色加号 & 红色删除 (仅在编辑模式下显示) */}
+                        {!isReadOnlyManual && (
+                          <div className="flex items-center gap-2 shrink-0 pt-2">
+                            {/* 绿色加号按钮: 支持在下方再增加一个和左侧灰色背景框内的所有内容一样的布局和内容 */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newBlock: ScenarioConfigBlock = JSON.parse(
+                                  JSON.stringify(block)
+                                );
+                                newBlock.id =
+                                  'block_' +
+                                  Date.now().toString(36) +
+                                  '_' +
+                                  Math.random().toString(36).slice(2, 6);
+                                const updated = [...scenarioModal.blocks];
+                                updated.splice(bIdx + 1, 0, newBlock);
+                                setScenarioModal({ ...scenarioModal, blocks: updated });
+                                showToast('已在下方增加一个相同的场景配置', 'success');
+                              }}
+                              className="w-8 h-8 rounded-full bg-[#52c41a] hover:bg-[#73d13d] active:scale-95 text-white flex items-center justify-center cursor-pointer shadow-sm transition-all"
+                              title="在下方增加一个和左侧灰色背景框内的所有内容一样的布局和内容"
+                            >
+                              <Plus className="w-4 h-4 stroke-[2.5]" />
+                            </button>
 
-                          {/* 红色删除按钮 */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (scenarioModal.blocks.length <= 1) {
-                                const resetBlock = createDefaultScenarioBlock('');
-                                setScenarioModal({ ...scenarioModal, blocks: [resetBlock] });
-                                showToast('已清空当前场景配置', 'info');
-                                return;
-                              }
-                              const updated = [...scenarioModal.blocks];
-                              updated.splice(bIdx, 1);
-                              setScenarioModal({ ...scenarioModal, blocks: updated });
-                              showToast('已删除该场景配置', 'info');
-                            }}
-                            className="w-8 h-8 rounded-full bg-[#ff4d4f] hover:bg-[#ff7875] active:scale-95 text-white flex items-center justify-center cursor-pointer shadow-sm transition-all"
-                            title="删除该场景配置"
-                          >
-                            <Trash2 className="w-4 h-4 stroke-[2]" />
-                          </button>
-                        </div>
+                            {/* 红色删除按钮 */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (scenarioModal.blocks.length <= 1) {
+                                  const resetBlock = createDefaultScenarioBlock('');
+                                  setScenarioModal({ ...scenarioModal, blocks: [resetBlock] });
+                                  showToast('已清空当前场景配置', 'info');
+                                  return;
+                                }
+                                const updated = [...scenarioModal.blocks];
+                                updated.splice(bIdx, 1);
+                                setScenarioModal({ ...scenarioModal, blocks: updated });
+                                showToast('已删除该场景配置', 'info');
+                              }}
+                              className="w-8 h-8 rounded-full bg-[#ff4d4f] hover:bg-[#ff7875] active:scale-95 text-white flex items-center justify-center cursor-pointer shadow-sm transition-all"
+                              title="删除该场景配置"
+                            >
+                              <Trash2 className="w-4 h-4 stroke-[2]" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Footer: 提交 & 取消 (设计稿 image_6e96ed0a.png 红框标注) */}
+              {/* Footer */}
               <div className="flex items-center justify-end gap-3 px-8 py-3.5 border-t border-[#f0f0f0] bg-white shrink-0">
-                <button
-                  type="button"
-                  onClick={handleSaveScenarios}
-                  className="h-8 px-6 rounded bg-[#1890ff] hover:bg-[#40a9ff] active:bg-[#096dd9] text-white text-xs font-medium cursor-pointer shadow-xs transition-colors"
-                >
-                  提交
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScenarioModal({ ...scenarioModal, open: false })}
-                  className="h-8 px-6 rounded bg-white hover:bg-[#f5f5f5] text-[#595959] border border-[#d9d9d9] text-xs font-medium cursor-pointer transition-colors"
-                >
-                  取消
-                </button>
+                {isReadOnlyManual ? (
+                  <button
+                    type="button"
+                    onClick={() => setScenarioModal({ ...scenarioModal, open: false })}
+                    className="h-8 px-6 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium cursor-pointer shadow-xs transition-colors"
+                  >
+                    关闭
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSaveScenarios}
+                      className="h-8 px-6 rounded bg-[#1890ff] hover:bg-[#40a9ff] active:bg-[#096dd9] text-white text-xs font-medium cursor-pointer shadow-xs transition-colors"
+                    >
+                      提交
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScenarioModal({ ...scenarioModal, open: false })}
+                      className="h-8 px-6 rounded bg-white hover:bg-[#f5f5f5] text-[#595959] border border-[#d9d9d9] text-xs font-medium cursor-pointer transition-colors"
+                    >
+                      取消
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -3305,7 +3535,7 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
               <span>重置</span>
             </button>
 
-            {subPath !== '/flowdoc/file' && (
+            {subPath !== '/flowdoc/file' && !isReadOnlyManual && (
               <button
                 type="button"
                 onClick={() =>
@@ -3492,49 +3722,59 @@ export const DutyBuildView: React.FC<DutyBuildViewProps> = ({
                           case 'actions':
                             return (
                               <td key={col.key} style={cellStyle} className="py-3 px-4 text-center">
-                                <div className="flex items-center justify-center gap-3 text-xs whitespace-nowrap">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setManualEditModal({
-                                        open: true,
-                                        mode: 'edit',
-                                        data: { ...row },
-                                      })
-                                    }
-                                    className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer"
-                                  >
-                                    修改
-                                  </button>
+                                {isReadOnlyManual ? (
                                   <button
                                     type="button"
                                     onClick={() => handleOpenContentConfig(row)}
-                                    className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer font-medium"
+                                    className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer font-medium text-xs"
                                   >
-                                    内容配置
+                                    查阅手册
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCopyManual(row)}
-                                    className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer"
-                                  >
-                                    复制
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setManualArchiveConfirm({ open: true, manual: row })}
-                                    className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer"
-                                  >
-                                    {row.archived ? '恢复' : '归档'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setManualDeleteConfirm({ open: true, manual: row })}
-                                    className="text-[#ff4d4f] hover:text-[#ff7875] hover:underline cursor-pointer"
-                                  >
-                                    删除
-                                  </button>
-                                </div>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-3 text-xs whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setManualEditModal({
+                                          open: true,
+                                          mode: 'edit',
+                                          data: { ...row },
+                                        })
+                                      }
+                                      className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer"
+                                    >
+                                      修改
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenContentConfig(row)}
+                                      className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer font-medium"
+                                    >
+                                      内容配置
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyManual(row)}
+                                      className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer"
+                                    >
+                                      复制
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setManualArchiveConfirm({ open: true, manual: row })}
+                                      className="text-[#1890ff] hover:text-[#40a9ff] hover:underline cursor-pointer"
+                                    >
+                                      {row.archived ? '恢复' : '归档'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setManualDeleteConfirm({ open: true, manual: row })}
+                                      className="text-[#ff4d4f] hover:text-[#ff7875] hover:underline cursor-pointer"
+                                    >
+                                      删除
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                             );
 

@@ -34,6 +34,9 @@ import {
   ArrowRight,
   Layers,
   CheckCircle2,
+  Clock,
+  ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import { DrawioBridge } from '../utils/drawioBridge';
 import { parseFlowNodes } from '../utils/flowSchema';
@@ -44,6 +47,7 @@ import { DeptSelectField } from './DeptSelectField';
 import { ErrorBoundary } from './ErrorBoundary';
 import { FlowPageStandardHeader, getArchHierarchyPath } from './FlowPageStandardHeader';
 import { UnifiedCardDetailView } from './UnifiedCardDetailView';
+import { FlowPublishAuditModal } from './FlowPublishAuditModal';
 
 interface FlowDesignViewProps {
   initialSelectedFlowId?: string | null;
@@ -574,6 +578,16 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
     onConfirm: () => void;
   }>({ open: false, title: '', content: '', onConfirm: () => {} });
 
+  const [publishAuditModal, setPublishAuditModal] = useState<{
+    open: boolean;
+    mode: 'audit' | 'direct';
+    targetFlow: any;
+  }>({
+    open: false,
+    mode: 'audit',
+    targetFlow: null,
+  });
+
   const [collaboratorModal, setCollaboratorModal] = useState<{
     open: boolean;
     targetType: 'arch' | 'flow';
@@ -665,8 +679,17 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
       setFlowList(flows);
       if (dictRes?.data) setDictBundle(dictRes.data);
 
-      const toSelect = targetId || initialSelectedFlowId;
+      const toSelect = targetId || initialSelectedFlowId || 'arch_root';
       if (toSelect) {
+        if (toSelect === 'arch_root' || toSelect.startsWith('arch_')) {
+          const foundArch = archs.find((a: any) => a.id === toSelect) || archs[0];
+          if (foundArch) {
+            setSelectedNode({ type: 'arch', id: foundArch.id });
+            setCurrentArch(foundArch);
+            setArchTab('arch');
+            return;
+          }
+        }
         const foundFlow = flows.find((f: any) => f.id === toSelect);
         if (foundFlow) {
           setSelectedNode({ type: 'flow', id: foundFlow.id });
@@ -677,15 +700,15 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
         if (foundArch) {
           setSelectedNode({ type: 'arch', id: foundArch.id });
           setCurrentArch(foundArch);
+          setArchTab('arch');
           return;
         }
       }
       if (archs.length > 0) {
-        setSelectedNode((prev) => {
-          const currentValid = archs.find((a: any) => a.id === prev.id) || flows.find((f: any) => f.id === prev.id);
-          if (currentValid) return prev;
-          return { type: 'arch', id: archs[0].id };
-        });
+        const rootArch = archs.find((a: any) => a.id === 'arch_root') || archs[0];
+        setSelectedNode({ type: 'arch', id: rootArch.id });
+        setCurrentArch(rootArch);
+        setArchTab('arch');
       }
     } catch (err) {
       console.error('Failed to load tree data', err);
@@ -702,6 +725,15 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
     if (initialSelectedFlowId && initialSelectedFlowId !== externalPropFlowIdRef.current) {
       externalPropFlowIdRef.current = initialSelectedFlowId;
       if (initialSelectedFlowId !== selectedNode.id) {
+        if (initialSelectedFlowId === 'arch_root' || initialSelectedFlowId.startsWith('arch_')) {
+          const foundArch = archList.find((a: any) => a.id === initialSelectedFlowId) || archList[0];
+          if (foundArch) {
+            setSelectedNode({ type: 'arch', id: foundArch.id });
+            setCurrentArch(foundArch);
+            setArchTab('arch');
+            return;
+          }
+        }
         const foundFlow = flowList.find((f: any) => f.id === initialSelectedFlowId);
         if (foundFlow) {
           setSelectedNode({ type: 'flow', id: foundFlow.id });
@@ -712,6 +744,7 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
         if (foundArch) {
           setSelectedNode({ type: 'arch', id: foundArch.id });
           setCurrentArch(foundArch);
+          setArchTab('arch');
           return;
         }
       }
@@ -1262,24 +1295,12 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
     if (!flowObj) return;
 
     const matchedFlow = flowList.find((f: any) => String(f.id) === String(flowObj.id));
-    const flowName = flowObj.label || flowObj.name || flowObj.flowName || matchedFlow?.label || matchedFlow?.name || '当前流程';
-    const flowId = flowObj.id || matchedFlow?.id;
-    if (!flowId) return;
+    const targetObj = matchedFlow || flowObj;
 
-    setConfirmModal({
+    setPublishAuditModal({
       open: true,
-      title: audit ? '提交发布审核' : '直接发布流程',
-      content: `确定要将流程【${flowName}】${audit ? '提交合规审核' : '直接发布为生产版本'}吗？`,
-      onConfirm: async () => {
-        const res = await fetch('/api/flow/model/publish', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: flowId, audit }),
-        }).then((r) => r.json());
-        setConfirmModal((prev) => ({ ...prev, open: false }));
-        showToast(`操作成功，版本升级为 ${res.data?.versionNo || 'V2'}`, 'success');
-        loadAllTreeData();
-      },
+      mode: audit ? 'audit' : 'direct',
+      targetFlow: targetObj,
     });
   };
 
@@ -2068,9 +2089,20 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                         setOpenMenuId(null);
                         handlePublishFlow(false, fl);
                       }}
-                      className="w-full px-3.5 py-1.5 text-left hover:bg-[#ecf5ff] hover:text-[#409eff] cursor-pointer"
+                      className="w-full px-3.5 py-1.5 text-left hover:bg-[#ecf5ff] hover:text-[#409eff] cursor-pointer flex items-center gap-1.5"
                     >
-                      发布流程
+                      <Zap className="w-3.5 h-3.5 text-[#409eff]" />
+                      <span>直接发布流程</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        handlePublishFlow(true, fl);
+                      }}
+                      className="w-full px-3.5 py-1.5 text-left hover:bg-[#f0f9eb] hover:text-[#67c23a] cursor-pointer flex items-center gap-1.5"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#67c23a]" />
+                      <span>提交发布审核</span>
                     </button>
                     <button
                       onClick={() => {
@@ -2886,15 +2918,43 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                         <span>编辑图表</span>
                       </button>
                     </div>
-                    <div className="text-xs text-[#606266]">
-                      发布状态：
-                      <span className="font-medium text-[#67c23a]">
-                        {currentFlow?.status === 'draft'
-                          ? '草稿未发布'
-                          : currentFlow?.status === 'verified'
-                          ? '审核中'
-                          : '已发布'}
-                      </span>
+                    <div className="text-xs text-[#606266] flex items-center gap-1.5">
+                      <span>发布状态：</span>
+                      {currentFlow?.status === 'scheduled' ? (
+                        <span
+                          className="inline-flex items-center gap-1 font-semibold text-[#e6a23c] bg-[#fffaf3] px-2.5 py-0.5 rounded-full border border-[#faecd8]"
+                          title={`已预约自动发布时间: ${currentFlow.scheduledTime}`}
+                        >
+                          <Clock className="w-3.5 h-3.5 text-[#e6a23c]" />
+                          <span>待预约发布 (定于 {currentFlow.scheduledTime} 自动生效)</span>
+                        </span>
+                      ) : currentFlow?.status === 'verified' ? (
+                        <span
+                          className="inline-flex items-center gap-1 font-semibold text-[#409eff] bg-[#ecf5ff] px-2.5 py-0.5 rounded-full border border-[#d9ecff]"
+                          title={
+                            currentFlow?.publishPolicy === 'scheduled'
+                              ? `审批通过后，将于 ${currentFlow.scheduledTime} 预约自动发布`
+                              : '审批全部通过后立即发布上线'
+                          }
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#409eff]" />
+                          <span>
+                            审核中
+                            {currentFlow?.publishPolicy === 'scheduled'
+                              ? ` (预约于 ${currentFlow.scheduledTime} 自动发布)`
+                              : ' (通过后立即发布)'}
+                          </span>
+                        </span>
+                      ) : currentFlow?.status === 'draft' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] text-[#909399] bg-[#f4f4f5] border border-[#e4e7ed]">
+                          草稿未发布
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 font-semibold text-[#67c23a] bg-[#f0f9eb] px-2.5 py-0.5 rounded-full border border-[#e1f3d8]">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#67c23a]" />
+                          <span>已发布 ({currentFlow?.versionNo || 'V2'})</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex-1 min-h-[380px] relative bg-[#f8f9fb]">
@@ -5036,6 +5096,22 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 提交发布审核与直接发布弹窗 (支持选择审批人、审批部门负责人、流程委员会等，多层级审批，支持立即发布和按照时间预约发布) */}
+      <FlowPublishAuditModal
+        open={publishAuditModal.open}
+        mode={publishAuditModal.mode}
+        flow={publishAuditModal.targetFlow || currentFlow}
+        archPath={
+          currentFlow?.id ? getArchHierarchyPath(currentFlow.id, true, archList, flowList) : undefined
+        }
+        currentUser={currentUser}
+        onClose={() => setPublishAuditModal((prev) => ({ ...prev, open: false }))}
+        onSuccess={() => {
+          loadAllTreeData();
+        }}
+        showToast={showToast}
+      />
     </div>
   );
 };
