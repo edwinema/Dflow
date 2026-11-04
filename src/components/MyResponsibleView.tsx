@@ -216,7 +216,7 @@ export function MyResponsibleView({
           {
             id: 'flow_zs_001',
             parentId: 'arch_req_1',
-            archName: '测试集团有限公司/研发中心/产品工程',
+            archName: '苏州全源数字科技有限公司/研发中心/产品工程',
             label: '6.2.1.3 产品架构规格评审流程',
             flowNo: 'RD-REQ-008',
             ownerName: '张三',
@@ -233,7 +233,7 @@ export function MyResponsibleView({
           {
             id: 'flow_cr_009',
             parentId: 'arch_req_1',
-            archName: '测试集团有限公司/研发中心/需求管理',
+            archName: '苏州全源数字科技有限公司/研发中心/需求管理',
             label: '6.3.5.1 需求变更申请',
             flowNo: 'CR-009',
             ownerName: '流程管理员(Emp001)',
@@ -247,7 +247,7 @@ export function MyResponsibleView({
           {
             id: 'flow_leads_002',
             parentId: 'arch_ltc_1',
-            archName: '测试集团有限公司/市场营销部/线索管理',
+            archName: '苏州全源数字科技有限公司/市场营销部/线索管理',
             label: '3.1.1.1 线索管理流程',
             flowNo: 'leads-crm-002',
             ownerName: '流程管理员(Emp001)',

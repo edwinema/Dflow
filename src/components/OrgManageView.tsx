@@ -76,6 +76,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'org' | 'post' | 'job'>('org');
 
   // Shared Org Data
+  const [companyName, setCompanyName] = useState<string>('苏州全源数字科技有限公司');
   const [depts, setDepts] = useState<any[]>([]);
   const [positions, setPositions] = useState<any[]>([]);
   const [jobTitles, setJobTitles] = useState<any[]>([]);
@@ -240,6 +241,9 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
       const res = await fetch('/api/org/bundle');
       const json = await res.json();
       if (json.status === 1 && json.data) {
+        if (json.data.companyName) {
+          setCompanyName(json.data.companyName);
+        }
         setDepts(json.data.depts || []);
         setPositions(json.data.positions || []);
         setJobTitles(json.data.jobTitles || []);
@@ -258,6 +262,17 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
           setRoleFeaturePermissions((prev) => ({ ...prev, ...fMap }));
           setRoleFieldPermissions((prev) => ({ ...prev, ...fieldMap }));
         }
+      }
+
+      // Also ensure latest company name from company authorization API
+      try {
+        const compRes = await fetch('/api/system/company');
+        const compJson = await compRes.json();
+        if (compJson.status === 1 && compJson.data?.companyName) {
+          setCompanyName(compJson.data.companyName);
+        }
+      } catch (err) {
+        // ignore
       }
     } catch (e) {
       console.error('Failed to fetch org bundle', e);
@@ -867,7 +882,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
     const parent =
       parentDept ||
       depts.find((d) => d.id === selectedTreeDeptId) || {
-        deptName: '测试集团有限公司',
+        deptName: companyName,
         deptCode: '',
       };
 
@@ -1019,7 +1034,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                         {
                           deptName: '质量保证部',
                           deptCode: '0060',
-                          parentDeptName: '测试集团有限公司',
+                          parentDeptName: companyName,
                           parentDeptCode: '',
                           leader: '质量总监',
                           phone: '010-880060',
@@ -1080,7 +1095,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                         data: {
                           deptName: '',
                           deptCode: '',
-                          parentDeptName: '测试集团有限公司',
+                          parentDeptName: companyName,
                           parentDeptCode: '',
                           leader: '',
                           phone: '',
@@ -1354,7 +1369,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
 
             {/* Tree Container */}
             <div className="flex-1 overflow-y-auto space-y-0.5 pr-1 text-xs text-[#606266]">
-              {/* Root Node: 测试集团有限公司 */}
+              {/* Root Node: {companyName} */}
               <div>
                 <div
                   onClick={() => setSelectedTreeDeptId('')}
@@ -1380,7 +1395,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                       )}
                     </button>
                     <Building2 className="w-3.5 h-3.5 text-[#2F7BFE] shrink-0" />
-                    <span className="truncate">测试集团有限公司</span>
+                    <span className="truncate" title={companyName}>{companyName}</span>
                   </div>
 
                   {/* Actions & Count */}
@@ -1390,10 +1405,10 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleCreateSubDept({ deptName: '测试集团有限公司', deptCode: '' });
+                          handleCreateSubDept({ deptName: companyName, deptCode: '' });
                         }}
                         className="px-1.5 py-0.5 rounded bg-white border border-[#B3D8FF] text-[10px] text-[#2F7BFE] hover:bg-[#2F7BFE] hover:text-white cursor-pointer"
-                        title="在测试集团下创建一级部门"
+                        title={`在${companyName}下创建一级部门`}
                       >
                         +部门
                       </button>
@@ -3899,7 +3914,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                   }}
                   className="w-full h-8 px-3 rounded border border-[#DCDFE6] text-xs focus:border-[#2F7BFE] focus:outline-none bg-white"
                 >
-                  <option value="测试集团有限公司">测试集团有限公司 (顶级机构)</option>
+                  <option value={companyName}>{companyName} (顶级机构)</option>
                   {depts
                     .filter((d) => d.id !== editDeptModal.data?.id)
                     .map((d) => (

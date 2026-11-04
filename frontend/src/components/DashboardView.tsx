@@ -54,7 +54,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     userName: propUser?.userName || '流程管理员',
     jobTitle: propUser?.jobTitle || '经理',
     deptName: propUser?.deptName || '流程管理部',
-    companyName: propUser?.companyName || '测试集团有限公司',
+    companyName: propUser?.companyName || '苏州全源数字科技有限公司',
   });
 
   // Sync propUser whenever changed
@@ -64,7 +64,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         userName: propUser.userName || propUser.nickName || '流程管理员',
         jobTitle: propUser.jobTitle || '经理',
         deptName: propUser.deptName || '流程管理部',
-        companyName: propUser.companyName || '测试集团有限公司',
+        companyName: propUser.companyName || '苏州全源数字科技有限公司',
       });
     }
   }, [propUser]);
@@ -85,7 +85,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             userName: res.data.userName || res.data.nickName || '流程管理员',
             jobTitle: res.data.jobTitle || '经理',
             deptName: res.data.deptName || '流程管理部',
-            companyName: res.data.companyName || prev.companyName || '测试集团有限公司',
+            companyName: res.data.companyName || prev.companyName || '苏州全源数字科技有限公司',
           }));
         }
       })
@@ -228,7 +228,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="text-[#DCDFE6]">|</span>
                 <span>{currentUser.deptName || '流程管理部'}</span>
                 <span className="text-[#DCDFE6]">|</span>
-                <span>{currentUser.companyName || '测试集团有限公司'}</span>
+                <span>{currentUser.companyName || '苏州全源数字科技有限公司'}</span>
               </div>
             </div>
           </div>
