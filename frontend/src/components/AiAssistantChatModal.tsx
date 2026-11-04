@@ -127,6 +127,7 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
     }
   });
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [bottomModelMenuOpen, setBottomModelMenuOpen] = useState(false);
 
   // In-Page Panel Width (Adjustable left and right)
   const [panelWidth, setPanelWidth] = useState<number>(() => {
@@ -273,6 +274,7 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
     setContextMenuOpen(false);
     setModeMenuOpen(false);
     setModelMenuOpen(false);
+    setBottomModelMenuOpen(false);
 
     try {
       const res = await fetch('/api/ai/flow-chat', {
@@ -391,6 +393,8 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
         onClick={() => {
           setModeMenuOpen(false);
           setContextMenuOpen(false);
+          setModelMenuOpen(false);
+          setBottomModelMenuOpen(false);
         }}
       >
         {/* Drag Splitter Handle between Canvas and AI Panel */}
@@ -1072,6 +1076,123 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
             </div>
           )}
 
+          {/* External Model Selector Popover (Green Box feature) */}
+          {bottomModelMenuOpen && (
+            <div
+              className="absolute left-4 bottom-[84px] bg-white border border-[#e4e7ed] rounded-xl shadow-2xl p-2.5 w-76 z-50 text-xs animate-in fade-in slide-in-from-bottom-2 duration-150 text-[#303133]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-2 py-1 border-b border-[#f0f2f5] mb-2 text-[11px] text-[#909399]">
+                <span className="font-semibold text-[#303133] flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-purple-600" />
+                  <span>选择外部 AI 驱动引擎</span>
+                </span>
+                <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded font-medium">
+                  共 {availableModels.filter((m) => m.enabled).length} 款可用
+                </span>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-1.5 pr-0.5">
+                {availableModels.map((m) => {
+                  const isSelected = m.id === (currentModel?.id || selectedModelId);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      disabled={!m.enabled}
+                      onClick={() => {
+                        setSelectedModelId(m.id);
+                        try {
+                          localStorage.setItem('qingprocess_ai_model', m.id);
+                        } catch {}
+                        setBottomModelMenuOpen(false);
+                        setModelMenuOpen(false);
+                        showToast(`已切换 AI 驱动模型为: ${m.name} (${m.modelName})`, 'success');
+                      }}
+                      className={`w-full text-left p-2 rounded-lg flex items-start justify-between cursor-pointer transition-all ${
+                        !m.enabled
+                          ? 'opacity-40 cursor-not-allowed bg-gray-50'
+                          : isSelected
+                          ? 'bg-purple-50/90 border border-purple-200 shadow-2xs'
+                          : 'hover:bg-[#f5f7fa] border border-transparent'
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`font-semibold text-xs ${
+                              isSelected ? 'text-purple-900 font-bold' : 'text-[#303133]'
+                            }`}
+                          >
+                            {m.name}
+                          </span>
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-medium border ${
+                              (m.provider || '').toLowerCase().includes('deepseek')
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : (m.provider || '').toLowerCase().includes('aliyun') || (m.provider || '').toLowerCase().includes('qwen')
+                                ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                : (m.provider || '').toLowerCase().includes('anthropic') || (m.provider || '').toLowerCase().includes('claude')
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : (m.provider || '').toLowerCase().includes('openai') || (m.provider || '').toLowerCase().includes('gpt')
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : (m.provider || '').toLowerCase().includes('ollama')
+                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                : 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                            }`}
+                          >
+                            {m.provider}
+                          </span>
+                          {m.isDefault && (
+                            <span className="text-[9px] px-1 rounded bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+                              默认
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-[#909399] truncate font-mono mt-0.5">
+                          {m.modelName}
+                        </div>
+                        <p className="text-[10px] text-[#909399] mt-0.5 line-clamp-1">
+                          {m.description}
+                        </p>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-1 mt-0.5">
+                        {m.latency && (
+                          <span className="text-[9px] text-emerald-600 font-mono font-medium">
+                            {m.latency}ms
+                          </span>
+                        )}
+                        {isSelected && <Check className="w-4 h-4 text-purple-600 stroke-[2.5]" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 mt-1.5 border-t border-[#f0f2f5] flex items-center justify-between px-1">
+                <span className="text-[10px] text-[#909399]">
+                  可在组织系统统一管理
+                </span>
+                {onNavigateToModelConfig ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBottomModelMenuOpen(false);
+                      onClose();
+                      onNavigateToModelConfig();
+                    }}
+                    className="text-[11px] text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Settings2 className="w-3 h-3" />
+                    <span>模型配置</span>
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-purple-600">组织系统 &gt; 模型配置</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Rounded Input Container: Matching Image 1 */}
           <div className="bg-[#f8f9fa] border border-[#e4e7ed] rounded-2xl p-2.5 focus-within:border-purple-500 focus-within:bg-white focus-within:shadow-md transition-all">
             {/* Active Mode & Model Pill Indicators */}
@@ -1082,6 +1203,7 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     setModeMenuOpen(!modeMenuOpen);
+                    setBottomModelMenuOpen(false);
                   }}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100/70 hover:bg-purple-200/80 text-purple-700 text-[10px] font-semibold cursor-pointer transition-colors"
                   title="点击切换功能模式"
@@ -1090,18 +1212,21 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
                   <ChevronDown className="w-2.5 h-2.5 text-purple-600" />
                 </button>
 
+                {/* Model Pill Button (Green Box) */}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setModelMenuOpen(!modelMenuOpen);
+                    setBottomModelMenuOpen(!bottomModelMenuOpen);
+                    setModeMenuOpen(false);
+                    setContextMenuOpen(false);
                   }}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 hover:bg-purple-100/60 text-[#4b5563] hover:text-purple-700 text-[10px] font-medium cursor-pointer transition-colors border border-[#e5e7eb]"
-                  title="切换 AI 模型"
+                  title="点击切换外部 AI 大模型"
                 >
                   <Cpu className="w-2.5 h-2.5 text-purple-600" />
                   <span className="truncate max-w-[90px]">{currentModel?.name || '默认模型'}</span>
-                  <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                  <ChevronDown className={`w-2.5 h-2.5 opacity-60 transition-transform ${bottomModelMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
               </div>
 

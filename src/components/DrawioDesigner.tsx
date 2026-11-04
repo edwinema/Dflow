@@ -537,40 +537,6 @@ export const DrawioDesigner: React.FC<DrawioDesignerProps> = ({
   const [saving, setSaving] = useState(false);
   const [lastSavedText, setLastSavedText] = useState('已自动保存');
 
-  // External Models State for Quick Selector on Designer Toolbar
-  const [designerModelList, setDesignerModelList] = useState<any[]>([]);
-  const [designerModelPickerOpen, setDesignerModelPickerOpen] = useState(false);
-  const [currentModelId, setCurrentModelId] = useState<string>(() => {
-    try {
-      return localStorage.getItem('qingprocess_ai_model') || '';
-    } catch {
-      return '';
-    }
-  });
-
-  useEffect(() => {
-    fetch('/api/system/models')
-      .then((r) => r.json())
-      .then((res) => {
-        const list: any[] = Array.isArray(res.data?.list)
-          ? res.data.list
-          : Array.isArray(res.data)
-          ? res.data
-          : [];
-        if (res.status === 1 && list.length > 0) {
-          setDesignerModelList(list);
-          const active = list.find((m: any) => m.id === currentModelId);
-          if (!active) {
-            const def = list.find((m: any) => m.isDefault && m.enabled) || list[0];
-            if (def) {
-              setCurrentModelId(def.id);
-            }
-          }
-        }
-      })
-      .catch(() => {});
-  }, [currentModelId]);
-
   const [selectedCells, setSelectedCells] = useState<any[]>([]);
   const selectedCell = selectedCells[0] || null;
   const [panelCell, setPanelCell] = useState<any | null>(null);
@@ -2335,148 +2301,25 @@ export const DrawioDesigner: React.FC<DrawioDesignerProps> = ({
 
           {/* Right AI & View Controls (Red Box 3) */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* QingProcess AI Assistant Button with External Model Quick Picker */}
-            <div className="relative flex items-center">
-              <div
-                className={`flex items-center rounded overflow-hidden shadow-xs transition-all ${
-                  aiModalOpen
-                    ? 'bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-700 ring-2 ring-purple-300 text-white font-semibold'
-                    : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-medium'
-                }`}
-              >
-                <button
-                  onClick={() => {
-                    const nextState = !aiModalOpen;
-                    setAiModalOpen(nextState);
-                    if (nextState) {
-                      bridgeRef.current?.requestCells();
-                    }
-                  }}
-                  className="h-7 px-2.5 flex items-center gap-1.5 hover:bg-white/10 cursor-pointer text-xs transition-colors"
-                  title="打开 / 收起 QingProcess AI 流程设计面板"
-                >
-                  <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-200" />
-                  <span>QingProcess AI</span>
-                </button>
-
-                {/* Quick Model Selector Trigger */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDesignerModelPickerOpen(!designerModelPickerOpen);
-                  }}
-                  className="h-7 px-2 bg-black/15 hover:bg-black/25 flex items-center gap-1 border-l border-white/20 cursor-pointer text-[11px] transition-colors"
-                  title="点击切换外部 AI 大模型 (DeepSeek / 通义千问 / Claude / GPT / Ollama)"
-                >
-                  <span className="max-w-[72px] truncate opacity-90 text-[10px]">
-                    {designerModelList.find((m) => m.id === currentModelId)?.name || '外部模型'}
-                  </span>
-                  <ChevronDown
-                    className={`w-3 h-3 opacity-80 transition-transform ${
-                      designerModelPickerOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Quick Model Dropdown Popover */}
-              {designerModelPickerOpen && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-[#e4e7ed] p-2.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 text-[#303133]"
-                >
-                  <div className="flex items-center justify-between px-2 py-1 border-b border-[#f0f2f5] mb-2 text-[11px] text-[#909399]">
-                    <span className="font-semibold text-[#303133] flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                      <span>选择外部 AI 驱动引擎</span>
-                    </span>
-                    <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded font-medium">
-                      {designerModelList.filter((m) => m.enabled).length} 款可用
-                    </span>
-                  </div>
-
-                  <div className="max-h-60 overflow-y-auto space-y-1">
-                    {designerModelList.map((m) => {
-                      const isSelected = m.id === currentModelId;
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          disabled={!m.enabled}
-                          onClick={() => {
-                            setCurrentModelId(m.id);
-                            try {
-                              localStorage.setItem('qingprocess_ai_model', m.id);
-                            } catch {}
-                            setDesignerModelPickerOpen(false);
-                            if (!aiModalOpen) {
-                              setAiModalOpen(true);
-                              bridgeRef.current?.requestCells();
-                            }
-                            showToast(`已切换 AI 驱动模型为: ${m.name} (${m.modelName})`, 'success');
-                          }}
-                          className={`w-full text-left p-2 rounded-lg flex items-start justify-between cursor-pointer transition-colors ${
-                            !m.enabled
-                              ? 'opacity-40 cursor-not-allowed bg-gray-50'
-                              : isSelected
-                              ? 'bg-purple-50/90 border border-purple-200 shadow-2xs'
-                              : 'hover:bg-[#f5f7fa] border border-transparent'
-                          }`}
-                        >
-                          <div className="min-w-0 pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={`font-semibold text-xs ${
-                                  isSelected ? 'text-purple-900 font-bold' : 'text-[#303133]'
-                                }`}
-                              >
-                                {m.name}
-                              </span>
-                              <span className="text-[9px] px-1 rounded bg-slate-100 text-[#475569] uppercase font-mono">
-                                {m.provider}
-                              </span>
-                              {m.isDefault && (
-                                <span className="text-[9px] px-1 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                                  默认
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-[#909399] font-mono mt-0.5 truncate">
-                              {m.modelName}
-                            </div>
-                          </div>
-                          <div className="shrink-0 flex items-center gap-1 mt-0.5">
-                            {m.latency && (
-                              <span className="text-[9px] text-emerald-600 font-mono">
-                                {m.latency}ms
-                              </span>
-                            )}
-                            {isSelected && <Check className="w-4 h-4 text-purple-600" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="pt-2 mt-1.5 border-t border-[#f0f2f5] flex items-center justify-between px-1">
-                    <span className="text-[10px] text-[#909399]">组织系统统一管理</span>
-                    {onNavigate && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDesignerModelPickerOpen(false);
-                          onNavigate('/system/models');
-                        }}
-                        className="text-[11px] text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1 cursor-pointer"
-                      >
-                        <Settings className="w-3 h-3" />
-                        <span>模型配置</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* QingProcess AI Assistant Button */}
+            <button
+              onClick={() => {
+                const nextState = !aiModalOpen;
+                setAiModalOpen(nextState);
+                if (nextState) {
+                  bridgeRef.current?.requestCells();
+                }
+              }}
+              className={`h-7 px-3 rounded ${
+                aiModalOpen
+                  ? 'bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-700 ring-2 ring-purple-300 text-white font-semibold'
+                  : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-medium'
+              } text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95`}
+              title="打开 / 收起 QingProcess AI 流程设计面板"
+            >
+              <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-200" />
+              <span>QingProcess AI</span>
+            </button>
 
             {/* Canvas Search */}
             <button
