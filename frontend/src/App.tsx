@@ -31,6 +31,7 @@ import { ProcessRoleLibraryView } from './components/ProcessRoleLibraryView';
 import { CompanyAuthManageView } from './components/CompanyAuthManageView';
 import { ApiManageView } from './components/ApiManageView';
 import { FormEngineView } from './components/FormEngineView';
+import { AiModelConfigView } from './components/AiModelConfigView';
 import { FlowTermsView } from './components/FlowTermsView';
 import { MyResponsibleView } from './components/MyResponsibleView';
 import { DutyBuildView } from './components/DutyBuildView';
@@ -432,6 +433,10 @@ export default function App() {
           }}
           onOpenViewer={(fid) => handleOpenViewer(fid)}
           showToast={showToast}
+          onNavigate={(path) => {
+            setCurrentPath(path);
+            setFullScreenMode('none');
+          }}
         />
         {toast && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded shadow-lg border bg-white flex items-center gap-2 text-xs font-medium">
@@ -854,6 +859,8 @@ export default function App() {
             />
           ) : currentPath === '/system/api' ? (
             <ApiManageView showToast={showToast} />
+          ) : currentPath === '/system/models' ? (
+            <AiModelConfigView showToast={showToast} onNavigate={handleNavigate} />
           ) : currentPath === '/system/column' || currentPath === '/system/form' ? (
             <FormEngineView
               initialFormKey={formEngineActiveKey}

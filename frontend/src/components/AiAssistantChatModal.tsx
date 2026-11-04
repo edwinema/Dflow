@@ -24,7 +24,26 @@ import {
   ArrowLeftRight,
   Palette,
   FileCheck,
+  Settings2,
+  Cpu,
+  Server,
+  Zap,
 } from 'lucide-react';
+
+export interface AiModelConfig {
+  id: string;
+  name: string;
+  provider: 'deepseek' | 'qwen' | 'openai' | 'anthropic' | 'ollama' | 'gemini' | 'custom';
+  modelName: string;
+  baseUrl: string;
+  apiKey?: string;
+  temperature: number;
+  maxTokens: number;
+  isDefault: boolean;
+  enabled: boolean;
+  description: string;
+  latency?: number;
+}
 
 export interface AiAssistantChatModalProps {
   open: boolean;
@@ -39,6 +58,7 @@ export interface AiAssistantChatModalProps {
   onOpenRaciModal: () => void;
   onUpdateStyle: (patch: Record<string, any>) => void;
   showToast: (msg: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  onNavigateToModelConfig?: () => void;
 }
 
 export type AiMode = 'generate' | 'optimize' | 'audit' | 'raci' | 'translate' | 'grammar' | 'style';
@@ -54,6 +74,12 @@ interface ChatMessage {
   xml?: string;
   auditResult?: any;
   raciRows?: any[];
+  modelUsed?: {
+    id: string;
+    name: string;
+    modelName: string;
+    provider: string;
+  };
 }
 
 const DEFAULT_SUGGESTIONS = [
@@ -80,6 +106,7 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
   onOpenRaciModal,
   onUpdateStyle,
   showToast,
+  onNavigateToModelConfig,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputVal, setInputVal] = useState('');
@@ -89,6 +116,17 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [optionsExpanded, setOptionsExpanded] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+
+  // External Models State
+  const [availableModels, setAvailableModels] = useState<AiModelConfig[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('qingprocess_ai_model') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
 
   // In-Page Panel Width (Adjustable left and right)
   const [panelWidth, setPanelWidth] = useState<number>(() => {
@@ -140,6 +178,38 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
     };
   }, [isResizing, dockSide, panelWidth]);
 
+  // Fetch available AI models
+  useEffect(() => {
+    if (open) {
+      fetch('/api/system/models')
+        .then((r) => r.json())
+        .then((res) => {
+          const list: any[] = Array.isArray(res.data?.list)
+            ? res.data.list
+            : Array.isArray(res.data)
+            ? res.data
+            : [];
+          if (res.status === 1 && list.length > 0) {
+            setAvailableModels(list);
+            const current = list.find((m: any) => m.id === selectedModelId);
+            if (!current || !current.enabled) {
+              const def =
+                list.find((m: any) => m.isDefault && m.enabled) ||
+                list.find((m: any) => m.enabled) ||
+                list[0];
+              if (def) {
+                setSelectedModelId(def.id);
+                try {
+                  localStorage.setItem('qingprocess_ai_model', def.id);
+                } catch {}
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [open]);
+
   // Image 2 Architecture Generation Options
   const [genOptions, setGenOptions] = useState({
     swimlanes: true,
@@ -158,6 +228,11 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
 
   if (!open) return null;
 
+  const currentModel =
+    availableModels.find((m) => m.id === selectedModelId) ||
+    availableModels.find((m) => m.isDefault) ||
+    availableModels[0];
+
   const handleResetChat = () => {
     setMessages([]);
     setInputVal('');
@@ -174,12 +249,15 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
       return;
     }
 
-    const displayText = textToSend || (
-      modeToSend === 'optimize' ? '执行几何拓扑排版与连线去重' :
-      modeToSend === 'audit' ? '对当前画布流程图执行规范性体检' :
-      modeToSend === 'raci' ? '推导当前流程各活动的 RACI 责任矩阵' :
-      '执行 AI 流程优化'
-    );
+    const displayText =
+      textToSend ||
+      (modeToSend === 'optimize'
+        ? '执行几何拓扑排版与连线去重'
+        : modeToSend === 'audit'
+        ? '对当前画布流程图执行规范性体检'
+        : modeToSend === 'raci'
+        ? '推导当前流程各活动的 RACI 责任矩阵'
+        : '执行 AI 流程优化');
 
     const userMsg: ChatMessage = {
       id: 'usr_' + Date.now(),
@@ -194,6 +272,7 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
     setLoading(true);
     setContextMenuOpen(false);
     setModeMenuOpen(false);
+    setModelMenuOpen(false);
 
     try {
       const res = await fetch('/api/ai/flow-chat', {
@@ -205,6 +284,7 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
           options: genOptions,
           cells: canvasCells,
           flowTitle,
+          modelId: selectedModelId,
         }),
       }).then((r) => r.json());
 
@@ -221,6 +301,7 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
           xml: d.xml,
           auditResult: d.auditResult,
           raciRows: d.raciRows,
+          modelUsed: d.modelUsed,
         };
 
         setMessages((prev) => [...prev, aiMsg]);
@@ -342,12 +423,146 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
             >
               <PlusCircle className="w-4 h-4 text-[#606266]" />
             </button>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 border border-purple-100/80 shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-              <span className="text-xs font-semibold text-purple-900 tracking-tight">QingProcess AI</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black tracking-tight">
-                AI 3.0
-              </span>
+            {/* Model Selector Dropdown Popover */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setModelMenuOpen(!modelMenuOpen);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 border border-purple-200/90 hover:border-purple-300 shadow-2xs cursor-pointer transition-all hover:bg-purple-100/60"
+                title="点击快速切换外部 AI 模型 (DeepSeek / 通义千问 / Claude / GPT / Ollama)"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+                <span className="text-xs font-semibold text-purple-950 tracking-tight">
+                  {currentModel ? currentModel.name : 'QingProcess AI'}
+                </span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium tracking-tight">
+                  {currentModel ? currentModel.modelName : 'AI 3.0'}
+                </span>
+                <ChevronDown
+                  className={`w-3 h-3 text-purple-600 transition-transform ${
+                    modelMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {/* Model Picker Popover */}
+              {modelMenuOpen && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute left-0 top-full mt-2 w-76 bg-white rounded-xl shadow-2xl border border-[#e4e7ed] p-2.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <div className="flex items-center justify-between px-2 py-1 border-b border-[#f0f2f5] mb-2 text-[11px] text-[#909399]">
+                    <span className="font-semibold text-[#303133] flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5 text-purple-600" />
+                      <span>选择外部 AI 驱动引擎</span>
+                    </span>
+                    <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded font-medium">
+                      共 {availableModels.filter((m) => m.enabled).length} 款可用
+                    </span>
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto space-y-1.5 pr-0.5">
+                    {availableModels.map((m) => {
+                      const isSelected = m.id === (currentModel?.id || selectedModelId);
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          disabled={!m.enabled}
+                          onClick={() => {
+                            setSelectedModelId(m.id);
+                            try {
+                              localStorage.setItem('qingprocess_ai_model', m.id);
+                            } catch {}
+                            setModelMenuOpen(false);
+                            showToast(`已切换 AI 驱动模型为: ${m.name} (${m.modelName})`, 'success');
+                          }}
+                          className={`w-full text-left p-2 rounded-lg flex items-start justify-between cursor-pointer transition-all ${
+                            !m.enabled
+                              ? 'opacity-40 cursor-not-allowed bg-gray-50'
+                              : isSelected
+                              ? 'bg-purple-50/90 border border-purple-200 shadow-2xs'
+                              : 'hover:bg-[#f5f7fa] border border-transparent'
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`font-semibold text-xs ${
+                                  isSelected ? 'text-purple-900 font-bold' : 'text-[#303133]'
+                                }`}
+                              >
+                                {m.name}
+                              </span>
+                              <span
+                                className={`text-[9px] px-1.5 py-0.2 rounded font-medium border ${
+                                  (m.provider || '').toLowerCase().includes('deepseek')
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : (m.provider || '').toLowerCase().includes('aliyun') || (m.provider || '').toLowerCase().includes('qwen')
+                                    ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                    : (m.provider || '').toLowerCase().includes('anthropic') || (m.provider || '').toLowerCase().includes('claude')
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : (m.provider || '').toLowerCase().includes('openai') || (m.provider || '').toLowerCase().includes('gpt')
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : (m.provider || '').toLowerCase().includes('ollama')
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                                }`}
+                              >
+                                {m.provider}
+                              </span>
+                              {m.isDefault && (
+                                <span className="text-[9px] px-1 rounded bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+                                  默认
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-[#909399] truncate font-mono mt-0.5">
+                              {m.modelName}
+                            </div>
+                            <p className="text-[10px] text-[#909399] mt-0.5 line-clamp-1">
+                              {m.description}
+                            </p>
+                          </div>
+                          <div className="shrink-0 flex items-center gap-1 mt-0.5">
+                            {m.latency && (
+                              <span className="text-[9px] text-emerald-600 font-mono font-medium">
+                                {m.latency}ms
+                              </span>
+                            )}
+                            {isSelected && <Check className="w-4 h-4 text-purple-600 stroke-[2.5]" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2 mt-1.5 border-t border-[#f0f2f5] flex items-center justify-between px-1">
+                    <span className="text-[10px] text-[#909399]">
+                      支持自定义接入外部大模型
+                    </span>
+                    {onNavigateToModelConfig ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModelMenuOpen(false);
+                          onClose();
+                          onNavigateToModelConfig();
+                        }}
+                        className="text-[11px] text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Settings2 className="w-3 h-3" />
+                        <span>模型配置</span>
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-purple-600">组织系统 &gt; 模型配置</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -735,6 +950,19 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
                           </button>
                         </div>
                       )}
+
+                      {/* External Model Attribution Chip */}
+                      {msg.sender === 'ai' && msg.modelUsed && (
+                        <div className="mt-2 pt-1.5 border-t border-[#ebeef5] flex items-center justify-between text-[10px] text-[#909399]">
+                          <span className="flex items-center gap-1 text-purple-700 font-medium">
+                            <Zap className="w-3 h-3 text-purple-500" />
+                            <span>由 {msg.modelUsed.name} 驱动</span>
+                          </span>
+                          <span className="font-mono text-[9px] text-[#a0a4ad]">
+                            {msg.modelUsed.modelName}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <span className="text-[10px] text-[#c0c4cc] block px-1">{msg.timestamp}</span>
                   </div>
@@ -846,20 +1074,36 @@ export const AiAssistantChatModal: React.FC<AiAssistantChatModalProps> = ({
 
           {/* Rounded Input Container: Matching Image 1 */}
           <div className="bg-[#f8f9fa] border border-[#e4e7ed] rounded-2xl p-2.5 focus-within:border-purple-500 focus-within:bg-white focus-within:shadow-md transition-all">
-            {/* Active Mode Pill Indicator */}
+            {/* Active Mode & Model Pill Indicators */}
             <div className="flex items-center justify-between mb-1 px-1">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setModeMenuOpen(!modeMenuOpen);
-                }}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100/70 hover:bg-purple-200/80 text-purple-700 text-[10px] font-semibold cursor-pointer transition-colors"
-                title="点击切换功能模式"
-              >
-                <span>{getModeLabel(activeMode)}</span>
-                <ChevronDown className="w-2.5 h-2.5 text-purple-600" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModeMenuOpen(!modeMenuOpen);
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100/70 hover:bg-purple-200/80 text-purple-700 text-[10px] font-semibold cursor-pointer transition-colors"
+                  title="点击切换功能模式"
+                >
+                  <span>{getModeLabel(activeMode)}</span>
+                  <ChevronDown className="w-2.5 h-2.5 text-purple-600" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModelMenuOpen(!modelMenuOpen);
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 hover:bg-purple-100/60 text-[#4b5563] hover:text-purple-700 text-[10px] font-medium cursor-pointer transition-colors border border-[#e5e7eb]"
+                  title="切换 AI 模型"
+                >
+                  <Cpu className="w-2.5 h-2.5 text-purple-600" />
+                  <span className="truncate max-w-[90px]">{currentModel?.name || '默认模型'}</span>
+                  <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                </button>
+              </div>
 
               <button
                 type="button"

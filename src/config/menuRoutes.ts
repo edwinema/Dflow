@@ -106,6 +106,7 @@ export const MENU_ROUTES: MenuRouteItem[] = [
       { path: '/system/column', title: '表单引擎' },
       { path: '/system/company', title: '公司授权' },
       { path: '/system/api', title: 'API管理' },
+      { path: '/system/models', title: '模型配置' },
     ],
   },
 ];
