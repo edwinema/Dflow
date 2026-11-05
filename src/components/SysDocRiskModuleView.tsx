@@ -34,6 +34,12 @@ import {
   ShieldCheck,
   AlertCircle,
   CheckSquare,
+  GitFork,
+  ArrowRight,
+  History,
+  UserCheck,
+  MoveUp,
+  MoveDown,
 } from 'lucide-react';
 import { EnterpriseDataGrid, DataGridColumn } from './EnterpriseDataGrid';
 import {
@@ -41,6 +47,18 @@ import {
   downloadDocumentFile,
   getDocumentFormat,
 } from './OnlineDocumentPreviewModal';
+
+export interface ApprovalLevelConfig {
+  level: number;
+  levelName: string;
+  approverName: string;
+  roleName: string;
+  deptName: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'waiting';
+  auditor?: string;
+  auditRemark?: string;
+  auditTime?: string;
+}
 
 export interface TreeFolderNode {
   id: string;
@@ -584,12 +602,124 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
     remark: '',
   });
 
+  // 全局多层级审批路径与审批人配置
+  const [approvalPaths, setApprovalPaths] = useState<{
+    sysDoc: ApprovalLevelConfig[];
+    risk: ApprovalLevelConfig[];
+  }>({
+    sysDoc: [
+      {
+        level: 1,
+        levelName: '第1级: 归口部门初审',
+        approverName: '张明',
+        roleName: '部门经理',
+        deptName: '流程管理部',
+      },
+      {
+        level: 2,
+        levelName: '第2级: 质量合规复核',
+        approverName: '陈静',
+        roleName: '合规总监',
+        deptName: '质量合规部',
+      },
+      {
+        level: 3,
+        levelName: '第3级: 决策层终审签发',
+        approverName: '刘建国',
+        roleName: '副总裁',
+        deptName: '决策委员会',
+      },
+    ],
+    risk: [
+      {
+        level: 1,
+        levelName: '第1级: 业务线风控员初核',
+        approverName: '李合规',
+        roleName: '风控专员',
+        deptName: '研发管理中心',
+      },
+      {
+        level: 2,
+        levelName: '第2级: 质量合规部终审',
+        approverName: '陈静',
+        roleName: '合规总监',
+        deptName: '质量合规部',
+      },
+    ],
+  });
+
+  const [pathConfigModalOpen, setPathConfigModalOpen] = useState(false);
+  const [pathConfigTab, setPathConfigTab] = useState<'sysDoc' | 'risk'>('sysDoc');
+  const [editingPaths, setEditingPaths] = useState<{
+    sysDoc: ApprovalLevelConfig[];
+    risk: ApprovalLevelConfig[];
+  }>({ sysDoc: [], risk: [] });
+
+  // 审批流转轨迹与详情弹窗
+  const [auditTraceModal, setAuditTraceModal] = useState<{
+    open: boolean;
+    item: any | null;
+  }>({ open: false, item: null });
+
+  // 加载系统审批路径配置
+  const fetchApprovalPaths = async () => {
+    try {
+      const res = await fetch('/api/dict/approval-path');
+      const json = await res.json();
+      if (json.status === 1 && json.data) {
+        setApprovalPaths(json.data);
+      }
+    } catch (e) {
+      console.error('Failed to load approval paths', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchApprovalPaths();
+  }, []);
+
+  // 保存全局审批路径配置
+  const handleSaveApprovalPaths = async () => {
+    try {
+      const res = await fetch('/api/dict/approval-path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingPaths),
+      });
+      const json = await res.json();
+      if (json.status === 1) {
+        setApprovalPaths(json.data);
+        showToast('多层级审批路径与责任人设置已保存并生效！', 'success');
+        setPathConfigModalOpen(false);
+      }
+    } catch (e) {
+      showToast('保存审批路径配置失败', 'error');
+    }
+  };
+
   const handleOpenAudit = (item: any) => {
+    const flow = Array.isArray(item.approvalFlow) && item.approvalFlow.length > 0
+      ? item.approvalFlow
+      : (isRisk ? approvalPaths.risk : approvalPaths.sysDoc).map((n, i) => ({
+          ...n,
+          level: i + 1,
+          status: i === 0 ? 'pending' : 'waiting',
+        }));
+
+    const curIdx = flow.findIndex((n: any) => n.status === 'pending');
+    const isFinal = curIdx === flow.length - 1 || curIdx === -1;
+    const curLevel = curIdx >= 0 ? flow[curIdx] : flow[0];
+
     setAuditModal({
       open: true,
-      item,
+      item: {
+        ...item,
+        approvalFlow: flow,
+      },
       decision: 'approved',
-      remark: '经合规审查，制度规范条款完整有效，权责与内控要求明确，准予生效发布并在查阅目录展示。',
+      remark: isFinal
+        ? '经合规终审，制度规范条款完整有效，权责与内控要求明确，准予在查阅目录正式发布展示。'
+        : `经${curLevel?.levelName || '初审'}，条款规范符合合规标准，准予移交下一层级审批。`,
     });
   };
 
@@ -597,11 +727,17 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
     if (!auditModal.item) return;
     const decision = decisionOverride || auditModal.decision;
     const auditorName = currentUser?.nickName || currentUser?.userName || '流程合规审核员';
-    const remark =
-      auditModal.remark?.trim() ||
-      (decision === 'approved'
-        ? '审批通过，准予在查阅目录发布生效'
-        : '审批驳回，请按合规意见补充完善后重新提交');
+
+    const flow = Array.isArray(auditModal.item.approvalFlow) ? auditModal.item.approvalFlow : [];
+    const curIdx = flow.findIndex((n: any) => n.status === 'pending');
+    const pendingLevel = curIdx >= 0 ? flow[curIdx] : flow[0];
+    const isFinal = curIdx === flow.length - 1 || curIdx === -1;
+
+    const defaultRemark = decision === 'approved'
+      ? (isFinal ? '终审通过，准予在查阅目录正式发布生效' : `${pendingLevel?.levelName || '审批'}通过，已自动移交下一层级复核`)
+      : `${pendingLevel?.levelName || '审批'}驳回，请按合规意见补充完善后重新提交`;
+
+    const remark = auditModal.remark?.trim() || defaultRemark;
 
     await fetch('/api/dict/item', {
       method: 'POST',
@@ -616,13 +752,32 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
     });
 
     const label = auditModal.item.label || auditModal.item.docNo || auditModal.item.riskNo;
-    showToast(
-      decision === 'approved'
-        ? `【${label}】已审核通过并正式生效，现已在查阅目录中公开展示`
-        : `【${label}】已驳回，需修改完善`,
-      decision === 'approved' ? 'success' : 'warning'
-    );
+    if (decision === 'approved') {
+      if (isFinal) {
+        showToast(`【${label}】多层级审批全部通过并正式生效，现已在查阅目录中公开展示`, 'success');
+      } else {
+        const nextLevel = flow[curIdx + 1];
+        showToast(`【${label}】${pendingLevel?.levelName || '当前级'}已通过，任务已流转至下一级审批人【${nextLevel?.approverName || '下一级'}】`, 'success');
+      }
+    } else {
+      showToast(`【${label}】已驳回，需修改完善后重新送审`, 'warning');
+    }
     setAuditModal({ open: false, item: null, decision: 'approved', remark: '' });
+    onRefreshDict();
+  };
+
+  const handleResubmitItem = async (item: any) => {
+    await fetch('/api/dict/item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itemType: isRisk ? 'risk' : 'sysDoc',
+        action: 'resubmit',
+        id: item.id,
+      }),
+    });
+    const label = item.label || item.docNo || item.riskNo;
+    showToast(`【${label}】已重新发起送审，任务已推送至第1级审批人待办`, 'success');
     onRefreshDict();
   };
 
@@ -687,6 +842,17 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
       if (autoPeriod) {
         form.validityPeriod = autoPeriod;
       }
+    }
+    if (!Array.isArray(form.approvalFlow) || form.approvalFlow.length === 0) {
+      const defaultFlowTemplate = (isRisk ? approvalPaths.risk : approvalPaths.sysDoc) || [];
+      form.approvalFlow = defaultFlowTemplate.map((n, i) => ({
+        ...n,
+        level: i + 1,
+        status: i === 0 ? 'pending' : 'waiting',
+        auditor: '',
+        auditRemark: '',
+        auditTime: '',
+      }));
     }
     setItemModal({
       open: true,
@@ -824,6 +990,17 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         ? selectedFolderId
         : tree.find((n) => n.parentId === rootFolder?.id)?.id || rootFolder?.id;
     const categoryPath = buildFolderPath(tree, defaultFolderId || '');
+
+    const defaultFlowTemplate = (isRisk ? approvalPaths.risk : approvalPaths.sysDoc) || [];
+    const initApprovalFlow = defaultFlowTemplate.map((n, i) => ({
+      ...n,
+      level: i + 1,
+      status: i === 0 ? 'pending' : 'waiting',
+      auditor: '',
+      auditRemark: '',
+      auditTime: '',
+    }));
+
     if (isRisk) {
       setItemModal({
         open: true,
@@ -837,6 +1014,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
           riskLevel: '高',
           ownerName: currentUser?.nickName || currentUser?.userName || '风控合规专员',
           status: 'pending', // 默认进入待审核审批流
+          approvalFlow: initApprovalFlow,
         },
       });
     } else {
@@ -853,6 +1031,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         effectiveStartDate: todayStr,
         effectiveEndDate: '2029-12-31',
         validityPeriod: `${todayStr} 至 2029-12-31 (长期有效)`,
+        approvalFlow: initApprovalFlow,
       };
       setItemModal({
         open: true,
@@ -1168,35 +1347,51 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         {
           key: 'status',
           label: '生效状态',
-          defaultWidth: 130,
-          minWidth: 115,
+          defaultWidth: 155,
+          minWidth: 130,
           align: 'center',
           render: (row) => {
             const st = row.status || 'approved';
             if (st === 'approved') {
               return (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium whitespace-nowrap">
+                <button
+                  type="button"
+                  onClick={() => setAuditTraceModal({ open: true, item: row })}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium whitespace-nowrap hover:bg-[#e1f3d8] cursor-pointer transition-colors"
+                  title="点击查看多级审批流转完整轨迹"
+                >
                   <CheckCircle2 className="w-3 h-3 shrink-0" />
-                  已生效
-                </span>
+                  <span>已生效 (全部通过)</span>
+                </button>
               );
             }
             if (st === 'rejected') {
               return (
-                <span
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] text-[11px] font-medium whitespace-nowrap"
-                  title={row.auditRemark ? `驳回批注: ${row.auditRemark}` : '已驳回修改'}
+                <button
+                  type="button"
+                  onClick={() => setAuditTraceModal({ open: true, item: row })}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] text-[11px] font-medium whitespace-nowrap hover:bg-[#fde2e2] cursor-pointer transition-colors"
+                  title={row.auditRemark ? `驳回批注: ${row.auditRemark} (点击查看轨迹)` : '已驳回修改 (点击查看轨迹)'}
                 >
                   <AlertCircle className="w-3 h-3 shrink-0" />
-                  已驳回
-                </span>
+                  <span>已驳回</span>
+                </button>
               );
             }
+            const flow = Array.isArray(row.approvalFlow) ? row.approvalFlow : [];
+            const curLvl = flow.find((l: any) => l.status === 'pending') || flow[0];
+            const lvlNum = curLvl?.level || row.currentLevel || 1;
+            const approver = curLvl?.approverName || '待审';
             return (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fdf6ec] text-[#e6a23c] border border-[#faecd8] text-[11px] font-medium whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setAuditTraceModal({ open: true, item: row })}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#fdf6ec] text-[#e6a23c] border border-[#faecd8] text-[11px] font-medium whitespace-nowrap hover:bg-[#faecd8] cursor-pointer transition-colors max-w-[150px]"
+                title={`点击查看流转轨迹：当前待第${lvlNum}级【${approver}】审批`}
+              >
                 <Clock className="w-3 h-3 shrink-0" />
-                待审核
-              </span>
+                <span className="truncate">待第{lvlNum}级 ({approver})</span>
+              </button>
             );
           },
         },
@@ -1215,8 +1410,8 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         {
           key: 'actions',
           label: '操作',
-          defaultWidth: isReadOnly ? 110 : 210,
-          minWidth: isReadOnly ? 95 : 185,
+          defaultWidth: isReadOnly ? 110 : 250,
+          minWidth: isReadOnly ? 95 : 225,
           align: 'center',
           fixed: 'right',
           render: (row) => {
@@ -1237,6 +1432,9 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 </div>
               );
             }
+            const flow = Array.isArray(row.approvalFlow) ? row.approvalFlow : [];
+            const curLvl = flow.find((l: any) => l.status === 'pending') || flow[0];
+            const lvlNum = curLvl?.level || row.currentLevel || 1;
             return (
               <div
                 onClick={(e) => e.stopPropagation()}
@@ -1249,16 +1447,36 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 >
                   预览
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAuditTraceModal({ open: true, item: row })}
+                  className="text-[#606266] hover:text-[#2F7BFE] font-medium cursor-pointer flex items-center gap-0.5"
+                  title="查看审批节点与流转进度"
+                >
+                  <History className="w-3 h-3" />
+                  <span>轨迹</span>
+                </button>
                 {!isApproved && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenAudit(row)}
-                    className="px-2 py-0.5 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-[11px] font-medium transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
-                    title="点击对该风险条款进行合规审批"
-                  >
-                    <CheckSquare className="w-3 h-3" />
-                    <span>审批</span>
-                  </button>
+                  row.status === 'rejected' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleResubmitItem(row)}
+                      className="text-[#e6a23c] hover:underline font-medium cursor-pointer"
+                      title="重置流转状态并重新提交至第1级审批"
+                    >
+                      重新送审
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAudit(row)}
+                      className="px-2 py-0.5 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-[11px] font-medium transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                      title={`点击对第${lvlNum}级进行合规审批`}
+                    >
+                      <CheckSquare className="w-3 h-3" />
+                      <span>审批(L{lvlNum})</span>
+                    </button>
+                  )
                 )}
                 <button
                   type="button"
@@ -1388,35 +1606,51 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
       {
         key: 'status',
         label: '状态',
-        defaultWidth: 130,
-        minWidth: 115,
+        defaultWidth: 155,
+        minWidth: 130,
         align: 'center',
         render: (row) => {
           const st = row.status || 'approved';
           if (st === 'approved') {
             return (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => setAuditTraceModal({ open: true, item: row })}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium whitespace-nowrap hover:bg-[#e1f3d8] cursor-pointer transition-colors"
+                title="点击查看多级审批流转完整轨迹"
+              >
                 <CheckCircle2 className="w-3 h-3 shrink-0" />
-                已生效
-              </span>
+                <span>已生效 (全部通过)</span>
+              </button>
             );
           }
           if (st === 'rejected') {
             return (
-              <span
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] text-[11px] font-medium whitespace-nowrap"
-                title={row.auditRemark ? `驳回批注: ${row.auditRemark}` : '已驳回修改'}
+              <button
+                type="button"
+                onClick={() => setAuditTraceModal({ open: true, item: row })}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] text-[11px] font-medium whitespace-nowrap hover:bg-[#fde2e2] cursor-pointer transition-colors"
+                title={row.auditRemark ? `驳回批注: ${row.auditRemark} (点击查看轨迹)` : '已驳回修改 (点击查看轨迹)'}
               >
                 <AlertCircle className="w-3 h-3 shrink-0" />
-                已驳回
-              </span>
+                <span>已驳回</span>
+              </button>
             );
           }
+          const flow = Array.isArray(row.approvalFlow) ? row.approvalFlow : [];
+          const curLvl = flow.find((l: any) => l.status === 'pending') || flow[0];
+          const lvlNum = curLvl?.level || row.currentLevel || 1;
+          const approver = curLvl?.approverName || '待审';
           return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fdf6ec] text-[#e6a23c] border border-[#faecd8] text-[11px] font-medium whitespace-nowrap">
+            <button
+              type="button"
+              onClick={() => setAuditTraceModal({ open: true, item: row })}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#fdf6ec] text-[#e6a23c] border border-[#faecd8] text-[11px] font-medium whitespace-nowrap hover:bg-[#faecd8] cursor-pointer transition-colors max-w-[150px]"
+              title={`点击查看流转轨迹：当前待第${lvlNum}级【${approver}】审批`}
+            >
               <Clock className="w-3 h-3 shrink-0" />
-              待审核
-            </span>
+              <span className="truncate">待第${lvlNum}级 (${approver})</span>
+            </button>
           );
         },
       },
@@ -1448,8 +1682,8 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
       {
         key: 'actions',
         label: '操作',
-        defaultWidth: isReadOnly ? 190 : 240,
-        minWidth: isReadOnly ? 170 : 210,
+        defaultWidth: isReadOnly ? 190 : 270,
+        minWidth: isReadOnly ? 170 : 250,
         align: 'center',
         fixed: 'right',
         render: (row) => {
@@ -1499,6 +1733,9 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
               </div>
             );
           }
+          const flow = Array.isArray(row.approvalFlow) ? row.approvalFlow : [];
+          const curLvl = flow.find((l: any) => l.status === 'pending') || flow[0];
+          const lvlNum = curLvl?.level || row.currentLevel || 1;
           return (
             <div
               onClick={(e) => e.stopPropagation()}
@@ -1530,16 +1767,36 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 <Download className="w-3 h-3" />
                 <span>下载</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setAuditTraceModal({ open: true, item: row })}
+                className="text-[#606266] hover:text-[#2F7BFE] font-medium cursor-pointer flex items-center gap-0.5"
+                title="查看多层级审批流转记录"
+              >
+                <History className="w-3 h-3" />
+                <span>轨迹</span>
+              </button>
               {!isApproved && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenAudit(row)}
-                  className="px-2 py-0.5 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-[11px] font-medium transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
-                  title="点击对该制度文件进行合规审批"
-                >
-                  <CheckSquare className="w-3 h-3" />
-                  <span>审批</span>
-                </button>
+                row.status === 'rejected' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleResubmitItem(row)}
+                    className="text-[#e6a23c] hover:underline font-medium cursor-pointer"
+                    title="重新将文件提交至第1级审批人"
+                  >
+                    重新送审
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAudit(row)}
+                    className="px-2 py-0.5 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-[11px] font-medium transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                    title={`点击对第${lvlNum}级进行合规审批`}
+                  >
+                    <CheckSquare className="w-3 h-3" />
+                    <span>审批(L{lvlNum})</span>
+                  </button>
+                )
               )}
               <button
                 type="button"
@@ -1792,6 +2049,19 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                   >
                     <Sliders className="w-3.5 h-3.5" />
                     <span>自定义字段 ({customFields.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPaths(JSON.parse(JSON.stringify(approvalPaths)));
+                      setPathConfigTab(isRisk ? 'risk' : 'sysDoc');
+                      setPathConfigModalOpen(true);
+                    }}
+                    title="设置制度文件与风险合规的多层级审批路径及责任人"
+                    className="h-8 px-3 rounded border border-[#dcdfe6] bg-white hover:bg-[#f5f7fa] text-[#303133] hover:text-[#409eff] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
+                  >
+                    <GitFork className="w-3.5 h-3.5 text-[#409eff]" />
+                    <span>审批路径设置</span>
                   </button>
                   <button
                     type="button"
@@ -2200,6 +2470,102 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* 多层级审批流转轨迹与责任人记录 */}
+              <div className="bg-white rounded-lg p-3.5 border border-[#ebeef5] shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#1f2733] flex items-center gap-1.5">
+                    <GitFork className="w-3.5 h-3.5 text-[#2F7BFE]" />
+                    <span>多层级审批流转进度与轨迹</span>
+                  </span>
+                  <span className="text-[11px] text-[#909399]">
+                    共 {previewItem.approvalFlow?.length || 0} 级审核节点
+                  </span>
+                </div>
+
+                <div className="space-y-2 bg-[#f8fafc] p-3 rounded-lg border border-[#e2e8f0]">
+                  {(previewItem.approvalFlow || []).map((lvl: any, idx: number) => {
+                    const isApproved = lvl.status === 'approved';
+                    const isPending = lvl.status === 'pending';
+                    const isRejected = lvl.status === 'rejected';
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-2.5 rounded border text-xs transition-all ${
+                          isApproved
+                            ? 'bg-[#f0f9eb]/60 border-[#e1f3d8]'
+                            : isPending
+                            ? 'bg-[#fdf6ec]/80 border-[#faecd8] ring-1 ring-amber-300'
+                            : isRejected
+                            ? 'bg-[#fef0f0]/60 border-[#fde2e2]'
+                            : 'bg-white border-[#ebeef5]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                                isApproved
+                                  ? 'bg-[#67c23a] text-white'
+                                  : isPending
+                                  ? 'bg-[#e6a23c] text-white'
+                                  : isRejected
+                                  ? 'bg-[#f56c6c] text-white'
+                                  : 'bg-gray-200 text-gray-600'
+                              }`}
+                            >
+                              {idx + 1}
+                            </span>
+                            <span className="font-semibold text-[#1f2733]">{lvl.levelName}</span>
+                          </div>
+                          <div>
+                            {isApproved ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#67c23a]">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>已通过</span>
+                              </span>
+                            ) : isPending ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#e6a23c]">
+                                <Clock className="w-3.5 h-3.5 animate-pulse" />
+                                <span>待审核</span>
+                              </span>
+                            ) : isRejected ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#f56c6c]">
+                                <AlertCircle className="w-3.5 h-3.5" />
+                                <span>已驳回</span>
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-[#909399]">等待流转</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#606266] mt-1.5 pl-7">
+                          <span>
+                            指定审批人: <strong className="text-[#303133]">{lvl.approverName}</strong>
+                          </span>
+                          <span>
+                            归属: <span>{lvl.roleName} · {lvl.deptName}</span>
+                          </span>
+                          {lvl.auditTime && (
+                            <span className="font-mono text-[#909399]">
+                              审核时间: {lvl.auditTime}
+                            </span>
+                          )}
+                        </div>
+
+                        {lvl.auditRemark && (
+                          <div className="mt-1.5 ml-7 p-2 rounded bg-white/80 border border-gray-200 text-[11px] text-[#4b5563] leading-relaxed">
+                            <span className="font-medium text-[#1f2733]">审批意见：</span>
+                            {lvl.auditRemark}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Modal Footer: strictly pinned at bottom with shrink-0 */}
@@ -2659,6 +3025,130 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* 多层级审批流与指定审批人配置卡片 */}
+              <div className="pt-3 border-t border-[#ebeef5] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#1f2733] flex items-center gap-1.5">
+                    <GitFork className="w-3.5 h-3.5 text-[#2F7BFE]" />
+                    <span>多层级审批路径与审批人</span>
+                    <span className="text-[10px] text-[#2F7BFE] bg-[#ecf5ff] px-2 py-0.5 rounded border border-[#b3d8ff] font-normal">
+                      共 {itemModal.form.approvalFlow?.length || 0} 级递进审核
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = itemModal.form.approvalFlow || [];
+                      const nextLvl = cur.length + 1;
+                      setItemModal({
+                        ...itemModal,
+                        form: {
+                          ...itemModal.form,
+                          approvalFlow: [
+                            ...cur,
+                            {
+                              level: nextLvl,
+                              levelName: `第${nextLvl}级: 补充审核`,
+                              approverName: '陈静',
+                              roleName: '合规复核员',
+                              deptName: '质量合规部',
+                              status: 'waiting',
+                            },
+                          ],
+                        },
+                      });
+                    }}
+                    className="text-[11px] text-[#2F7BFE] hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>添加审批层级</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2 bg-[#f8fafc] p-3 rounded-lg border border-[#e2e8f0]">
+                  {(itemModal.form.approvalFlow || []).map((lvl: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="bg-white p-2.5 rounded border border-[#ebeef5] shadow-2xs flex flex-col sm:flex-row sm:items-center gap-2.5 text-xs"
+                    >
+                      <div className="flex items-center gap-2 shrink-0 sm:w-36">
+                        <span className="w-5 h-5 rounded-full bg-[#ecf5ff] text-[#2F7BFE] font-bold text-[10px] flex items-center justify-center shrink-0 border border-[#b3d8ff]">
+                          {idx + 1}
+                        </span>
+                        <input
+                          type="text"
+                          value={lvl.levelName}
+                          onChange={(e) => {
+                            const next = [...(itemModal.form.approvalFlow || [])];
+                            next[idx].levelName = e.target.value;
+                            setItemModal({ ...itemModal, form: { ...itemModal.form, approvalFlow: next } });
+                          }}
+                          className="h-7 px-2 rounded border border-[#dcdfe6] text-xs font-semibold text-[#1f2733] focus:border-[#2F7BFE] outline-none w-full"
+                          placeholder="节点名称"
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <PersonSelectField
+                          value={lvl.approverName}
+                          onChange={(val, person) => {
+                            const next = [...(itemModal.form.approvalFlow || [])];
+                            next[idx].approverName = val;
+                            if (person) {
+                              next[idx].roleName = person.roleName || '审批人';
+                              next[idx].deptName = person.deptName || '综合管理部';
+                            }
+                            setItemModal({ ...itemModal, form: { ...itemModal.form, approvalFlow: next } });
+                          }}
+                          placeholder="选择或手工输入审批人..."
+                          modalTitle="指定审批人"
+                          modalDescription="支持手工输入中英文姓名或从组织架构部门人员树中挑选审批人"
+                          className="w-full text-xs"
+                          showToast={showToast}
+                        />
+                      </div>
+
+                      <div className="shrink-0 sm:w-44">
+                        <input
+                          type="text"
+                          value={`${lvl.roleName || '审批人'} · ${lvl.deptName || '部门'}`}
+                          onChange={(e) => {
+                            const parts = e.target.value.split('·');
+                            const next = [...(itemModal.form.approvalFlow || [])];
+                            next[idx].roleName = parts[0]?.trim() || '';
+                            next[idx].deptName = parts[1]?.trim() || '';
+                            setItemModal({ ...itemModal, form: { ...itemModal.form, approvalFlow: next } });
+                          }}
+                          placeholder="角色 · 部门"
+                          className="h-7 px-2 rounded border border-[#dcdfe6] text-[11px] text-[#606266] focus:border-[#2F7BFE] outline-none w-full"
+                          title="审批人角色与部门，格式：角色 · 部门"
+                        />
+                      </div>
+
+                      {(itemModal.form.approvalFlow?.length || 0) > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = (itemModal.form.approvalFlow || [])
+                              .filter((_: any, i: number) => i !== idx)
+                              .map((item: any, i: number) => ({
+                                ...item,
+                                level: i + 1,
+                                levelName: item.levelName.replace(/第\d+级/, `第${i + 1}级`),
+                              }));
+                            setItemModal({ ...itemModal, form: { ...itemModal.form, approvalFlow: next } });
+                          }}
+                          className="text-[#f56c6c] hover:bg-[#fef0f0] p-1.5 rounded cursor-pointer shrink-0"
+                          title="移除此审批层级"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="px-5 py-3 border-t border-[#ebeef5] bg-[#fafafa] flex justify-end gap-2 shrink-0">
               <button
@@ -2688,174 +3178,755 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         />
       )}
 
-      {/* 审批与合规复核弹窗 */}
-      {auditModal.open && auditModal.item && (
+      {/* ============================================================ */}
+      {/* 弹窗 1: 多层级审批决议弹窗 (auditModal) */}
+      {/* ============================================================ */}
+      {auditModal.open && auditModal.item && (() => {
+        const flow: ApprovalLevelConfig[] = Array.isArray(auditModal.item.approvalFlow) ? auditModal.item.approvalFlow : [];
+        const curIdx = flow.findIndex((l: any) => l.status === 'pending');
+        const curLevel = curIdx >= 0 ? flow[curIdx] : flow[0] || {
+          level: 1,
+          levelName: '第1级审核',
+          approverName: '审批人',
+          roleName: '审核员',
+          deptName: '管理部',
+        };
+        const isFinalLevel = curIdx === flow.length - 1 || curIdx === -1;
+        const nextLevel = curIdx >= 0 && curIdx + 1 < flow.length ? flow[curIdx + 1] : null;
+
+        return (
+          <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl w-full max-w-xl flex flex-col shadow-2xl border border-[#ebeef5] overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh]">
+              <div className="px-5 py-3.5 border-b border-[#ebeef5] bg-[#fafafa] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-md bg-[#ecf5ff] text-[#2F7BFE] flex items-center justify-center">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-[#1f2733] block">
+                      {isRisk ? '风险合规条款 · 多层级审批' : '制度文件规范 · 多层级审批'}
+                    </span>
+                    <span className="text-[11px] text-[#909399]">
+                      当前流转：第 {curLevel.level} 级 / 共 {flow.length} 级审批节点
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAuditModal({ open: false, item: null, decision: 'approved', remark: '' })}
+                  className="text-[#909399] hover:text-[#1f2733] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
+                {/* 待审条目卡片 */}
+                <div className="bg-[#f8f9fa] rounded-lg p-3 border border-[#ebeef5] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[#909399] font-medium">{auditModal.item.docNo || auditModal.item.riskNo}</span>
+                    <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-amber-500 animate-pulse" />
+                      <span>待第 {curLevel.level} 级审批</span>
+                    </span>
+                  </div>
+                  <div className="font-bold text-sm text-[#303133]">
+                    {auditModal.item.label}
+                  </div>
+                  <div className="flex items-center gap-4 text-[#606266] text-[11px] pt-1.5 border-t border-[#ebeef5]">
+                    <span>所属目录: <strong className="text-[#303133]">{auditModal.item.category || '根目录'}</strong></span>
+                    <span>责任人: <strong className="text-[#303133]">{auditModal.item.ownerName || '系统管理员'}</strong></span>
+                  </div>
+                </div>
+
+                {/* 多层级审批流转进度条 */}
+                <div className="bg-white p-3 rounded-lg border border-[#e2e8f0] shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-[#606266]">
+                    <span className="font-medium text-[#1f2733] flex items-center gap-1">
+                      <GitFork className="w-3.5 h-3.5 text-[#2F7BFE]" />
+                      <span>审批路径进度 (依次流转)</span>
+                    </span>
+                    <span className="text-[#909399]">各级通过后自动推送</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    {flow.map((lvl, i) => {
+                      const isPast = lvl.status === 'approved';
+                      const isCur = lvl.status === 'pending';
+                      const isRej = lvl.status === 'rejected';
+
+                      return (
+                        <div
+                          key={i}
+                          className={`p-2 rounded border text-[11px] relative flex flex-col justify-between ${
+                            isPast
+                              ? 'bg-[#f0f9eb] border-[#c2e7b0] text-[#67c23a]'
+                              : isCur
+                              ? 'bg-[#ecf5ff] border-[#b3d8ff] text-[#2F7BFE] ring-1 ring-[#2F7BFE]/40'
+                              : isRej
+                              ? 'bg-[#fef0f0] border-[#fde2e2] text-[#f56c6c]'
+                              : 'bg-gray-50 border-gray-200 text-gray-500'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-semibold mb-1">
+                            <span>第{i + 1}级</span>
+                            {isPast ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#67c23a]" />
+                            ) : isCur ? (
+                              <span className="text-[10px] bg-[#2F7BFE] text-white px-1.5 py-0.2 rounded font-normal">当前待审</span>
+                            ) : isRej ? (
+                              <AlertCircle className="w-3.5 h-3.5 text-[#f56c6c]" />
+                            ) : (
+                              <span className="text-[10px] text-gray-400">待流转</span>
+                            )}
+                          </div>
+                          <div className="truncate font-medium text-[#1f2733]">{lvl.levelName}</div>
+                          <div className="text-[10px] text-[#606266] truncate mt-0.5">
+                            {lvl.approverName} ({lvl.deptName})
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 前置层级审批意见（如果存在） */}
+                {curIdx > 0 && (
+                  <div className="bg-[#f8fafc] p-3 rounded-lg border border-[#e2e8f0] space-y-2">
+                    <span className="font-semibold text-[11px] text-[#606266] block">
+                      前置层级审批记录:
+                    </span>
+                    {flow.slice(0, curIdx).map((past, pi) => (
+                      <div key={pi} className="text-[11px] pl-2 border-l-2 border-[#67c23a] space-y-0.5">
+                        <div className="flex items-center gap-2 text-[#303133]">
+                          <strong className="text-[#67c23a]">{past.levelName}</strong>
+                          <span>· 审批人: {past.auditor || past.approverName}</span>
+                          <span className="text-[10px] text-[#909399] font-mono">{past.auditTime}</span>
+                        </div>
+                        <div className="text-[#606266] italic">
+                          "{past.auditRemark || '审批通过'}"
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 审批结论单选 */}
+                <div>
+                  <label className="block font-semibold text-[#303133] mb-1.5">
+                    第 {curLevel.level} 级审批结论 (责任人: {curLevel.approverName})
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div
+                      onClick={() => {
+                        setAuditModal((prev) => ({
+                          ...prev,
+                          decision: 'approved',
+                          remark: isFinalLevel
+                            ? '经合规终审，制度规范条款完整有效，权责与内控要求明确，准予在查阅目录正式发布展示。'
+                            : `经${curLevel.levelName}审查，条款规范符合合规标准，准予移交下一层级复核。`,
+                        }));
+                      }}
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        auditModal.decision === 'approved'
+                          ? 'border-[#67c23a] bg-[#f0f9eb] text-[#67c23a] font-semibold shadow-2xs'
+                          : 'border-[#dcdfe6] hover:bg-gray-50 text-[#606266]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="auditDecision"
+                        checked={auditModal.decision === 'approved'}
+                        onChange={() => {}}
+                        className="text-[#67c23a]"
+                      />
+                      <CheckCircle2 className="w-4 h-4 text-[#67c23a]" />
+                      <div className="text-left">
+                        <div>{isFinalLevel ? '终审通过并正式对外发布' : `审核通过 (流转至下一级)`}</div>
+                        <span className="text-[10px] font-normal text-gray-500 block">
+                          {isFinalLevel ? '全流程完结，查阅目录立即公开' : `下一级: ${nextLevel?.approverName || '下一位审批人'}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => {
+                        setAuditModal((prev) => ({
+                          ...prev,
+                          decision: 'rejected',
+                          remark: `在${curLevel.levelName}环节发现条款存在合规漏洞或缺少必要附件，请退回修改完善后重新送审。`,
+                        }));
+                      }}
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        auditModal.decision === 'rejected'
+                          ? 'border-[#f56c6c] bg-[#fef0f0] text-[#f56c6c] font-semibold shadow-2xs'
+                          : 'border-[#dcdfe6] hover:bg-gray-50 text-[#606266]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="auditDecision"
+                        checked={auditModal.decision === 'rejected'}
+                        onChange={() => {}}
+                        className="text-[#f56c6c]"
+                      />
+                      <AlertCircle className="w-4 h-4 text-[#f56c6c]" />
+                      <div className="text-left">
+                        <div>驳回修改 (退回重改)</div>
+                        <span className="text-[10px] font-normal text-gray-500 block">
+                          阻断当前流转，发起人完善后重审
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 审批意见 */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-[#303133]">审批合规批注 / 意见</label>
+                    <span className="text-[10px] text-[#909399]">将记录在文件多层级审批台账中</span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={auditModal.remark}
+                    onChange={(e) => setAuditModal((prev) => ({ ...prev, remark: e.target.value }))}
+                    placeholder="请输入审批审核意见..."
+                    className="w-full p-2.5 rounded border border-[#dcdfe6] focus:border-[#2F7BFE] focus:outline-none text-xs resize-none"
+                  />
+                  {/* 快捷评语 */}
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {[
+                      '准予流转至下一级复核',
+                      '经审核符合内控规范，准予通过',
+                      '终审批准，准予在查阅目录公开',
+                      '缺少必要附件材料，请补齐',
+                      '合规条款与现行规章冲突，退回修改',
+                    ].map((phrase) => (
+                      <button
+                        key={phrase}
+                        type="button"
+                        onClick={() => setAuditModal((prev) => ({ ...prev, remark: phrase }))}
+                        className="text-[10px] px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 cursor-pointer"
+                      >
+                        {phrase}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-5 py-3 border-t border-[#ebeef5] bg-[#fafafa] flex items-center justify-end gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setAuditModal({ open: false, item: null, decision: 'approved', remark: '' })}
+                  className="h-8 px-4 rounded border border-[#dcdfe6] bg-white text-xs text-[#606266] hover:bg-gray-50 cursor-pointer"
+                >
+                  取消
+                </button>
+                {auditModal.decision === 'approved' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleSubmitAudit('approved')}
+                    className="h-8 px-5 rounded bg-[#67c23a] hover:bg-[#5daf34] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>
+                      {isFinalLevel ? '终审通过并发布生效' : `通过并流转至下一级`}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSubmitAudit('rejected')}
+                    className="h-8 px-5 rounded bg-[#f56c6c] hover:bg-[#e64242] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>确认驳回修改</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ============================================================ */}
+      {/* 弹窗 2: 全局多层级审批路径与审批人设置 (pathConfigModal) */}
+      {/* ============================================================ */}
+      {pathConfigModalOpen && (
         <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-lg flex flex-col shadow-2xl border border-[#ebeef5] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-5 py-3.5 border-b border-[#ebeef5] bg-[#fafafa] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#2F7BFE]" />
-                <span className="text-sm font-bold text-[#1f2733]">
-                  {isRisk ? '风险合规条款 · 审批决议' : '制度文件规范 · 审批发文'}
-                </span>
+          <div className="bg-white rounded-xl w-full max-w-2xl flex flex-col shadow-2xl border border-[#ebeef5] overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[88vh]">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#ebeef5] bg-[#fafbfc] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#ecf5ff] text-[#2F7BFE] flex items-center justify-center border border-[#b3d8ff]">
+                  <GitFork className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#1f2733]">多层级审批路径与责任人设置</h3>
+                  <p className="text-[11px] text-[#909399]">
+                    支持从组织架构部门挑选人员或手工输入用户名，新增内容将严格按照设定的路径逐级送审
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setAuditModal({ open: false, item: null, decision: 'approved', remark: '' })}
+                onClick={() => setPathConfigModalOpen(false)}
                 className="text-[#909399] hover:text-[#1f2733] cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
-              {/* 待审条目卡片 */}
-              <div className="bg-[#f8f9fa] rounded p-3 border border-[#ebeef5] space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[#909399]">{auditModal.item.docNo || auditModal.item.riskNo}</span>
-                  <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 text-[10px] font-semibold">
-                    待合规审批
-                  </span>
-                </div>
-                <div className="font-bold text-sm text-[#303133]">
-                  {auditModal.item.label}
-                </div>
-                <div className="flex items-center gap-4 text-[#606266] text-[11px] pt-1.5 border-t border-[#ebeef5]">
-                  <span>所属目录: <strong className="text-[#303133]">{auditModal.item.category || '根目录'}</strong></span>
-                  <span>提报人: <strong className="text-[#303133]">{auditModal.item.ownerName || '系统管理员'}</strong></span>
-                </div>
-              </div>
-
-              {/* 关键准则提示 */}
-              <div className="bg-[#F0F7FF] p-3 rounded border border-[#B3D8FF] text-[#1E3A8A] flex items-start gap-2">
-                <ShieldAlert className="w-4 h-4 text-[#2F7BFE] shrink-0 mt-0.5" />
-                <div className="text-[11px] leading-relaxed">
-                  <strong>合规发布规则：</strong>
-                  只有点击<strong>【审核通过】</strong>的文件，状态才会变更为<strong>「已生效」</strong>，并自动同步在<strong>【{isRisk ? '风险查阅' : '制度查阅'}】</strong>对应目录中呈现供全员查阅；点击<strong>【驳回修改】</strong>则保持隔离，需作者完善后重新送审。
-                </div>
-              </div>
-
-              {/* 审批结论单选 */}
-              <div>
-                <label className="block font-semibold text-[#303133] mb-1.5">审批结论</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div
-                    onClick={() => {
-                      setAuditModal((prev) => ({
-                        ...prev,
-                        decision: 'approved',
-                        remark: '经合规审查，制度规范条款完整有效，权责与内控要求明确，准予生效发布并在查阅目录展示。',
-                      }));
-                    }}
-                    className={`flex items-center gap-2 p-2.5 rounded border cursor-pointer transition-all ${
-                      auditModal.decision === 'approved'
-                        ? 'border-[#67c23a] bg-[#f0f9eb] text-[#67c23a] font-semibold shadow-2xs'
-                        : 'border-[#dcdfe6] hover:bg-gray-50 text-[#606266]'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="auditDecision"
-                      checked={auditModal.decision === 'approved'}
-                      onChange={() => {}}
-                      className="text-[#67c23a]"
-                    />
-                    <CheckCircle2 className="w-4 h-4 text-[#67c23a]" />
-                    <span>审核通过并正式生效</span>
-                  </div>
-
-                  <div
-                    onClick={() => {
-                      setAuditModal((prev) => ({
-                        ...prev,
-                        decision: 'rejected',
-                        remark: '条款内容不满足合规标准或缺少必要附件，请补充完善后重新提交审批。',
-                      }));
-                    }}
-                    className={`flex items-center gap-2 p-2.5 rounded border cursor-pointer transition-all ${
-                      auditModal.decision === 'rejected'
-                        ? 'border-[#f56c6c] bg-[#fef0f0] text-[#f56c6c] font-semibold shadow-2xs'
-                        : 'border-[#dcdfe6] hover:bg-gray-50 text-[#606266]'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="auditDecision"
-                      checked={auditModal.decision === 'rejected'}
-                      onChange={() => {}}
-                      className="text-[#f56c6c]"
-                    />
-                    <AlertCircle className="w-4 h-4 text-[#f56c6c]" />
-                    <span>驳回修改 (不予展示)</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 审批意见 */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block font-semibold text-[#303133]">审批合规批注 / 意见</label>
-                  <span className="text-[10px] text-[#909399]">将记录在文件生命周期台账中</span>
-                </div>
-                <textarea
-                  rows={3}
-                  value={auditModal.remark}
-                  onChange={(e) => setAuditModal((prev) => ({ ...prev, remark: e.target.value }))}
-                  placeholder="请输入合规复核意见或驳回说明..."
-                  className="w-full p-2.5 rounded border border-[#dcdfe6] focus:border-[#2F7BFE] focus:outline-none text-xs resize-none"
-                />
-                {/* 快捷评语 */}
-                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {[
-                    '准予正式发布并于查阅目录生效',
-                    '符合公司内控手册基线',
-                    '缺少关键权责对照表，请补齐',
-                    '格式排版有误，退回起草人调整',
-                  ].map((phrase) => (
-                    <button
-                      key={phrase}
-                      type="button"
-                      onClick={() => setAuditModal((prev) => ({ ...prev, remark: phrase }))}
-                      className="text-[10px] px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 cursor-pointer"
-                    >
-                      {phrase}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 py-3 border-t border-[#ebeef5] bg-[#fafafa] flex items-center justify-end gap-2.5 shrink-0">
+            {/* Tab switch */}
+            <div className="px-6 pt-3 border-b border-[#ebeef5] bg-white flex items-center gap-4 text-xs shrink-0">
               <button
                 type="button"
-                onClick={() => setAuditModal({ open: false, item: null, decision: 'approved', remark: '' })}
-                className="h-8 px-4 rounded border border-[#dcdfe6] bg-white text-xs text-[#606266] hover:bg-gray-50 cursor-pointer"
+                onClick={() => setPathConfigTab('sysDoc')}
+                className={`pb-2.5 font-semibold cursor-pointer border-b-2 flex items-center gap-1.5 transition-colors ${
+                  pathConfigTab === 'sysDoc'
+                    ? 'border-[#2F7BFE] text-[#2F7BFE]'
+                    : 'border-transparent text-[#606266] hover:text-[#1f2733]'
+                }`}
               >
-                取消
+                <FileText className="w-3.5 h-3.5" />
+                <span>制度文件审批路径</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-50 text-[#2F7BFE] border border-blue-100">
+                  {editingPaths.sysDoc?.length || 0} 级
+                </span>
               </button>
-              {auditModal.decision === 'approved' ? (
+
+              <button
+                type="button"
+                onClick={() => setPathConfigTab('risk')}
+                className={`pb-2.5 font-semibold cursor-pointer border-b-2 flex items-center gap-1.5 transition-colors ${
+                  pathConfigTab === 'risk'
+                    ? 'border-[#2F7BFE] text-[#2F7BFE]'
+                    : 'border-transparent text-[#606266] hover:text-[#1f2733]'
+                }`}
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>风险合规审批路径</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-50 text-[#2F7BFE] border border-blue-100">
+                  {editingPaths.risk?.length || 0} 级
+                </span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0 bg-[#fafbfc]/40">
+              <div className="p-3 bg-[#f0f7ff] rounded-lg border border-[#b3d8ff] text-[#1e3a8a] flex items-start gap-2.5">
+                <CheckSquare className="w-4 h-4 text-[#2F7BFE] shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <strong>流转规则说明：</strong>
+                  在【{pathConfigTab === 'sysDoc' ? '制度文件库' : '风险合规库'}】中新建或提交送审的内容，默认自动套用以下多层级审批模板。只有当所有层级全部审核通过后，该文件才会发布并正式呈现在【{pathConfigTab === 'sysDoc' ? '制度查阅' : '风险查阅'}】相应层级目录中。
+                </div>
+              </div>
+
+              {/* Levels list */}
+              <div className="space-y-3">
+                {(editingPaths[pathConfigTab] || []).map((node, idx) => {
+                  const total = editingPaths[pathConfigTab]?.length || 0;
+
+                  return (
+                    <div
+                      key={idx}
+                      className="bg-white p-4 rounded-xl border border-[#ebeef5] shadow-xs space-y-3 relative group hover:border-[#b3d8ff] transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-[#2F7BFE] text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                            {idx + 1}
+                          </span>
+                          <span className="font-bold text-sm text-[#1f2733]">
+                            第 {idx + 1} 级审批节点
+                          </span>
+                          {idx === 0 && (
+                            <span className="px-1.5 py-0.5 rounded bg-blue-50 text-[#2F7BFE] text-[10px] font-medium border border-blue-100">
+                              第一责任人 / 起始节点
+                            </span>
+                          )}
+                          {idx === total - 1 && total > 1 && (
+                            <span className="px-1.5 py-0.5 rounded bg-green-50 text-[#67c23a] text-[10px] font-medium border border-green-100">
+                              终审决策 / 准予生效
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => {
+                              const list = [...editingPaths[pathConfigTab]];
+                              const temp = list[idx - 1];
+                              list[idx - 1] = list[idx];
+                              list[idx] = temp;
+                              setEditingPaths({
+                                ...editingPaths,
+                                [pathConfigTab]: list.map((l, i) => ({
+                                  ...l,
+                                  level: i + 1,
+                                  levelName: l.levelName.replace(/第\d+级/, `第${i + 1}级`),
+                                })),
+                              });
+                            }}
+                            className="p-1 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 cursor-pointer"
+                            title="上移此层级"
+                          >
+                            <MoveUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === total - 1}
+                            onClick={() => {
+                              const list = [...editingPaths[pathConfigTab]];
+                              const temp = list[idx + 1];
+                              list[idx + 1] = list[idx];
+                              list[idx] = temp;
+                              setEditingPaths({
+                                ...editingPaths,
+                                [pathConfigTab]: list.map((l, i) => ({
+                                  ...l,
+                                  level: i + 1,
+                                  levelName: l.levelName.replace(/第\d+级/, `第${i + 1}级`),
+                                })),
+                              });
+                            }}
+                            className="p-1 rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 cursor-pointer"
+                            title="下移此层级"
+                          >
+                            <MoveDown className="w-3.5 h-3.5" />
+                          </button>
+                          {total > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const list = editingPaths[pathConfigTab].filter((_, i) => i !== idx);
+                                setEditingPaths({
+                                  ...editingPaths,
+                                  [pathConfigTab]: list.map((l, i) => ({
+                                    ...l,
+                                    level: i + 1,
+                                    levelName: l.levelName.replace(/第\d+级/, `第${i + 1}级`),
+                                  })),
+                                });
+                              }}
+                              className="text-[#f56c6c] hover:bg-[#fef0f0] p-1 rounded cursor-pointer ml-1"
+                              title="移除此级"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* 节点名称 */}
+                        <div>
+                          <label className="block text-[11px] text-[#606266] font-medium mb-1">
+                            节点名称:
+                          </label>
+                          <input
+                            type="text"
+                            value={node.levelName}
+                            onChange={(e) => {
+                              const list = [...editingPaths[pathConfigTab]];
+                              list[idx].levelName = e.target.value;
+                              setEditingPaths({ ...editingPaths, [pathConfigTab]: list });
+                            }}
+                            placeholder="如: 第1级: 归口部门初审"
+                            className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#2F7BFE] outline-none text-xs bg-white font-medium"
+                          />
+                        </div>
+
+                        {/* 指定审批人 */}
+                        <div>
+                          <label className="block text-[11px] text-[#606266] font-medium mb-1">
+                            指定审批人 (选人/手工输入):
+                          </label>
+                          <PersonSelectField
+                            value={node.approverName}
+                            onChange={(val, person) => {
+                              const list = [...editingPaths[pathConfigTab]];
+                              list[idx].approverName = val;
+                              if (person) {
+                                list[idx].roleName = person.roleName || '审批人';
+                                list[idx].deptName = person.deptName || '综合管理部';
+                              }
+                              setEditingPaths({ ...editingPaths, [pathConfigTab]: list });
+                            }}
+                            placeholder="选择或输入审批人姓名..."
+                            modalTitle="指定审批人"
+                            modalDescription="支持手工输入中英文姓名或从组织架构部门挑选审批人"
+                            className="w-full text-xs"
+                            showToast={showToast}
+                          />
+                        </div>
+
+                        {/* 角色与部门 */}
+                        <div>
+                          <label className="block text-[11px] text-[#606266] font-medium mb-1">
+                            审批角色 · 所属部门:
+                          </label>
+                          <input
+                            type="text"
+                            value={`${node.roleName || '审批人'} · ${node.deptName || '部门'}`}
+                            onChange={(e) => {
+                              const parts = e.target.value.split('·');
+                              const list = [...editingPaths[pathConfigTab]];
+                              list[idx].roleName = parts[0]?.trim() || '';
+                              list[idx].deptName = parts[1]?.trim() || '';
+                              setEditingPaths({ ...editingPaths, [pathConfigTab]: list });
+                            }}
+                            placeholder="角色 · 部门"
+                            className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] focus:border-[#2F7BFE] outline-none text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add Level Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const list = editingPaths[pathConfigTab] || [];
+                  const nextLvl = list.length + 1;
+                  const newNode: ApprovalLevelConfig = {
+                    level: nextLvl,
+                    levelName: `第${nextLvl}级: 补充合规复审`,
+                    approverName: '陈静',
+                    roleName: '合规总监',
+                    deptName: '质量合规部',
+                  };
+                  setEditingPaths({
+                    ...editingPaths,
+                    [pathConfigTab]: [...list, newNode],
+                  });
+                }}
+                className="w-full py-2.5 rounded-xl border border-dashed border-[#b3d8ff] bg-[#ecf5ff]/40 hover:bg-[#ecf5ff] text-[#2F7BFE] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>添加下一级审批节点</span>
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 border-t border-[#ebeef5] bg-[#fafafa] flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const defaults = {
+                    sysDoc: [
+                      { level: 1, levelName: '第1级: 归口部门初审', approverName: '张明', roleName: '部门经理', deptName: '流程管理部' },
+                      { level: 2, levelName: '第2级: 质量合规复核', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部' },
+                      { level: 3, levelName: '第3级: 决策层终审签发', approverName: '刘建国', roleName: '副总裁', deptName: '决策委员会' },
+                    ],
+                    risk: [
+                      { level: 1, levelName: '第1级: 业务线风控员初核', approverName: '李合规', roleName: '风控专员', deptName: '研发管理中心' },
+                      { level: 2, levelName: '第2级: 质量合规部终审', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部' },
+                    ],
+                  };
+                  setEditingPaths(defaults);
+                  showToast('已重置为系统出厂标准审批路径', 'success');
+                }}
+                className="text-xs text-[#909399] hover:text-[#409eff] cursor-pointer"
+              >
+                恢复标准预设
+              </button>
+
+              <div className="flex items-center gap-2.5">
                 <button
                   type="button"
-                  onClick={() => handleSubmitAudit('approved')}
-                  className="h-8 px-4 rounded bg-[#67c23a] hover:bg-[#5daf34] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  onClick={() => setPathConfigModalOpen(false)}
+                  className="h-8 px-4 rounded border border-[#dcdfe6] bg-white text-xs text-[#606266] hover:bg-gray-50 cursor-pointer"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>确认审核通过 (准予生效)</span>
+                  取消
                 </button>
-              ) : (
                 <button
                   type="button"
-                  onClick={() => handleSubmitAudit('rejected')}
-                  className="h-8 px-4 rounded bg-[#f56c6c] hover:bg-[#e64242] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  onClick={handleSaveApprovalPaths}
+                  className="h-8 px-5 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-semibold cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
                 >
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>确认驳回修改</span>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>保存审批路径配置</span>
                 </button>
-              )}
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* ============================================================ */}
+      {/* 弹窗 3: 审批流转轨迹与详情弹窗 (auditTraceModal) */}
+      {/* ============================================================ */}
+      {auditTraceModal.open && auditTraceModal.item && (() => {
+        const item = auditTraceModal.item;
+        const flow: ApprovalLevelConfig[] = Array.isArray(item.approvalFlow) ? item.approvalFlow : [];
+        const isApproved = (item.status || 'approved') === 'approved';
+        const isRejected = item.status === 'rejected';
+
+        return (
+          <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl w-full max-w-lg flex flex-col shadow-2xl border border-[#ebeef5] overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[85vh]">
+              <div className="px-5 py-3.5 border-b border-[#ebeef5] bg-[#fafafa] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-md bg-[#ecf5ff] text-[#2F7BFE] flex items-center justify-center">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-bold text-[#1f2733]">多层级审批流转轨迹</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAuditTraceModal({ open: false, item: null })}
+                  className="text-[#909399] hover:text-[#1f2733] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
+                {/* File Header */}
+                <div className="bg-[#f8fafc] p-3 rounded-lg border border-[#e2e8f0] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[#909399] font-medium">{item.docNo || item.riskNo}</span>
+                    {isApproved ? (
+                      <span className="px-2 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[10px] font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>已全部审核通过</span>
+                      </span>
+                    ) : isRejected ? (
+                      <span className="px-2 py-0.5 rounded bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] text-[10px] font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>已驳回</span>
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold flex items-center gap-1">
+                        <Clock className="w-3 h-3 animate-pulse" />
+                        <span>多级审核中</span>
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="font-bold text-[#1f2733] text-sm">{item.label}</h4>
+                  <div className="text-[11px] text-[#606266] flex items-center gap-3 pt-1 border-t border-[#ebeef5]">
+                    <span>归属目录: <strong>{item.category || '根目录'}</strong></span>
+                    <span>发起责任人: <strong>{item.ownerName || '系统管理员'}</strong></span>
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                <div className="space-y-3 relative pl-3 before:absolute before:left-5 before:top-3 before:bottom-3 before:w-0.5 before:bg-[#e2e8f0]">
+                  {flow.map((node, i) => {
+                    const isNodeApproved = node.status === 'approved';
+                    const isNodePending = node.status === 'pending';
+                    const isNodeRejected = node.status === 'rejected';
+
+                    return (
+                      <div key={i} className="relative flex items-start gap-3">
+                        <span
+                          className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 z-10 ${
+                            isNodeApproved
+                              ? 'bg-[#67c23a] text-white shadow-xs'
+                              : isNodePending
+                              ? 'bg-[#2F7BFE] text-white ring-4 ring-blue-100'
+                              : isNodeRejected
+                              ? 'bg-[#f56c6c] text-white'
+                              : 'bg-gray-200 text-gray-500'
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+
+                        <div
+                          className={`flex-1 p-3 rounded-lg border text-xs space-y-1.5 ${
+                            isNodeApproved
+                              ? 'bg-[#f0f9eb]/60 border-[#e1f3d8]'
+                              : isNodePending
+                              ? 'bg-[#ecf5ff] border-[#b3d8ff] ring-1 ring-[#2F7BFE]/30'
+                              : isNodeRejected
+                              ? 'bg-[#fef0f0]/60 border-[#fde2e2]'
+                              : 'bg-white border-[#ebeef5]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-semibold">
+                            <span className="text-[#1f2733]">{node.levelName}</span>
+                            {isNodeApproved ? (
+                              <span className="text-[10px] text-[#67c23a] flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>审核通过</span>
+                              </span>
+                            ) : isNodePending ? (
+                              <span className="text-[10px] text-[#2F7BFE] flex items-center gap-1 font-bold">
+                                <Clock className="w-3 h-3 animate-pulse" />
+                                <span>当前待审</span>
+                              </span>
+                            ) : isNodeRejected ? (
+                              <span className="text-[10px] text-[#f56c6c] flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                <span>已驳回</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400">等待流转</span>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] text-[#606266] flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                            <span>指定审批人: <strong className="text-[#1f2733]">{node.approverName}</strong></span>
+                            <span>角色部门: {node.roleName} · {node.deptName}</span>
+                            {node.auditTime && (
+                              <span className="text-[#909399] font-mono">{node.auditTime}</span>
+                            )}
+                          </div>
+
+                          {node.auditRemark && (
+                            <div className="p-2 rounded bg-white/90 border border-gray-200 text-[11px] text-[#374151] leading-relaxed">
+                              <span className="font-medium text-[#1f2733]">审批意见：</span>
+                              {node.auditRemark}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="px-5 py-3 border-t border-[#ebeef5] bg-[#fafafa] flex items-center justify-between shrink-0">
+                <span className="text-[11px] text-[#909399]">
+                  全部通过后方可在查阅目录公开
+                </span>
+                <div className="flex items-center gap-2">
+                  {!isApproved && !isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = auditTraceModal.item;
+                        setAuditTraceModal({ open: false, item: null });
+                        handleOpenAudit(target);
+                      }}
+                      className="h-8 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-semibold cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5" />
+                      <span>执行审批</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setAuditTraceModal({ open: false, item: null })}
+                    className="h-8 px-4 rounded border border-[#dcdfe6] bg-white text-xs text-[#606266] hover:bg-gray-50 cursor-pointer"
+                  >
+                    关闭
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

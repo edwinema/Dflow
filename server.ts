@@ -724,6 +724,10 @@ const dictBundle: any = {
       ownerName: '质量合规部',
       status: 'approved',
       publishTime: '2026-03-10 14:20:00',
+      approvalFlow: [
+        { level: 1, levelName: '第1级: 业务线风控员初核', approverName: '李合规', roleName: '风控专员', deptName: '研发管理中心', status: 'approved', auditTime: '2026-03-09 10:30:00', auditRemark: '初审通过，风控指标与TR评审标准对齐' },
+        { level: 2, levelName: '第2级: 质量合规部终审', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部', status: 'approved', auditTime: '2026-03-10 14:15:00', auditRemark: '终审批准发布' },
+      ],
     },
     {
       id: 'risk_02',
@@ -736,6 +740,27 @@ const dictBundle: any = {
       ownerName: '财务部',
       status: 'approved',
       publishTime: '2026-03-12 09:45:00',
+      approvalFlow: [
+        { level: 1, levelName: '第1级: 业务线风控员初核', approverName: '李合规', roleName: '风控专员', deptName: '研发管理中心', status: 'approved', auditTime: '2026-03-11 16:00:00', auditRemark: '账期预警指标合理' },
+        { level: 2, levelName: '第2级: 质量合规部终审', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部', status: 'approved', auditTime: '2026-03-12 09:30:00', auditRemark: '终审同意入库发布' },
+      ],
+    },
+    {
+      id: 'risk_pending_01',
+      folderId: 'risk_dir_rd',
+      riskNo: 'RSK-RD-2026-03',
+      label: '芯片EDA仿真工具版本不兼容合规风险',
+      target: 'EDA工具链统一纳管率100%',
+      category: '02 研发与技术管理制度',
+      riskLevel: '高',
+      ownerName: '软件架构师',
+      status: 'pending',
+      currentLevel: 1,
+      publishTime: '2026-04-01 14:10:00',
+      approvalFlow: [
+        { level: 1, levelName: '第1级: 业务线风控员初核', approverName: '李合规', roleName: '风控专员', deptName: '研发管理中心', status: 'pending', auditTime: '', auditRemark: '' },
+        { level: 2, levelName: '第2级: 质量合规部终审', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部', status: 'waiting', auditTime: '', auditRemark: '' },
+      ],
     },
   ],
   rights: [
@@ -743,6 +768,47 @@ const dictBundle: any = {
     { id: 'qz_02', rightNo: 'AUTH-2026-02', label: '晶圆制造流片签署权', level: '高管级审批' },
   ],
   sysDoc: [
+    {
+      id: 'doc_pending_01',
+      folderId: 'doc_dir_qual',
+      docNo: 'ZD-QMS-2026-05',
+      label: '2026全元质量内控红线与审计审查条例.docx',
+      category: '04 质量与流程合规制度',
+      versionNo: 'V1.0',
+      fileSize: '2.1 MB',
+      ownerName: '质量合规部',
+      status: 'pending',
+      currentLevel: 1,
+      publishTime: '2026-04-01 11:20:00',
+      validityPeriod: '2026-04-01 至 2029-03-31',
+      fileType: 'word',
+      approvalFlow: [
+        {
+          level: 1,
+          levelName: '第1级: 归口部门初审',
+          approverName: '张明',
+          roleName: '部门经理',
+          deptName: '流程管理部',
+          status: 'pending',
+        },
+        {
+          level: 2,
+          levelName: '第2级: 质量合规复核',
+          approverName: '陈静',
+          roleName: '合规总监',
+          deptName: '质量合规部',
+          status: 'waiting',
+        },
+        {
+          level: 3,
+          levelName: '第3级: 决策层终审签发',
+          approverName: '刘建国',
+          roleName: '副总裁',
+          deptName: '决策委员会',
+          status: 'waiting',
+        },
+      ],
+    },
     {
       id: 'doc_01',
       folderId: 'doc_dir_mkt',
@@ -763,6 +829,11 @@ const dictBundle: any = {
       reviewerUser: '李合规 (审计专员)',
       approverUser: '王副总 (分管副总裁)',
       securityLevel: '内部受限(工作秘密)',
+      approvalFlow: [
+        { level: 1, levelName: '第1级: 归口部门初审', approverName: '张明', roleName: '部门主管', deptName: '流程管理部', status: 'approved', auditTime: '2026-03-16 11:20:00', auditRemark: '初审通过，商务条款清晰' },
+        { level: 2, levelName: '第2级: 质量合规复核', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部', status: 'approved', auditTime: '2026-03-17 09:15:00', auditRemark: '复核通过，符合内控标准' },
+        { level: 3, levelName: '第3级: 决策层终审签发', approverName: '刘建国', roleName: '副总裁', deptName: '决策委员会', status: 'approved', auditTime: '2026-03-17 15:30:00', auditRemark: '准予正式发文并在全员查阅目录展示' },
+      ],
     },
     {
       id: 'doc_02',
@@ -4006,16 +4077,110 @@ app.post('/api/dict/tree', (req, res) => {
   res.json({ status: 1, info: 'ok' });
 });
 
+// 制度文件与风险合规的多层级审批路径全局配置
+const defaultApprovalPathConfigStore = {
+  sysDoc: [
+    {
+      level: 1,
+      levelName: '第1级: 归口部门初审',
+      approverName: '张明',
+      roleName: '部门经理',
+      deptName: '流程管理部',
+    },
+    {
+      level: 2,
+      levelName: '第2级: 质量合规复核',
+      approverName: '陈静',
+      roleName: '合规总监',
+      deptName: '质量合规部',
+    },
+    {
+      level: 3,
+      levelName: '第3级: 决策层终审签发',
+      approverName: '刘建国',
+      roleName: '副总裁',
+      deptName: '决策委员会',
+    },
+  ],
+  risk: [
+    {
+      level: 1,
+      levelName: '第1级: 业务线风控员初核',
+      approverName: '李合规',
+      roleName: '风控专员',
+      deptName: '研发管理中心',
+    },
+    {
+      level: 2,
+      levelName: '第2级: 质量合规部终审',
+      approverName: '陈静',
+      roleName: '合规总监',
+      deptName: '质量合规部',
+    },
+  ],
+};
+
+let approvalPathConfigStore: any = JSON.parse(JSON.stringify(defaultApprovalPathConfigStore));
+
+// 获取审批路径配置
+app.get('/api/dict/approval-path', (_req, res) => {
+  res.json({
+    status: 1,
+    data: approvalPathConfigStore,
+    info: 'ok',
+  });
+});
+
+// 保存审批路径配置
+app.post('/api/dict/approval-path', (req, res) => {
+  const { type, paths, sysDoc, risk } = req.body || {};
+  if (type && Array.isArray(paths)) {
+    if (type === 'sysDoc' || type === 'risk') {
+      approvalPathConfigStore[type] = paths;
+    }
+  }
+  if (Array.isArray(sysDoc)) {
+    approvalPathConfigStore.sysDoc = sysDoc;
+  }
+  if (Array.isArray(risk)) {
+    approvalPathConfigStore.risk = risk;
+  }
+  res.json({
+    status: 1,
+    data: approvalPathConfigStore,
+    info: '审批路径配置已更新并生效',
+  });
+});
+
 app.post('/api/dict/item', (req, res) => {
-  const { itemType, action, item, id, auditor, auditRemark } = req.body || {};
+  const { itemType, action, item, id, auditor, auditRemark, decisionOverride } = req.body || {};
   const list = itemType === 'risk' ? dictBundle.risk : dictBundle.sysDoc;
   const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
   if (action === 'create' && item) {
+    const defaultTemplate = (itemType === 'risk' ? approvalPathConfigStore.risk : approvalPathConfigStore.sysDoc) || [];
+    const sourceFlow = Array.isArray(item.approvalFlow) && item.approvalFlow.length > 0
+      ? item.approvalFlow
+      : defaultTemplate;
+
+    const approvalFlow = sourceFlow.map((node: any, idx: number) => ({
+      level: idx + 1,
+      levelName: node.levelName || `第${idx + 1}级: 节点初审`,
+      approverName: node.approverName || '流程合规审核员',
+      roleName: node.roleName || '审批人',
+      deptName: node.deptName || '综合管理部',
+      status: idx === 0 ? 'pending' : 'waiting',
+      auditor: '',
+      auditRemark: '',
+      auditTime: '',
+    }));
+
     const newItem = {
       ...item,
       id: `${itemType || 'doc'}_${Date.now().toString(36)}`,
       status: item.status || 'pending',
+      currentLevel: 1,
+      approvalFlow,
       applyTime: nowStr,
       validityPeriod: item.validityPeriod || '2026-03-17 至 2029-03-16 (长期有效)',
       publishTime: item.publishTime || nowStr,
@@ -4023,13 +4188,27 @@ app.post('/api/dict/item', (req, res) => {
     list.unshift(newItem);
     return res.json({ status: 1, data: newItem, bundle: dictBundle, info: 'ok' });
   }
+
   if (action === 'update' && item && item.id) {
     const idx = list.findIndex((x: any) => x.id === item.id);
     if (idx >= 0) {
+      // If updating an item and restarting approval flow
+      if (item.resubmitApproval && Array.isArray(list[idx].approvalFlow)) {
+        list[idx].approvalFlow = list[idx].approvalFlow.map((lvl: any, i: number) => ({
+          ...lvl,
+          status: i === 0 ? 'pending' : 'waiting',
+          auditor: '',
+          auditRemark: '',
+          auditTime: '',
+        }));
+        item.status = 'pending';
+        item.currentLevel = 1;
+      }
       list[idx] = { ...list[idx], ...item };
       return res.json({ status: 1, data: list[idx], bundle: dictBundle, info: 'ok' });
     }
   }
+
   if (action === 'delete' && id) {
     const idx = list.findIndex((x: any) => x.id === id);
     if (idx >= 0) {
@@ -4037,19 +4216,63 @@ app.post('/api/dict/item', (req, res) => {
       return res.json({ status: 1, data: removed[0], bundle: dictBundle, info: 'ok' });
     }
   }
+
   if (action === 'approve' && id) {
     const target = list.find((x: any) => x.id === id);
     if (target) {
-      target.status = 'approved';
-      target.auditTime = nowStr;
-      target.auditor = auditor || '流程合规审核员';
-      target.auditRemark = auditRemark || '审批通过，已准予在查阅目录发布生效';
+      if (Array.isArray(target.approvalFlow) && target.approvalFlow.length > 0) {
+        const curIdx = target.approvalFlow.findIndex((n: any) => n.status === 'pending');
+        if (curIdx >= 0) {
+          const curLevel = target.approvalFlow[curIdx];
+          curLevel.status = 'approved';
+          curLevel.auditor = auditor || curLevel.approverName || '流程合规审核员';
+          curLevel.auditRemark = auditRemark || '审批通过，准予进入下一层级复审';
+          curLevel.auditTime = nowStr;
+
+          // Check if there is a next level
+          if (curIdx + 1 < target.approvalFlow.length) {
+            const nextLevel = target.approvalFlow[curIdx + 1];
+            nextLevel.status = 'pending';
+            target.currentLevel = nextLevel.level;
+            target.status = 'pending'; // Still pending next level
+            target.lastAuditRemark = curLevel.auditRemark;
+            target.auditTime = nowStr;
+          } else {
+            // All levels approved! Officially published!
+            target.status = 'approved';
+            target.auditTime = nowStr;
+            target.auditor = auditor || curLevel.approverName;
+            target.auditRemark = auditRemark || '多层级审批全部通过，已正式生效并在查阅目录发布';
+          }
+        } else {
+          target.status = 'approved';
+          target.auditTime = nowStr;
+          target.auditor = auditor || '流程合规审核员';
+          target.auditRemark = auditRemark || '审批通过，已准予在查阅目录发布生效';
+        }
+      } else {
+        target.status = 'approved';
+        target.auditTime = nowStr;
+        target.auditor = auditor || '流程合规审核员';
+        target.auditRemark = auditRemark || '审批通过，已准予在查阅目录发布生效';
+      }
     }
     return res.json({ status: 1, data: target, bundle: dictBundle, info: 'ok' });
   }
+
   if (action === 'reject' && id) {
     const target = list.find((x: any) => x.id === id);
     if (target) {
+      if (Array.isArray(target.approvalFlow) && target.approvalFlow.length > 0) {
+        const curIdx = target.approvalFlow.findIndex((n: any) => n.status === 'pending');
+        if (curIdx >= 0) {
+          const curLevel = target.approvalFlow[curIdx];
+          curLevel.status = 'rejected';
+          curLevel.auditor = auditor || curLevel.approverName || '流程合规审核员';
+          curLevel.auditRemark = auditRemark || '审批驳回，请按合规意见补充完善后重新提交';
+          curLevel.auditTime = nowStr;
+        }
+      }
       target.status = 'rejected';
       target.auditTime = nowStr;
       target.auditor = auditor || '流程合规审核员';
@@ -4057,6 +4280,24 @@ app.post('/api/dict/item', (req, res) => {
     }
     return res.json({ status: 1, data: target, bundle: dictBundle, info: 'ok' });
   }
+
+  if (action === 'resubmit' && id) {
+    const target = list.find((x: any) => x.id === id);
+    if (target && Array.isArray(target.approvalFlow)) {
+      target.approvalFlow = target.approvalFlow.map((lvl: any, i: number) => ({
+        ...lvl,
+        status: i === 0 ? 'pending' : 'waiting',
+        auditor: '',
+        auditRemark: '',
+        auditTime: '',
+      }));
+      target.status = 'pending';
+      target.currentLevel = 1;
+      target.applyTime = nowStr;
+      return res.json({ status: 1, data: target, bundle: dictBundle, info: '已重新送审' });
+    }
+  }
+
   res.json({ status: 1, bundle: dictBundle, info: 'ok' });
 });
 
