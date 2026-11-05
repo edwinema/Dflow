@@ -2687,6 +2687,17 @@ app.put('/api/flow/model/full', (req, res) => {
   res.json({ status: 1, data: found, info: 'ok' });
 });
 
+app.put('/api/flow/model', (req, res) => {
+  const { id, label, ...rest } = req.body;
+  const found = flows.find((f) => f.id === id);
+  if (found) {
+    if (label !== undefined) found.label = label;
+    Object.assign(found, rest);
+    return res.json({ status: 1, data: found, info: 'ok' });
+  }
+  res.status(404).json({ status: 0, info: '流程未找到' });
+});
+
 app.post('/api/flow/model', (req, res) => {
   const { parentId, label, flowNo, xml, flowLevel, ownerName, versionNo, description } = req.body;
   const parentArch = archTypes.find((a) => a.id === parentId) || archTypes[0];

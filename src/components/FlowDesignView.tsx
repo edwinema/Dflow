@@ -2056,6 +2056,20 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                     <button
                       onClick={() => {
                         setOpenMenuId(null);
+                        setNameModal({
+                          open: true,
+                          mode: 'renameFlow',
+                          targetId: fl.id,
+                          value: fl.label,
+                        });
+                      }}
+                      className="w-full px-3.5 py-1.5 text-left hover:bg-[#ecf5ff] hover:text-[#409eff] cursor-pointer"
+                    >
+                      重命名
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOpenMenuId(null);
                         setChangeArchModal({
                           open: true,
                           targetType: 'flow',
