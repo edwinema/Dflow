@@ -35,8 +35,8 @@ const archTypes: any[] = [
     level: 'L0',
     archNo: 'ARCH-CORP-000',
     businessScope: '全公司各业务领域及全职能中心主干流程全景',
-    applicableScope: '集团总部、苏州全源数字科技有限公司、各中心事业部',
-    adaptScope: '集团总部、苏州全源数字科技有限公司、各中心事业部',
+    applicableScope: '集团总部、苏州全元数字科技有限公司、各中心事业部',
+    adaptScope: '集团总部、苏州全元数字科技有限公司、各中心事业部',
     ownerName: '系统管理员 (E0004)',
     deptName: '运营管理部',
     prevArch: '',
@@ -507,7 +507,7 @@ const flows: any[] = [
   {
     id: 'flow_zs_001',
     parentId: 'arch_req_1',
-    archName: '苏州全源数字科技有限公司/研发中心/产品工程',
+    archName: '苏州全元数字科技有限公司/研发中心/产品工程',
     label: '6.2.1.3 产品架构规格评审流程',
     flowNo: 'RD-REQ-008',
     ownerName: '张三',
@@ -529,7 +529,7 @@ const flows: any[] = [
   {
     id: 'flow_cr_009',
     parentId: 'arch_req_1',
-    archName: '苏州全源数字科技有限公司/研发中心/需求管理',
+    archName: '苏州全元数字科技有限公司/研发中心/需求管理',
     label: '6.3.5.1 需求变更申请',
     flowNo: 'CR-009',
     ownerName: '流程管理员(Emp001)',
@@ -552,7 +552,7 @@ const flows: any[] = [
   {
     id: 'flow_leads_002',
     parentId: 'arch_ltc_1',
-    archName: '苏州全源数字科技有限公司/市场营销部/线索管理',
+    archName: '苏州全元数字科技有限公司/市场营销部/线索管理',
     label: '3.1.1.1 线索管理流程',
     flowNo: 'leads-crm-002',
     ownerName: '流程管理员(Emp001)',
@@ -575,7 +575,7 @@ const flows: any[] = [
   {
     id: 'flow_101',
     parentId: 'arch_ipd_2',
-    archName: '苏州全源数字科技有限公司/研发中心/计划阶段',
+    archName: '苏州全元数字科技有限公司/研发中心/计划阶段',
     label: '1.1.2.1 技术评审主流程',
     flowNo: 'IPD-TR-001',
     ownerName: '系统管理员',
@@ -840,7 +840,7 @@ let currentActiveUser: any = {
   roleLabel: '流程管理员',
   jobTitle: '经理',
   deptName: '流程管理部',
-  companyName: '苏州全源数字科技有限公司',
+  companyName: '苏州全元数字科技有限公司',
   empNo: 'E0001',
 };
 
@@ -1113,7 +1113,7 @@ const flowRepealRecords: any[] = [
     versionNo: 'V2',
     flowLevel: 'L3',
     archId: 'arch_req_1',
-    archPath: '苏州全源数字科技有限公司/研发中心/产品工程',
+    archPath: '苏州全元数字科技有限公司/研发中心/产品工程',
     ownerName: '张三',
     reasonType: '组织架构优化变更',
     reason: '研发体系推行敏捷流片试点，原单体架构评审合并入系统工程评审委员会统筹规范。',
@@ -1284,20 +1284,20 @@ const dutyTables: any[] = [
 ];
 
 const initialOrgDepts: any[] = [
-  { id: 'dept_01', deptName: '系统管理部', deptCode: '0010', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '系统管理员', phone: '010-880010', status: '0', orderNum: 1, createTime: '2024-03-15 09:30:00' },
-  { id: 'dept_02', deptName: '流程管理部', deptCode: '0020', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '流程推进官', phone: '010-880020', status: '0', orderNum: 2, createTime: '2024-03-15 09:35:00' },
-  { id: 'dept_03', deptName: '权责管理部', deptCode: '0030', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '权责合规官', phone: '010-880030', status: '0', orderNum: 3, createTime: '2024-03-15 09:40:00' },
-  { id: 'dept_04', deptName: '知识管理部', deptCode: '0040', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '知识管理员', phone: '010-880040', status: '0', orderNum: 4, createTime: '2024-03-15 09:45:00' },
-  { id: 'dept_05', deptName: '研发管理中心', deptCode: '0050', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '研发总监', phone: '010-880050', status: '0', orderNum: 5, createTime: '2024-03-15 09:50:00' },
+  { id: 'dept_01', deptName: '系统管理部', deptCode: '0010', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '系统管理员', phone: '010-880010', status: '0', orderNum: 1, createTime: '2024-03-15 09:30:00' },
+  { id: 'dept_02', deptName: '流程管理部', deptCode: '0020', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '流程推进官', phone: '010-880020', status: '0', orderNum: 2, createTime: '2024-03-15 09:35:00' },
+  { id: 'dept_03', deptName: '权责管理部', deptCode: '0030', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '权责合规官', phone: '010-880030', status: '0', orderNum: 3, createTime: '2024-03-15 09:40:00' },
+  { id: 'dept_04', deptName: '知识管理部', deptCode: '0040', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '知识管理员', phone: '010-880040', status: '0', orderNum: 4, createTime: '2024-03-15 09:45:00' },
+  { id: 'dept_05', deptName: '研发管理中心', deptCode: '0050', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '研发总监', phone: '010-880050', status: '0', orderNum: 5, createTime: '2024-03-15 09:50:00' },
   { id: 'dept_06', deptName: '结构开发部', deptCode: '0041', parentDeptName: '研发管理中心', parentDeptCode: '0050', leader: '结构主管', phone: '010-880041', status: '0', orderNum: 6, createTime: '2024-03-15 10:00:00' },
   { id: 'dept_07', deptName: '软件开发部', deptCode: '0042', parentDeptName: '研发管理中心', parentDeptCode: '0050', leader: '技术主管', phone: '010-880042', status: '0', orderNum: 7, createTime: '2024-03-15 10:05:00' },
   { id: 'dept_08', deptName: '电气开发部', deptCode: '0043', parentDeptName: '研发管理中心', parentDeptCode: '0050', leader: '电气专家', phone: '010-880043', status: '0', orderNum: 8, createTime: '2024-03-15 10:10:00' },
   { id: 'dept_09', deptName: '项目管理部', deptCode: '0044', parentDeptName: '研发管理中心', parentDeptCode: '0050', leader: 'PMO经理', phone: '010-880044', status: '0', orderNum: 9, createTime: '2024-03-15 10:15:00' },
-  { id: 'dept_10', deptName: 'TZ测试部门', deptCode: 'TZ1', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '测试经理', phone: '010-880091', status: '0', orderNum: 10, createTime: '2024-03-15 10:20:00' },
+  { id: 'dept_10', deptName: 'TZ测试部门', deptCode: 'TZ1', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '测试经理', phone: '010-880091', status: '0', orderNum: 10, createTime: '2024-03-15 10:20:00' },
   { id: 'dept_11', deptName: 'TZ测试1部', deptCode: 'TZ11', parentDeptName: 'TZ测试部门', parentDeptCode: 'TZ1', leader: '测试组长', phone: '010-880092', status: '0', orderNum: 11, createTime: '2024-03-15 10:25:00' },
-  { id: 'dept_risk', deptName: '法律合规与内控部', deptCode: '0035', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '王合规', phone: '010-880035', status: '0', orderNum: 12, createTime: '2024-03-15 10:30:00' },
-  { id: 'dept_audit', deptName: '集团审计监察部', deptCode: '0070', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '钱审计', phone: '010-880070', status: '0', orderNum: 13, createTime: '2024-03-15 10:35:00' },
-  { id: 'dept_mkt', deptName: '市场营销中心', deptCode: '0060', parentDeptName: '苏州全源数字科技有限公司', parentDeptCode: '', leader: '赵业务', phone: '010-880060', status: '0', orderNum: 14, createTime: '2024-03-15 10:40:00' },
+  { id: 'dept_risk', deptName: '法律合规与内控部', deptCode: '0035', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '王合规', phone: '010-880035', status: '0', orderNum: 12, createTime: '2024-03-15 10:30:00' },
+  { id: 'dept_audit', deptName: '集团审计监察部', deptCode: '0070', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '钱审计', phone: '010-880070', status: '0', orderNum: 13, createTime: '2024-03-15 10:35:00' },
+  { id: 'dept_mkt', deptName: '市场营销中心', deptCode: '0060', parentDeptName: '苏州全元数字科技有限公司', parentDeptCode: '', leader: '赵业务', phone: '010-880060', status: '0', orderNum: 14, createTime: '2024-03-15 10:40:00' },
 ];
 
 let orgDepts: any[] = JSON.parse(JSON.stringify(initialOrgDepts));
@@ -1700,7 +1700,7 @@ const initialOrgUsers: any[] = [
 let orgUsers: any[] = JSON.parse(JSON.stringify(initialOrgUsers));
 
 let companyAuthData: any = {
-  companyName: '苏州全源数字科技有限公司',
+  companyName: '苏州全元数字科技有限公司',
   companyStatus: '正常生效中',
   createTime: '2023-03-29 20:41:05',
   expireTime: '2030-09-11 07:14:06',
@@ -1730,7 +1730,7 @@ let companyAuthData: any = {
     issuedDate: '2023-03-29 20:41:05',
     expireDate: '2030-09-11 07:14:06',
     maxConcurrentSessions: 50,
-    authorizedCompany: '苏州全源数字科技有限公司',
+    authorizedCompany: '苏州全元数字科技有限公司',
     hardwareBindingMode: 'NODE_LOCKED_STRICT',
     hardwareVerified: true,
     hardwareVerificationStatus: '硬件特征码校验通过，绑定生效中',
@@ -1757,7 +1757,7 @@ let companyAuthData: any = {
         id: 'log_01',
         time: '2023-03-29 20:41:05',
         event: '系统初始化硬件绑定商业授权',
-        companyName: '苏州全源数字科技有限公司',
+        companyName: '苏州全元数字科技有限公司',
         machineCode: 'HW-UUID-88A9-4B2E-99F1-017E54',
         operator: '系统管理员 (SuperAdmin)',
         status: '成功',
@@ -2494,7 +2494,7 @@ app.post('/api/session', (req, res) => {
         roleLabel: (found.roleNames && found.roleNames[0]) || '流程管理员',
         jobTitle: found.positionName || '高级流程经理',
         deptName: found.deptName || '流程管理部',
-        companyName: companyAuthData?.companyName || '苏州全源数字科技有限公司',
+        companyName: companyAuthData?.companyName || '苏州全元数字科技有限公司',
       };
     } else {
       currentActiveUser = {
@@ -2504,7 +2504,7 @@ app.post('/api/session', (req, res) => {
         roleLabel: '流程管理员',
         jobTitle: '经理',
         deptName: '流程管理部',
-        companyName: companyAuthData?.companyName || '苏州全源数字科技有限公司',
+        companyName: companyAuthData?.companyName || '苏州全元数字科技有限公司',
       };
     }
   }
@@ -2522,7 +2522,7 @@ app.post('/api/app/site/logout', (_req, res) => {
 
 // Flow & Architecture APIs
 const ensureRootArch = () => {
-  const currentComp = companyAuthData?.companyName || '苏州全源数字科技有限公司';
+  const currentComp = companyAuthData?.companyName || '苏州全元数字科技有限公司';
   if (!archTypes || archTypes.length === 0 || !archTypes.some((a) => !a.parentId || a.id === 'arch_root')) {
     archTypes.unshift({
       id: 'arch_root',
@@ -3378,7 +3378,7 @@ app.get('/api/flow/attachment/download', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
   res.setHeader('Content-Type', 'application/octet-stream');
 
-  const content = `全源流程资产管理平台 - 流程相关附件文件\n附件名称: ${filename}\n附件编号: ${found.attNo || 'FJ-2026-01'}\n业务分类: ${found.category || '相关附件'}\n上传时间: ${found.publishTime || '2026-03-20'}\n\n【正式发文附件】\n苏州全源数字科技有限公司 业务流程执行参考材料。`;
+  const content = `全源流程资产管理平台 - 流程相关附件文件\n附件名称: ${filename}\n附件编号: ${found.attNo || 'FJ-2026-01'}\n业务分类: ${found.category || '相关附件'}\n上传时间: ${found.publishTime || '2026-03-20'}\n\n【正式发文附件】\n苏州全元数字科技有限公司 业务流程执行参考材料。`;
   res.send(content);
 });
 
@@ -5340,7 +5340,7 @@ app.get('/api/org/bundle', (_req, res) => {
   res.json({
     status: 1,
     data: {
-      companyName: companyAuthData?.companyName || '苏州全源数字科技有限公司',
+      companyName: companyAuthData?.companyName || '苏州全元数字科技有限公司',
       depts: orgDepts,
       users: orgUsers,
       roles: orgRoles,
@@ -5471,7 +5471,7 @@ app.post('/api/org/depts/import', (req, res) => {
 });
 
 app.post('/api/org/depts/reset', (_req, res) => {
-  const currentComp = companyAuthData?.companyName || '苏州全源数字科技有限公司';
+  const currentComp = companyAuthData?.companyName || '苏州全元数字科技有限公司';
   orgDepts = JSON.parse(JSON.stringify(initialOrgDepts)).map((d: any) => {
     if (!d.parentDeptCode) {
       d.parentDeptName = currentComp;
@@ -6554,7 +6554,7 @@ app.get('/api/system/license', (_req, res) => {
 // 生成对应硬件特征码与公司名的标准授权码 (测试与离线激活辅助)
 app.post('/api/system/license/generate-code', (req, res) => {
   const { companyName, machineCode, edition = '企业旗舰版 (Enterprise)' } = req.body || {};
-  const targetCompany = (companyName || companyAuthData.companyName || '苏州全源数字科技有限公司').trim();
+  const targetCompany = (companyName || companyAuthData.companyName || '苏州全元数字科技有限公司').trim();
   const targetHw = (machineCode || companyAuthData.license?.machineCode || 'HW-UUID-88A9-4B2E-99F1-017E54').trim();
 
   // 简易但结构严密的特征签名算法
@@ -6607,7 +6607,7 @@ app.post('/api/system/license/activate', (req, res) => {
   }
 
   const cleanKey = licenseKey.trim();
-  const targetCompanyName = (companyName || companyAuthData.companyName || '苏州全源数字科技有限公司').trim();
+  const targetCompanyName = (companyName || companyAuthData.companyName || '苏州全元数字科技有限公司').trim();
   const oldCompanyName = companyAuthData.companyName;
 
   // 1. 更新公司名称（支持变更并联动全系统）

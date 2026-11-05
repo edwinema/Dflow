@@ -91,7 +91,7 @@ export default function App() {
     userName: '流程管理员',
     jobTitle: '经理',
     deptName: '流程管理部',
-    companyName: '苏州全源数字科技有限公司',
+    companyName: '苏州全元数字科技有限公司',
   });
 
   useEffect(() => {
@@ -664,7 +664,7 @@ export default function App() {
                     {currentUser.jobTitle || '经理'} · {currentUser.deptName || '流程管理部'}
                   </div>
                   <div className="text-[10.5px] text-[#2F7BFE] mt-0.5 truncate font-medium">
-                    {currentUser.companyName || '苏州全源数字科技有限公司'}
+                    {currentUser.companyName || '苏州全元数字科技有限公司'}
                   </div>
                 </div>
                 <div className="px-3 py-2 border-b border-[#F0F2F5] bg-[#f9fafc]">

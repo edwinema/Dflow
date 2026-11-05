@@ -53,7 +53,7 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
 
   // License Update Modal states
   const [activateModalOpen, setActivateModalOpen] = useState(false);
-  const [targetCompanyName, setTargetCompanyName] = useState('苏州全源数字科技有限公司');
+  const [targetCompanyName, setTargetCompanyName] = useState('苏州全元数字科技有限公司');
   const [targetMachineCode, setTargetMachineCode] = useState('HW-UUID-88A9-4B2E-99F1-017E54');
   const [licenseKeyInput, setLicenseKeyInput] = useState('DFLOW-ENTP-2026-HW88A9-99F1-A89E-7821');
   const [selectedEdition, setSelectedEdition] = useState('企业旗舰版 (Enterprise)');
@@ -78,7 +78,7 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
         setLoginTitleSuffix(json.data.loginTitleSuffix || '数字化流程设计与运营系统');
         setCopyrightText(json.data.copyrightText || 'Copyright © 2026 全源数字科技版权所有');
         setWatermarkEnabled(Boolean(json.data.watermarkEnabled));
-        setTargetCompanyName(json.data.companyName || '苏州全源数字科技有限公司');
+        setTargetCompanyName(json.data.companyName || '苏州全元数字科技有限公司');
         if (json.data.license?.machineCode) {
           setTargetMachineCode(json.data.license.machineCode);
         }
@@ -272,7 +272,7 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
   };
 
   const comp = companyData || {
-    companyName: '苏州全源数字科技有限公司',
+    companyName: '苏州全元数字科技有限公司',
     companyStatus: '正常生效中',
     createTime: '2023-03-29 20:41:05',
     expireTime: '2030-09-11 07:14:06',
@@ -359,7 +359,7 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
         <button
           type="button"
           onClick={() => {
-            setTargetCompanyName(comp.companyName || '苏州全源数字科技有限公司');
+            setTargetCompanyName(comp.companyName || '苏州全元数字科技有限公司');
             setActivateModalOpen(true);
           }}
           className="mb-2 h-7 px-3 rounded bg-[#ECF5FF] hover:bg-[#409eff] hover:text-white border border-[#B3D8FF] text-xs text-[#409eff] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -756,7 +756,7 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setTargetCompanyName(comp.companyName || '苏州全源数字科技有限公司');
+                    setTargetCompanyName(comp.companyName || '苏州全元数字科技有限公司');
                     setActivateModalOpen(true);
                   }}
                   className="h-9 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
@@ -956,7 +956,7 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
                   type="text"
                   value={targetCompanyName}
                   onChange={(e) => setTargetCompanyName(e.target.value)}
-                  placeholder="如：苏州全源数字科技有限公司"
+                  placeholder="如：苏州全元数字科技有限公司"
                   className="w-full h-8 px-3 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] outline-none text-xs text-[#303133]"
                 />
                 <div className="text-[11px] text-[#909399]">

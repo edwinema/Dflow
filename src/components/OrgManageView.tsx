@@ -76,7 +76,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'org' | 'post' | 'job'>('org');
 
   // Shared Org Data
-  const [companyName, setCompanyName] = useState<string>('苏州全源数字科技有限公司');
+  const [companyName, setCompanyName] = useState<string>('苏州全元数字科技有限公司');
   const [depts, setDepts] = useState<any[]>([]);
   const [positions, setPositions] = useState<any[]>([]);
   const [jobTitles, setJobTitles] = useState<any[]>([]);
