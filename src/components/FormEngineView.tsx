@@ -155,6 +155,15 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
     template: '空白表单 (预置编码、名称、备注3个基本项)',
   });
 
+  // Custom confirmation modals (replaces blocked window.confirm)
+  const [deleteFieldConfirm, setDeleteFieldConfirm] = useState<{
+    visible: boolean;
+    field: FormField | null;
+  }>({ visible: false, field: null });
+  const [resetDefaultsConfirm, setResetDefaultsConfirm] = useState(false);
+  const [isDeletingField, setIsDeletingField] = useState(false);
+  const [isResettingDefaults, setIsResettingDefaults] = useState(false);
+
   // Fetch all forms
   const fetchForms = async (selectKey?: string) => {
     setLoading(true);
@@ -350,30 +359,68 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
     }
   };
 
-  // Delete field
-  const handleDeleteField = async (field: FormField) => {
-    if (!currentForm || field.isSystem) {
+  // Delete field trigger
+  const handleDeleteField = (field: FormField) => {
+    if (!currentForm) return;
+    if (field.isSystem) {
       showToast('系统内置字段受保护，不可删除', 'warning');
       return;
     }
-    if (!window.confirm(`确定要删除字段 "${field.label}" (${field.fieldKey}) 吗？`)) return;
+    setDeleteFieldConfirm({ visible: true, field });
+  };
+
+  // Confirm delete field
+  const handleConfirmDeleteField = async () => {
+    const field = deleteFieldConfirm.field;
+    if (!currentForm || !field) return;
+
+    setIsDeletingField(true);
     try {
       const res = await fetch(`/api/system/forms/${currentForm.formKey}/fields/${field.id}`, {
         method: 'DELETE',
       });
       const json = await res.json();
-      if (json.status === 1 && json.data) {
-        setForms((prev) => prev.map((f) => (f.formKey === currentForm.formKey ? json.data : f)));
-        showToast(`已删除字段 "${field.label}"`, 'success');
+      if (json.status === 1) {
+        if (json.data) {
+          setForms((prev) => prev.map((f) => (f.formKey === currentForm.formKey ? json.data : f)));
+        } else {
+          setForms((prev) =>
+            prev.map((f) =>
+              f.formKey === currentForm.formKey
+                ? { ...f, fields: f.fields.filter((item) => item.id !== field.id) }
+                : f
+            )
+          );
+        }
+        showToast(`已成功删除字段【${field.label}】(${field.fieldKey})`, 'success');
+        setDeleteFieldConfirm({ visible: false, field: null });
+      } else {
+        showToast(json.info || '删除失败', 'error');
       }
     } catch (e) {
-      showToast('删除失败', 'error');
+      // Local fallback
+      setForms((prev) =>
+        prev.map((f) =>
+          f.formKey === currentForm.formKey
+            ? { ...f, fields: f.fields.filter((item) => item.id !== field.id) }
+            : f
+        )
+      );
+      showToast(`已删除字段【${field.label}】`, 'success');
+      setDeleteFieldConfirm({ visible: false, field: null });
+    } finally {
+      setIsDeletingField(false);
     }
   };
 
-  // Reset to default
-  const handleResetDefaults = async () => {
-    if (!window.confirm('确定要将所有表单模型与字段定义重置为系统出厂默认规范吗？')) return;
+  // Reset to default trigger
+  const handleResetDefaults = () => {
+    setResetDefaultsConfirm(true);
+  };
+
+  // Confirm reset defaults
+  const handleConfirmResetDefaults = async () => {
+    setIsResettingDefaults(true);
     try {
       const res = await fetch('/api/system/forms/reset', { method: 'POST' });
       const json = await res.json();
@@ -381,9 +428,14 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
         setForms(json.data.forms);
         setActiveFormKey('form_sysdoc');
         showToast('已成功恢复系统默认出厂规范！', 'success');
+        setResetDefaultsConfirm(false);
+      } else {
+        showToast(json.info || '重置失败', 'error');
       }
     } catch (e) {
       showToast('重置失败', 'error');
+    } finally {
+      setIsResettingDefaults(false);
     }
   };
 
@@ -2114,6 +2166,145 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 6: 字段删除确认对话框 (替代 iframe 阻断的 window.confirm) */}
+      {/* ============================================================ */}
+      {deleteFieldConfirm.visible && deleteFieldConfirm.field && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-[#ebeef5] shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn">
+            <div className="px-6 py-4 border-b border-[#ebeef5] flex items-center justify-between bg-[#fffaf8]">
+              <div className="flex items-center gap-2.5 text-[#f56c6c]">
+                <div className="w-8 h-8 rounded-full bg-[#fef0f0] border border-[#fde2e2] flex items-center justify-center">
+                  <Trash2 className="w-4 h-4 text-[#f56c6c]" />
+                </div>
+                <h3 className="text-sm font-bold text-[#1f2733]">确认删除字段？</h3>
+              </div>
+              <button
+                type="button"
+                disabled={isDeletingField}
+                onClick={() => setDeleteFieldConfirm({ visible: false, field: null })}
+                className="text-[#909399] hover:text-[#303133] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 text-xs space-y-4">
+              <p className="text-[#606266] leading-relaxed">
+                您即将从当前表单模型 <span className="font-semibold text-[#1f2733]">【{currentForm?.formName}】</span> 中删除字段：
+              </p>
+
+              <div className="p-3.5 bg-[#f8fafc] rounded-lg border border-[#e2e8f0] space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[#909399]">字段显示名称:</span>
+                  <span className="font-bold text-[#1f2733] text-sm">{deleteFieldConfirm.field.label}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#909399]">字段键名 (Field Key):</span>
+                  <code className="text-[#1890ff] font-mono bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                    {deleteFieldConfirm.field.fieldKey}
+                  </code>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#909399]">所属区块:</span>
+                  <span className="text-[#606266]">{deleteFieldConfirm.field.section}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#909399]">控件类型:</span>
+                  <span className="text-[#606266]">{deleteFieldConfirm.field.type}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#fef0f0] rounded-lg border border-[#fde2e2] flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-[#f56c6c] shrink-0 mt-0.5" />
+                <span className="text-[11px] text-[#f56c6c] leading-relaxed">
+                  警告：删除字段后，该表单在流程运行、制度归档及前台录入中将不再渲染该字段。此操作不可逆，请谨慎确认。
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-[#ebeef5]">
+                <button
+                  type="button"
+                  disabled={isDeletingField}
+                  onClick={() => setDeleteFieldConfirm({ visible: false, field: null })}
+                  className="h-8 px-4 rounded-md border border-[#dcdfe6] text-[#606266] hover:bg-[#f5f7fa] cursor-pointer transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingField}
+                  onClick={handleConfirmDeleteField}
+                  className="h-8 px-5 rounded-md bg-[#f56c6c] hover:bg-[#e05656] text-white font-medium cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isDeletingField ? '正在删除...' : '确认删除字段'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 7: 恢复默认配置确认对话框 */}
+      {/* ============================================================ */}
+      {resetDefaultsConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-[#ebeef5] shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn">
+            <div className="px-6 py-4 border-b border-[#ebeef5] flex items-center justify-between bg-[#fffcf5]">
+              <div className="flex items-center gap-2.5 text-[#e6a23c]">
+                <div className="w-8 h-8 rounded-full bg-[#fdf6ec] border border-[#faecd8] flex items-center justify-center">
+                  <RotateCcw className="w-4 h-4 text-[#e6a23c]" />
+                </div>
+                <h3 className="text-sm font-bold text-[#1f2733]">恢复系统出厂规范？</h3>
+              </div>
+              <button
+                type="button"
+                disabled={isResettingDefaults}
+                onClick={() => setResetDefaultsConfirm(false)}
+                className="text-[#909399] hover:text-[#303133] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 text-xs space-y-4">
+              <p className="text-[#606266] leading-relaxed">
+                确定要将所有表单模型与字段定义重置为系统出厂默认规范吗？所有自定义字段将被重置为官方预置标准。
+              </p>
+
+              <div className="p-3 bg-[#fdf6ec] rounded-lg border border-[#faecd8] flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-[#e6a23c] shrink-0 mt-0.5" />
+                <span className="text-[11px] text-[#e6a23c] leading-relaxed">
+                  提示：该操作将恢复 10 大核心业务表单（制度、风控、流程资产等）的预置字段结构。
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-[#ebeef5]">
+                <button
+                  type="button"
+                  disabled={isResettingDefaults}
+                  onClick={() => setResetDefaultsConfirm(false)}
+                  className="h-8 px-4 rounded-md border border-[#dcdfe6] text-[#606266] hover:bg-[#f5f7fa] cursor-pointer transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  disabled={isResettingDefaults}
+                  onClick={handleConfirmResetDefaults}
+                  className="h-8 px-5 rounded-md bg-[#e6a23c] hover:bg-[#d4922f] text-white font-medium cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{isResettingDefaults ? '正在重置...' : '确认恢复出厂规范'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
