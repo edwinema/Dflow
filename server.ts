@@ -5363,7 +5363,7 @@ app.get('/api/org/bundle', (_req, res) => {
 });
 
 app.post('/api/org/roles', (req, res) => {
-  const { roleName, roleKey, roleType = '自定义角色', dataScope = '本部门数据', menuPermissions = ['协同工作', '流程资产'], remark = '' } = req.body || {};
+  const { roleName, roleKey, roleType = '自定义角色', dataScope = '本部门数据', roleSort, status = '0', menuPermissions = ['collab', 'property'], remark = '' } = req.body || {};
   if (!roleName || !roleName.trim()) {
     return res.status(400).json({ status: 0, info: '角色名称不能为空' });
   }
@@ -5373,12 +5373,12 @@ app.post('/api/org/roles', (req, res) => {
     roleName: roleName.trim(),
     roleKey: roleKey ? roleKey.trim() : 'role_' + Math.random().toString(36).substring(2, 6),
     roleType,
-    roleSort: orgRoles.length + 1,
+    roleSort: Number(roleSort) || (orgRoles.length + 1),
     dataScope,
     boundPositions: ['业务人员'],
-    menuPermissions,
+    menuPermissions: Array.isArray(menuPermissions) && menuPermissions.length > 0 ? menuPermissions : ['collab', 'property'],
     userCount: 0,
-    status: '0',
+    status: status || '0',
     remark: remark || '自定义业务角色',
     createTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
   };
@@ -5404,8 +5404,10 @@ app.delete('/api/org/roles/:id', (req, res) => {
 app.post('/api/org/roles/:id/permissions', (req, res) => {
   const target = orgRoles.find((r) => r.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到指定角色' });
-  const { menuPermissions = [] } = req.body || {};
+  const { menuPermissions = [], featurePermissions, fieldPermissions } = req.body || {};
   target.menuPermissions = menuPermissions;
+  if (featurePermissions) target.featurePermissions = featurePermissions;
+  if (fieldPermissions) target.fieldPermissions = fieldPermissions;
   res.json({ status: 1, data: target, list: orgRoles, info: '角色权限配置已保存并即时生效' });
 });
 
