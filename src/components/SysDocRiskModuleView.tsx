@@ -31,6 +31,9 @@ import {
   Maximize2,
   Minimize2,
   Lock,
+  ShieldCheck,
+  AlertCircle,
+  CheckSquare,
 } from 'lucide-react';
 import { EnterpriseDataGrid, DataGridColumn } from './EnterpriseDataGrid';
 import {
@@ -527,7 +530,14 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
   const tree: TreeFolderNode[] = isRisk
     ? dictBundle?.riskTree || []
     : dictBundle?.sysDocTree || [];
-  const items: any[] = isRisk ? dictBundle?.risk || [] : dictBundle?.sysDoc || [];
+  const allItems: any[] = isRisk ? dictBundle?.risk || [] : dictBundle?.sysDoc || [];
+  // 制度查阅与风险查阅（isPublishedViewOnly）：强约束只有通过审批（status === 'approved'）的文件才能在对应目录中显示
+  const items: any[] = useMemo(() => {
+    if (isPublishedViewOnly) {
+      return allItems.filter((it: any) => (it.status || 'approved') === 'approved');
+    }
+    return allItems;
+  }, [allItems, isPublishedViewOnly]);
 
   const rootFolder = tree.find((n) => !n.parentId) || tree[0];
   const [selectedFolderId, setSelectedFolderId] = useState<string>(rootFolder?.id || '');
@@ -537,7 +547,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending'>(
+  const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>(
     isPublishedViewOnly ? 'approved' : 'all'
   );
   const [riskLevelFilter, setRiskLevelFilter] = useState<string>('all');
@@ -560,6 +570,61 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
     isEdit: boolean;
     form: any;
   }>({ open: false, isEdit: false, form: {} });
+
+  // 审批与复核弹窗状态
+  const [auditModal, setAuditModal] = useState<{
+    open: boolean;
+    item: any | null;
+    decision: 'approved' | 'rejected';
+    remark: string;
+  }>({
+    open: false,
+    item: null,
+    decision: 'approved',
+    remark: '',
+  });
+
+  const handleOpenAudit = (item: any) => {
+    setAuditModal({
+      open: true,
+      item,
+      decision: 'approved',
+      remark: '经合规审查，制度规范条款完整有效，权责与内控要求明确，准予生效发布并在查阅目录展示。',
+    });
+  };
+
+  const handleSubmitAudit = async (decisionOverride?: 'approved' | 'rejected') => {
+    if (!auditModal.item) return;
+    const decision = decisionOverride || auditModal.decision;
+    const auditorName = currentUser?.nickName || currentUser?.userName || '流程合规审核员';
+    const remark =
+      auditModal.remark?.trim() ||
+      (decision === 'approved'
+        ? '审批通过，准予在查阅目录发布生效'
+        : '审批驳回，请按合规意见补充完善后重新提交');
+
+    await fetch('/api/dict/item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        itemType: isRisk ? 'risk' : 'sysDoc',
+        action: decision === 'approved' ? 'approve' : 'reject',
+        id: auditModal.item.id,
+        auditor: auditorName,
+        auditRemark: remark,
+      }),
+    });
+
+    const label = auditModal.item.label || auditModal.item.docNo || auditModal.item.riskNo;
+    showToast(
+      decision === 'approved'
+        ? `【${label}】已审核通过并正式生效，现已在查阅目录中公开展示`
+        : `【${label}】已驳回，需修改完善`,
+      decision === 'approved' ? 'success' : 'warning'
+    );
+    setAuditModal({ open: false, item: null, decision: 'approved', remark: '' });
+    onRefreshDict();
+  };
 
   const [previewItem, setPreviewItem] = useState<any | null>(null);
   const [previewDetailMaximized, setPreviewDetailMaximized] = useState(false);
@@ -685,6 +750,10 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
     () => folderScopedItems.filter((it) => (it.status || 'approved') === 'pending').length,
     [folderScopedItems]
   );
+  const rejectedCount = useMemo(
+    () => folderScopedItems.filter((it) => it.status === 'rejected').length,
+    [folderScopedItems]
+  );
 
   const filteredRows = useMemo(() => {
     return folderScopedItems.filter((it) => {
@@ -766,11 +835,12 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
           target: '',
           category: categoryPath,
           riskLevel: '高',
-          ownerName: '系统管理员 (E0004)',
-          status: 'approved',
+          ownerName: currentUser?.nickName || currentUser?.userName || '风控合规专员',
+          status: 'pending', // 默认进入待审核审批流
         },
       });
     } else {
+      const todayStr = new Date().toISOString().slice(0, 10);
       const initForm: any = {
         folderId: defaultFolderId,
         docNo: 'ZD-2026-' + Math.floor(100 + Math.random() * 900),
@@ -778,11 +848,11 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         category: categoryPath,
         versionNo: 'V1.0',
         fileSize: '1.5 MB',
-        ownerName: '制度规范组',
-        status: 'approved',
-        effectiveStartDate: '2026-04-02',
-        effectiveEndDate: '2026-12-30',
-        validityPeriod: '2026-04-02 至 2026-12-30',
+        ownerName: currentUser?.nickName || currentUser?.userName || '制度规范组',
+        status: 'pending', // 默认进入待审核审批流
+        effectiveStartDate: todayStr,
+        effectiveEndDate: '2029-12-31',
+        validityPeriod: `${todayStr} 至 2029-12-31 (长期有效)`,
       };
       setItemModal({
         open: true,
@@ -818,11 +888,23 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
       }),
     });
     setItemModal({ open: false, isEdit: false, form: {} });
-    showToast(itemModal.isEdit ? '已保存更新' : '已新增记录', 'success');
+    showToast(
+      itemModal.isEdit
+        ? '已保存更新'
+        : (f.status === 'pending'
+            ? '已提交合规审批，审批通过后将在查阅目录中正式展示'
+            : '已新增记录并正式生效'),
+      'success'
+    );
     onRefreshDict();
   };
 
   const handleApproveItem = async (id: string, label: string) => {
+    const target = allItems.find((x: any) => x.id === id);
+    if (target) {
+      handleOpenAudit(target);
+      return;
+    }
     await fetch('/api/dict/item', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -830,9 +912,11 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         itemType: isRisk ? 'risk' : 'sysDoc',
         action: 'approve',
         id,
+        auditor: currentUser?.nickName || currentUser?.userName || '流程合规审核员',
+        auditRemark: '经合规审查，准予发布生效并在查阅目录展示',
       }),
     });
-    showToast(`已审核通过 ${label}`, 'success');
+    showToast(`【${label}】已审核通过，已在查阅目录中公开展示`, 'success');
     onRefreshDict();
   };
 
@@ -1088,13 +1172,27 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
           minWidth: 115,
           align: 'center',
           render: (row) => {
-            const isApproved = (row.status || 'approved') === 'approved';
-            return isApproved ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium whitespace-nowrap">
-                <CheckCircle2 className="w-3 h-3 shrink-0" />
-                已生效
-              </span>
-            ) : (
+            const st = row.status || 'approved';
+            if (st === 'approved') {
+              return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium whitespace-nowrap">
+                  <CheckCircle2 className="w-3 h-3 shrink-0" />
+                  已生效
+                </span>
+              );
+            }
+            if (st === 'rejected') {
+              return (
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] text-[11px] font-medium whitespace-nowrap"
+                  title={row.auditRemark ? `驳回批注: ${row.auditRemark}` : '已驳回修改'}
+                >
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  已驳回
+                </span>
+              );
+            }
+            return (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fdf6ec] text-[#e6a23c] border border-[#faecd8] text-[11px] font-medium whitespace-nowrap">
                 <Clock className="w-3 h-3 shrink-0" />
                 待审核
@@ -1154,10 +1252,12 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 {!isApproved && (
                   <button
                     type="button"
-                    onClick={() => handleApproveItem(row.id, row.label)}
-                    className="px-2 py-0.5 rounded bg-[#f0f9eb] hover:bg-[#67c23a] text-[#67c23a] hover:text-white border border-[#b3e19d] text-[11px] font-medium transition-colors cursor-pointer"
+                    onClick={() => handleOpenAudit(row)}
+                    className="px-2 py-0.5 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-[11px] font-medium transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                    title="点击对该风险条款进行合规审批"
                   >
-                    审核
+                    <CheckSquare className="w-3 h-3" />
+                    <span>审批</span>
                   </button>
                 )}
                 <button
@@ -1292,16 +1392,30 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         minWidth: 115,
         align: 'center',
         render: (row) => {
-          const isApproved = (row.status || 'approved') === 'approved';
-          return isApproved ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium whitespace-nowrap">
-              <CheckCircle2 className="w-3 h-3 shrink-0" />
-              已生效
-            </span>
-          ) : (
+          const st = row.status || 'approved';
+          if (st === 'approved') {
+            return (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium whitespace-nowrap">
+                <CheckCircle2 className="w-3 h-3 shrink-0" />
+                已生效
+              </span>
+            );
+          }
+          if (st === 'rejected') {
+            return (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] text-[11px] font-medium whitespace-nowrap"
+                title={row.auditRemark ? `驳回批注: ${row.auditRemark}` : '已驳回修改'}
+              >
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                已驳回
+              </span>
+            );
+          }
+          return (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#fdf6ec] text-[#e6a23c] border border-[#faecd8] text-[11px] font-medium whitespace-nowrap">
               <Clock className="w-3 h-3 shrink-0" />
-              审核中
+              待审核
             </span>
           );
         },
@@ -1419,10 +1533,12 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
               {!isApproved && (
                 <button
                   type="button"
-                  onClick={() => handleApproveItem(row.id, row.label)}
-                  className="px-2 py-0.5 rounded bg-[#f0f9eb] hover:bg-[#67c23a] text-[#67c23a] hover:text-white border border-[#b3e19d] text-[11px] font-medium transition-colors cursor-pointer"
+                  onClick={() => handleOpenAudit(row)}
+                  className="px-2 py-0.5 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-[11px] font-medium transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                  title="点击对该制度文件进行合规审批"
                 >
-                  审核
+                  <CheckSquare className="w-3 h-3" />
+                  <span>审批</span>
                 </button>
               )}
               <button
@@ -1616,34 +1732,42 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 </div>
               </div>
 
-              <div className="hidden sm:flex items-center rounded border border-[#dcdfe6] bg-white p-0.5 text-xs ml-2">
-                {[
-                  { key: 'all', label: `全部 (${folderScopedItems.length})` },
-                  { key: 'approved', label: `已生效 (${approvedCount})` },
-                  { key: 'pending', label: `待审核 (${pendingCount})` },
-                ].map((st) => (
-                  <button
-                    key={st.key}
-                    type="button"
-                    onClick={() => setStatusFilter(st.key as any)}
-                    className={`px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
-                      statusFilter === st.key
-                        ? 'bg-[#409eff] text-white font-medium'
-                        : 'text-[#606266] hover:text-[#409eff]'
-                    }`}
-                  >
-                    {st.label}
-                  </button>
-                ))}
-              </div>
+              {isPublishedViewOnly ? (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#f0f9eb] border border-[#b3e19d] text-xs text-[#67c23a] font-medium ml-2">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>已通过审批正式生效 ({approvedCount})</span>
+                </div>
+              ) : (
+                <div className="hidden sm:flex items-center rounded border border-[#dcdfe6] bg-white p-0.5 text-xs ml-2">
+                  {[
+                    { key: 'all', label: `全部 (${folderScopedItems.length})` },
+                    { key: 'approved', label: `已生效 (${approvedCount})` },
+                    { key: 'pending', label: `待审核 (${pendingCount})` },
+                    ...(rejectedCount > 0 ? [{ key: 'rejected', label: `已驳回 (${rejectedCount})` }] : []),
+                  ].map((st) => (
+                    <button
+                      key={st.key}
+                      type="button"
+                      onClick={() => setStatusFilter(st.key as any)}
+                      className={`px-2.5 py-1 rounded cursor-pointer transition-colors whitespace-nowrap ${
+                        statusFilter === st.key
+                          ? 'bg-[#409eff] text-white font-medium'
+                          : 'text-[#606266] hover:text-[#409eff]'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
               {isReadOnly ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-[#f4f4f5] border border-[#dcdfe6] text-xs">
                   <span className="flex items-center gap-1 font-medium text-[#606266]">
-                    <ShieldAlert className="w-3.5 h-3.5 text-[#409eff]" />
-                    <span>只读查阅模式</span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#67c23a]" />
+                    <span>{isPublishedViewOnly ? '查阅目录 (仅展示已审批文件)' : '只读模式'}</span>
                   </span>
                   <span className="text-[#dcdfe6]">|</span>
                   {previewOnly ? (
@@ -1906,24 +2030,60 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 )}
               </div>
 
-              {/* Validity Banner for SysDoc */}
+              {/* Validity & Approval Banner for SysDoc / Risk */}
               {!isRisk && (
-                <div className="bg-[#f0f9eb]/60 rounded-lg p-3 border border-[#e1f3d8] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded bg-[#67c23a]/15 text-[#67c23a] flex items-center justify-center shrink-0">
-                      <Calendar className="w-3.5 h-3.5" />
+                previewItem.status === 'pending' ? (
+                  <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-amber-700 block font-semibold">审批状态：待审核 (尚未生效)</span>
+                        <span className="text-xs text-amber-800">
+                          该制度文件正处于合规审批流程中。只有审批通过后，才会自动同步至【制度查阅】对应层级目录中公开展示。
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[11px] text-[#909399] block font-medium">制度文件有效期</span>
-                      <span className="font-mono-tabular font-bold text-[#1f2733] text-xs">
-                        {previewItem.validityPeriod || '2026-03-17 至 2029-03-16 (长期有效)'}
-                      </span>
-                    </div>
+                    <span className="self-start sm:self-auto px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-semibold border border-amber-300 whitespace-nowrap">
+                      ⏳ 待审核发布
+                    </span>
                   </div>
-                  <span className="self-start sm:self-auto px-2.5 py-0.5 rounded-full bg-[#67c23a]/15 text-[#67c23a] text-[11px] font-semibold border border-[#67c23a]/30 whitespace-nowrap">
-                    ● 正常生效中
-                  </span>
-                </div>
+                ) : previewItem.status === 'rejected' ? (
+                  <div className="bg-red-50 rounded-lg p-3 border border-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-red-700 block font-semibold">审批状态：已驳回修改</span>
+                        <span className="text-xs text-red-800">
+                          驳回批注：{previewItem.auditRemark || '条款不符合合规标准，需修改完善后重新提交'}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="self-start sm:self-auto px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[11px] font-semibold border border-red-300 whitespace-nowrap">
+                      ❌ 审批未通过
+                    </span>
+                  </div>
+                ) : (
+                  <div className="bg-[#f0f9eb]/60 rounded-lg p-3 border border-[#e1f3d8] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded bg-[#67c23a]/15 text-[#67c23a] flex items-center justify-center shrink-0">
+                        <Calendar className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-[#909399] block font-medium">制度文件有效期</span>
+                        <span className="font-mono-tabular font-bold text-[#1f2733] text-xs">
+                          {previewItem.validityPeriod || '2026-03-17 至 2029-03-16 (长期有效)'}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="self-start sm:self-auto px-2.5 py-0.5 rounded-full bg-[#67c23a]/15 text-[#67c23a] text-[11px] font-semibold border border-[#67c23a]/30 whitespace-nowrap">
+                      ● 正常生效中
+                    </span>
+                  </div>
+                )
               )}
 
               {/* Core Attributes Card (3 columns on desktop for space efficiency) */}
@@ -1943,6 +2103,11 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f0f9eb] text-[#67c23a] border border-[#e1f3d8] text-[11px] font-medium">
                         <CheckCircle2 className="w-3 h-3" />
                         已生效
+                      </span>
+                    ) : previewItem.status === 'rejected' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#fef0f0] text-[#f56c6c] border border-[#fde2e2] text-[11px] font-medium">
+                        <AlertCircle className="w-3 h-3" />
+                        已驳回
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#fdf6ec] text-[#e6a23c] border border-[#faecd8] text-[11px] font-medium">
@@ -2069,11 +2234,12 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                       const target = previewItem;
                       setPreviewItem(null);
                       setPreviewDetailMaximized(false);
-                      handleApproveItem(target.id, target.label);
+                      handleOpenAudit(target);
                     }}
-                    className="h-8 px-3.5 rounded bg-[#67c23a] hover:bg-[#5daf34] text-white font-medium cursor-pointer shadow-2xs"
+                    className="h-8 px-3.5 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white font-medium cursor-pointer shadow-2xs flex items-center gap-1.5"
                   >
-                    审核通过
+                    <CheckSquare className="w-3.5 h-3.5" />
+                    <span>合规审批</span>
                   </button>
                 )}
                 {!isReadOnly && (
@@ -2351,9 +2517,9 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                   </div>
                 )}
                 <div>
-                  <label className="block text-[#606266] mb-1 font-medium">审核状态</label>
+                  <label className="block text-[#606266] mb-1 font-medium">发布生效模式</label>
                   <select
-                    value={itemModal.form.status || 'approved'}
+                    value={itemModal.form.status || 'pending'}
                     onChange={(e) =>
                       setItemModal({
                         ...itemModal,
@@ -2362,8 +2528,8 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                     }
                     className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] bg-white outline-none"
                   >
-                    <option value="approved">已生效 (Approved)</option>
-                    <option value="pending">待审核 (Pending)</option>
+                    <option value="pending">待审核 (需审批通过后才在查阅目录展示)</option>
+                    <option value="approved">直接生效 (管理员特批发布)</option>
                   </select>
                 </div>
               </div>
@@ -2520,6 +2686,175 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
           allowDownload={canDownload}
           previewOnly={previewOnly}
         />
+      )}
+
+      {/* 审批与合规复核弹窗 */}
+      {auditModal.open && auditModal.item && (
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-lg flex flex-col shadow-2xl border border-[#ebeef5] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-5 py-3.5 border-b border-[#ebeef5] bg-[#fafafa] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#2F7BFE]" />
+                <span className="text-sm font-bold text-[#1f2733]">
+                  {isRisk ? '风险合规条款 · 审批决议' : '制度文件规范 · 审批发文'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAuditModal({ open: false, item: null, decision: 'approved', remark: '' })}
+                className="text-[#909399] hover:text-[#1f2733] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              {/* 待审条目卡片 */}
+              <div className="bg-[#f8f9fa] rounded p-3 border border-[#ebeef5] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[#909399]">{auditModal.item.docNo || auditModal.item.riskNo}</span>
+                  <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 text-[10px] font-semibold">
+                    待合规审批
+                  </span>
+                </div>
+                <div className="font-bold text-sm text-[#303133]">
+                  {auditModal.item.label}
+                </div>
+                <div className="flex items-center gap-4 text-[#606266] text-[11px] pt-1.5 border-t border-[#ebeef5]">
+                  <span>所属目录: <strong className="text-[#303133]">{auditModal.item.category || '根目录'}</strong></span>
+                  <span>提报人: <strong className="text-[#303133]">{auditModal.item.ownerName || '系统管理员'}</strong></span>
+                </div>
+              </div>
+
+              {/* 关键准则提示 */}
+              <div className="bg-[#F0F7FF] p-3 rounded border border-[#B3D8FF] text-[#1E3A8A] flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-[#2F7BFE] shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <strong>合规发布规则：</strong>
+                  只有点击<strong>【审核通过】</strong>的文件，状态才会变更为<strong>「已生效」</strong>，并自动同步在<strong>【{isRisk ? '风险查阅' : '制度查阅'}】</strong>对应目录中呈现供全员查阅；点击<strong>【驳回修改】</strong>则保持隔离，需作者完善后重新送审。
+                </div>
+              </div>
+
+              {/* 审批结论单选 */}
+              <div>
+                <label className="block font-semibold text-[#303133] mb-1.5">审批结论</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div
+                    onClick={() => {
+                      setAuditModal((prev) => ({
+                        ...prev,
+                        decision: 'approved',
+                        remark: '经合规审查，制度规范条款完整有效，权责与内控要求明确，准予生效发布并在查阅目录展示。',
+                      }));
+                    }}
+                    className={`flex items-center gap-2 p-2.5 rounded border cursor-pointer transition-all ${
+                      auditModal.decision === 'approved'
+                        ? 'border-[#67c23a] bg-[#f0f9eb] text-[#67c23a] font-semibold shadow-2xs'
+                        : 'border-[#dcdfe6] hover:bg-gray-50 text-[#606266]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="auditDecision"
+                      checked={auditModal.decision === 'approved'}
+                      onChange={() => {}}
+                      className="text-[#67c23a]"
+                    />
+                    <CheckCircle2 className="w-4 h-4 text-[#67c23a]" />
+                    <span>审核通过并正式生效</span>
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      setAuditModal((prev) => ({
+                        ...prev,
+                        decision: 'rejected',
+                        remark: '条款内容不满足合规标准或缺少必要附件，请补充完善后重新提交审批。',
+                      }));
+                    }}
+                    className={`flex items-center gap-2 p-2.5 rounded border cursor-pointer transition-all ${
+                      auditModal.decision === 'rejected'
+                        ? 'border-[#f56c6c] bg-[#fef0f0] text-[#f56c6c] font-semibold shadow-2xs'
+                        : 'border-[#dcdfe6] hover:bg-gray-50 text-[#606266]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="auditDecision"
+                      checked={auditModal.decision === 'rejected'}
+                      onChange={() => {}}
+                      className="text-[#f56c6c]"
+                    />
+                    <AlertCircle className="w-4 h-4 text-[#f56c6c]" />
+                    <span>驳回修改 (不予展示)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 审批意见 */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-[#303133]">审批合规批注 / 意见</label>
+                  <span className="text-[10px] text-[#909399]">将记录在文件生命周期台账中</span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={auditModal.remark}
+                  onChange={(e) => setAuditModal((prev) => ({ ...prev, remark: e.target.value }))}
+                  placeholder="请输入合规复核意见或驳回说明..."
+                  className="w-full p-2.5 rounded border border-[#dcdfe6] focus:border-[#2F7BFE] focus:outline-none text-xs resize-none"
+                />
+                {/* 快捷评语 */}
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {[
+                    '准予正式发布并于查阅目录生效',
+                    '符合公司内控手册基线',
+                    '缺少关键权责对照表，请补齐',
+                    '格式排版有误，退回起草人调整',
+                  ].map((phrase) => (
+                    <button
+                      key={phrase}
+                      type="button"
+                      onClick={() => setAuditModal((prev) => ({ ...prev, remark: phrase }))}
+                      className="text-[10px] px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 cursor-pointer"
+                    >
+                      {phrase}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-[#ebeef5] bg-[#fafafa] flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setAuditModal({ open: false, item: null, decision: 'approved', remark: '' })}
+                className="h-8 px-4 rounded border border-[#dcdfe6] bg-white text-xs text-[#606266] hover:bg-gray-50 cursor-pointer"
+              >
+                取消
+              </button>
+              {auditModal.decision === 'approved' ? (
+                <button
+                  type="button"
+                  onClick={() => handleSubmitAudit('approved')}
+                  className="h-8 px-4 rounded bg-[#67c23a] hover:bg-[#5daf34] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>确认审核通过 (准予生效)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSubmitAudit('rejected')}
+                  className="h-8 px-4 rounded bg-[#f56c6c] hover:bg-[#e64242] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>确认驳回修改</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -325,7 +325,9 @@ export default function App() {
     if (currentPath === '/flowdoc/duty') return { parentTitle: '权责管控', childTitle: '权责建设' };
     if (currentPath === '/flowdoc/verify') return { parentTitle: '权责管控', childTitle: '权责审核' };
     if (currentPath.startsWith('/flowdoc/')) return { parentTitle: '权责管控', childTitle: '权责建设' };
+    if (currentPath === '/sysdoc/indexview') return { parentTitle: '风控合规', childTitle: '制度查阅' };
     if (currentPath.startsWith('/sysdoc/')) return { parentTitle: '风控合规', childTitle: '制度文件库' };
+    if (currentPath === '/risk/riskview') return { parentTitle: '风控合规', childTitle: '风险查阅' };
     if (currentPath.startsWith('/risk/')) return { parentTitle: '风控合规', childTitle: '风险合规库' };
     if (currentPath.startsWith('/task/')) return { parentTitle: '协同工作', childTitle: currentPath === '/task/learning' ? '流程培训' : '待办任务' };
     if (currentPath.startsWith('/org/')) return { parentTitle: '组织系统', childTitle: '部门组织' };

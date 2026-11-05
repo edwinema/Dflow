@@ -4007,14 +4007,18 @@ app.post('/api/dict/tree', (req, res) => {
 });
 
 app.post('/api/dict/item', (req, res) => {
-  const { itemType, action, item, id } = req.body || {};
+  const { itemType, action, item, id, auditor, auditRemark } = req.body || {};
   const list = itemType === 'risk' ? dictBundle.risk : dictBundle.sysDoc;
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
   if (action === 'create' && item) {
     const newItem = {
       ...item,
       id: `${itemType || 'doc'}_${Date.now().toString(36)}`,
+      status: item.status || 'pending',
+      applyTime: nowStr,
       validityPeriod: item.validityPeriod || '2026-03-17 至 2029-03-16 (长期有效)',
-      publishTime: item.publishTime || new Date().toISOString().slice(0, 19).replace('T', ' '),
+      publishTime: item.publishTime || nowStr,
     };
     list.unshift(newItem);
     return res.json({ status: 1, data: newItem, bundle: dictBundle, info: 'ok' });
@@ -4035,7 +4039,22 @@ app.post('/api/dict/item', (req, res) => {
   }
   if (action === 'approve' && id) {
     const target = list.find((x: any) => x.id === id);
-    if (target) target.status = 'approved';
+    if (target) {
+      target.status = 'approved';
+      target.auditTime = nowStr;
+      target.auditor = auditor || '流程合规审核员';
+      target.auditRemark = auditRemark || '审批通过，已准予在查阅目录发布生效';
+    }
+    return res.json({ status: 1, data: target, bundle: dictBundle, info: 'ok' });
+  }
+  if (action === 'reject' && id) {
+    const target = list.find((x: any) => x.id === id);
+    if (target) {
+      target.status = 'rejected';
+      target.auditTime = nowStr;
+      target.auditor = auditor || '流程合规审核员';
+      target.auditRemark = auditRemark || '审批驳回，请按合规意见补充完善后重新提交';
+    }
     return res.json({ status: 1, data: target, bundle: dictBundle, info: 'ok' });
   }
   res.json({ status: 1, bundle: dictBundle, info: 'ok' });
