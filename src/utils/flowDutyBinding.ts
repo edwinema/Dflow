@@ -517,7 +517,7 @@ export function evaluateNodeConstraint(
       summary: `检测到 ${gateChecks.filter((g) => g.status === 'FAIL').length} 项重大合规冲突，节点触发企业 DOA 刚性控制，当前操作已被系统拦截并阻断。`,
       gateChecks,
       actionSuggestion: `请调整业务金额，或将单据升格至 ${defaultRule.autoEscalateToRole || '高层领导'} 重新审批。`,
-      policyReference: '《全源企业分权授权制度(DOA)》第3.2条与各节点刚性控制规范',
+      policyReference: '《全元企业分权授权制度(DOA)》第3.2条与各节点刚性控制规范',
       escalationChain: [
         `当前申请: ${params.nodeName || '活动节点'} (${approverRole}) [阻断]`,
         `升格节点: ${defaultRule.autoEscalateToRole || '分管副总裁'} (A)`,
@@ -535,7 +535,7 @@ export function evaluateNodeConstraint(
       summary: `当前业务触发自动升级规则，系统已将裁决权由当前层级转交至 ${defaultRule.autoEscalateToRole || '高级管理层'}。`,
       gateChecks,
       actionSuggestion: `已为您自动创建 ${defaultRule.autoEscalateToRole || '高管'} 待办任务，请等待高管终裁。`,
-      policyReference: '《全源企业分权授权制度(DOA)》第2.4条关于大额特批转呈规则',
+      policyReference: '《全元企业分权授权制度(DOA)》第2.4条关于大额特批转呈规则',
       escalationChain: [
         `当前拟制: ${params.nodeName || '活动节点'} (${approverRole}) [已审]`,
         `转交终裁: ${defaultRule.autoEscalateToRole || '分管总裁'} (A) [处理中]`,
@@ -553,7 +553,7 @@ export function evaluateNodeConstraint(
       summary: '存在个别合规预警点，但属于软控制策略范畴，允许放行流转，已记录审计留痕。',
       gateChecks,
       actionSuggestion: '请在下阶段注意补齐相关材料，并跟进相关部门确认意见。',
-      policyReference: '《全源企业分权授权制度(DOA)》日常运营例外管理指导原则',
+      policyReference: '《全元企业分权授权制度(DOA)》日常运营例外管理指导原则',
     };
   }
 
@@ -565,6 +565,6 @@ export function evaluateNodeConstraint(
     summary: '四项门禁全部合规通过，符合企业 DOA 与流程节点规范，可立即流转执行。',
     gateChecks,
     actionSuggestion: '无需额外审批，按既定流程推进即可。',
-    policyReference: '《全源企业分权授权制度(DOA)》2026版基线规范',
+    policyReference: '《全元企业分权授权制度(DOA)》2026版基线规范',
   };
 }

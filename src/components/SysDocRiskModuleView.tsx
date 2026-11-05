@@ -2229,7 +2229,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                     })
                   }
                   placeholder={
-                    isRisk ? '例如：立项决策TR1评审合规风险' : '例如：全源集成产品开发管理规范.pdf'
+                    isRisk ? '例如：立项决策TR1评审合规风险' : '例如：全元集成产品开发管理规范.pdf'
                   }
                   className="w-full h-8 px-2.5 rounded border border-[#dcdfe6] outline-none"
                 />

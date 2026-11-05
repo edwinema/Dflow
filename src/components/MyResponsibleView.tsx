@@ -1482,7 +1482,7 @@ export function MyResponsibleView({
                     </div>
                     <div>
                       <span className="text-[#909399] block mb-1">驱动制度规范</span>
-                      <span className="text-[#303133]">{previewFlow.drivingRules || '全源企业流程管理规范V3'}</span>
+                      <span className="text-[#303133]">{previewFlow.drivingRules || '全元企业流程管理规范V3'}</span>
                     </div>
                   </div>
 

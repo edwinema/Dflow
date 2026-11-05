@@ -33,7 +33,7 @@ const ENTERPRISE_DYNAMICS = [
 ];
 
 const RIGHTS_MANUALS = [
-  { title: '2026全源企业分权授权制度(DOA手册)', path: '/flowdoc/dutyList' },
+  { title: '2026全元企业分权授权制度(DOA手册)', path: '/flowdoc/dutyList' },
   { title: '2025产品开发与集成研发权能手册', path: '/flowdoc/dutyList' },
 ];
 

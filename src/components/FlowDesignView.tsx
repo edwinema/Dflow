@@ -375,7 +375,7 @@ export const DEFAULT_ROOT_ARCH = {
   adaptScope: '集团总部、苏州全元数字科技有限公司、各中心事业部',
   ownerName: '系统管理员 (E0004)',
   deptName: '运营管理部',
-  flowDefine: '全源科技集团端到端主干流程架构',
+  flowDefine: '全元科技集团端到端主干流程架构',
   flowPurpose: '统领企业研发、营销、供应链全价值链',
   versionNo: 'V2',
   publishUserName: '系统管理员',
@@ -3573,7 +3573,7 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
               </strong>
             </span>
           </div>
-          <span>全源流程资产运营平台 · dflow</span>
+          <span>全元流程资产运营平台 · dflow</span>
         </div>
       </div>
 

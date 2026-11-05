@@ -31,7 +31,7 @@ import {
 export interface DocumentItem {
   id?: string;
   docNo?: string;
-  label: string; // e.g. "全源科技销售合同分级审批制度.pdf"
+  label: string; // e.g. "全元科技销售合同分级审批制度.pdf"
   category?: string;
   versionNo?: string;
   fileSize?: string;
@@ -76,10 +76,10 @@ export const downloadDocumentFile = (doc: DocumentItem, showToast?: (msg: string
 
   if (format === 'pdf') {
     mimeType = 'application/pdf';
-    sampleContent = `%PDF-1.4\n% 全源流程资产管理平台\n1 0 obj\n<< /Title (${filename}) /Author (${doc.ownerName || '全源科技'}) >>\nendobj\n%%EOF`;
+    sampleContent = `%PDF-1.4\n% 全元流程资产管理平台\n1 0 obj\n<< /Title (${filename}) /Author (${doc.ownerName || '全元科技'}) >>\nendobj\n%%EOF`;
   } else if (format === 'word') {
     mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    sampleContent = `全源流程资产管理平台 - 制度文件\n文件名称: ${filename}\n制度编号: ${doc.docNo || 'ZD-2026-01'}\n版本: ${doc.versionNo || 'V1.0'}\n有效期: ${doc.validityPeriod || '长期有效'}\n发布时间: ${doc.publishTime || '2026-03-17'}\n\n第一章 总则\n为规范企业内部运行，特制定本管理制度。\n第二章 权责划分与流程审批\n各部门严格按照公司DOA授权手册执行。`;
+    sampleContent = `全元流程资产管理平台 - 制度文件\n文件名称: ${filename}\n制度编号: ${doc.docNo || 'ZD-2026-01'}\n版本: ${doc.versionNo || 'V1.0'}\n有效期: ${doc.validityPeriod || '长期有效'}\n发布时间: ${doc.publishTime || '2026-03-17'}\n\n第一章 总则\n为规范企业内部运行，特制定本管理制度。\n第二章 权责划分与流程审批\n各部门严格按照公司DOA授权手册执行。`;
   } else if (format === 'excel') {
     mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     sampleContent = `序号,制度编码,制度文件名称,所属业务目录,版本,责任部门,有效期,发布时间\n1,${doc.docNo || 'ZD-MKT-2026-01'},${filename},${doc.category || '营销管理'},${doc.versionNo || 'V1.0'},${doc.ownerName || '商务部'},${doc.validityPeriod || '长期有效'},${doc.publishTime || '2026-03-17'}`;
@@ -352,7 +352,7 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
                 {/* Official Watermark */}
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden opacity-5 z-0 select-none">
                   <div className="text-7xl font-black text-gray-900 rotate-[-30deg] tracking-widest uppercase">
-                    全源数字科技 · 制度正本
+                    全元数字科技 · 制度正本
                   </div>
                 </div>
 
@@ -360,10 +360,10 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
                   {/* Red-head Header */}
                   <div className="border-b-2 border-[#DC2626] pb-3 text-center space-y-2">
                     <div className="text-2xl font-black text-[#DC2626] tracking-widest font-serif">
-                      全源数字科技（苏州）有限公司文件
+                      全元数字科技（苏州）有限公司文件
                     </div>
                     <div className="flex items-center justify-between text-xs text-gray-600 font-mono px-2 pt-1">
-                      <span>全源发〔2026〕01号</span>
+                      <span>全元发〔2026〕01号</span>
                       <span className="text-[#DC2626] font-bold">签发人：流程管理委员会</span>
                       <span>密级：内部公开</span>
                     </div>
@@ -400,7 +400,7 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
                       <div>
                         <h3 className="font-bold text-sm text-[#111827] mb-1">第一章 总则</h3>
                         <p className="indent-6 text-justify">
-                          第一条【制定目的】为规范全源数字科技（苏州）有限公司日常经营中各类商务销售合同的谈判、评审、签署及履约监管，规避商业合规及财务坏账风险，提高业务流转审批效能，依据《中华人民共和国民法典》及公司《2026企业分权授权制度(DOA手册)》，特制定本管理制度。
+                          第一条【制定目的】为规范全元数字科技（苏州）有限公司日常经营中各类商务销售合同的谈判、评审、签署及履约监管，规避商业合规及财务坏账风险，提高业务流转审批效能，依据《中华人民共和国民法典》及公司《2026企业分权授权制度(DOA手册)》，特制定本管理制度。
                         </p>
                         <p className="indent-6 text-justify mt-2">
                           第二条【适用范围】本制度适用于公司各事业部、研发中心、区域营销中心及控股子公司在开展软硬件销售、系统集成、技术服务咨询等商务活动中所签署的所有具有法律约束力的框架协议、采购订单、商务合同及补充协议。
@@ -488,14 +488,14 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
                         第七条 本制度由公司商务部负责日常解释与流程维护，流程管理部负责系统配置与年度例行合规复审。
                       </p>
                       <p className="indent-6 text-justify">
-                        第八条 本制度自发文之日起正式颁布施行，原《全源销售合同签署管理暂行办法》(2023版)自本制度生效之日起废止。
+                        第八条 本制度自发文之日起正式颁布施行，原《全元销售合同签署管理暂行办法》(2023版)自本制度生效之日起废止。
                       </p>
 
                       {/* Official Seal and Signature Section */}
                       <div className="pt-12 relative flex justify-between items-end">
                         <div className="space-y-1 text-gray-600 font-mono text-[11px]">
                           <div>抄送：各业务域、各职能中心、各分公司</div>
-                          <div>全源数字科技（苏州）有限公司 流程治理委员会</div>
+                          <div>全元数字科技（苏州）有限公司 流程治理委员会</div>
                           <div>印发日期：{doc.publishTime || '2026-03-17'}</div>
                         </div>
 
@@ -503,7 +503,7 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
                         <div className="relative flex flex-col items-center">
                           <div className="w-36 h-36 rounded-full border-3 border-[#DC2626] flex flex-col items-center justify-center text-[#DC2626] rotate-[-8deg] relative shadow-xs p-2">
                             <span className="text-[10px] font-bold tracking-tight text-center">
-                              全源数字科技有限公司
+                              全元数字科技有限公司
                             </span>
                             <div className="text-xl my-0.5 text-[#DC2626]">★</div>
                             <span className="text-[11px] font-black tracking-widest">
@@ -541,7 +541,7 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
                 <div className="flex items-center justify-between pb-3 border-b border-gray-300 text-xs text-gray-500">
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-[#2563EB]" />
-                    <span className="font-semibold text-gray-700">全源企业级流程制度规范文档库</span>
+                    <span className="font-semibold text-gray-700">全元企业级流程制度规范文档库</span>
                   </div>
                   <span className="font-mono">{doc.docNo || 'ZD-IPD-2026-02'} · {doc.versionNo || 'V3.1'}</span>
                 </div>
@@ -891,7 +891,7 @@ export const OnlineDocumentPreviewModal: React.FC<OnlineDocumentPreviewModalProp
 
                   {/* Slide Footer */}
                   <div className="flex items-center justify-between border-t border-white/10 pt-3 text-xs text-gray-400 relative z-10">
-                    <div>全源数字科技有限公司 · 版权所有</div>
+                    <div>全元数字科技有限公司 · 版权所有</div>
                     <div className="font-mono">
                       幻灯片 {pptSlide} / {totalPptSlides}
                     </div>

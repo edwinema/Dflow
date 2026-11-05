@@ -41,7 +41,7 @@ const archTypes: any[] = [
     deptName: '运营管理部',
     prevArch: '',
     nextArch: 'dste 战略管理',
-    flowDefine: '全源科技集团端到端主干流程架构',
+    flowDefine: '全元科技集团端到端主干流程架构',
     flowPurpose: '统领企业研发、营销、供应链全价值链',
     flowInput: '客户需求与市场洞察',
     flowOutput: '商业价值与客户满意',
@@ -678,7 +678,7 @@ const flows: any[] = [
 ];
 
 const sysDocTree: any[] = [
-  { id: 'doc_dir_root', parentId: '', label: '全源制度文件库', code: 'ZD-ROOT' },
+  { id: 'doc_dir_root', parentId: '', label: '全元制度文件库', code: 'ZD-ROOT' },
   { id: 'doc_dir_strat', parentId: 'doc_dir_root', label: '01 战略与综合管理制度', code: 'ZD-STR' },
   { id: 'doc_dir_rd', parentId: 'doc_dir_root', label: '02 研发与技术管理制度', code: 'ZD-RD' },
   { id: 'doc_dir_mkt', parentId: 'doc_dir_root', label: '03 营销与商务管理制度', code: 'ZD-MKT' },
@@ -686,7 +686,7 @@ const sysDocTree: any[] = [
 ];
 
 const riskTree: any[] = [
-  { id: 'risk_dir_root', parentId: '', label: '全源风险库', code: 'RSK-ROOT' },
+  { id: 'risk_dir_root', parentId: '', label: '全元风险库', code: 'RSK-ROOT' },
   { id: 'risk_dir_strat', parentId: 'risk_dir_root', label: '01 战略规划风险', code: 'RSK-STR' },
   { id: 'risk_dir_rd', parentId: 'risk_dir_root', label: '02 产品研发与流片风险', code: 'RSK-RD' },
   { id: 'risk_dir_mkt', parentId: 'risk_dir_root', label: '03 商务与回款风险', code: 'RSK-FIN' },
@@ -747,7 +747,7 @@ const dictBundle: any = {
       id: 'doc_01',
       folderId: 'doc_dir_mkt',
       docNo: 'ZD-MKT-2026-01',
-      label: '全源科技销售合同分级审批制度.pdf',
+      label: '全元科技销售合同分级审批制度.pdf',
       category: '03 营销与商务管理制度',
       versionNo: 'V2.0',
       fileSize: '3.2 MB',
@@ -758,7 +758,7 @@ const dictBundle: any = {
       effectiveEndDate: '2026-12-30',
       validityPeriod: '2026-04-02 至 2026-12-30',
       fileType: 'pdf',
-      referenceNo: '全源发〔2026〕088号',
+      referenceNo: '全元发〔2026〕088号',
       authorUser: '张三 (制度主管)',
       reviewerUser: '李合规 (审计专员)',
       approverUser: '王副总 (分管副总裁)',
@@ -782,7 +782,7 @@ const dictBundle: any = {
       id: 'doc_03',
       folderId: 'doc_dir_mkt',
       docNo: 'ZD-MKT-2026-03',
-      label: '全源销售权限与合同审批限额矩阵.xlsx',
+      label: '全元销售权限与合同审批限额矩阵.xlsx',
       category: '03 营销与商务管理制度',
       versionNo: 'V1.5',
       fileSize: '950 KB',
@@ -1707,10 +1707,10 @@ let companyAuthData: any = {
   authUsersCount: 200,
   activeUsersCount: 93,
   authVersion: 'V2.0.1',
-  systemDisplayName: '全源流程资产管理平台 dflow',
+  systemDisplayName: '全元流程资产管理平台 dflow',
   systemLogo: '',
   loginTitleSuffix: '数字化流程设计与运营系统',
-  copyrightText: 'Copyright © 2026 全源数字科技版权所有',
+  copyrightText: 'Copyright © 2026 全元数字科技版权所有',
   watermarkEnabled: false,
   roleQuotas: [
     { typeName: '流程规划岗', used: 17, total: 20 },
@@ -1726,7 +1726,7 @@ let companyAuthData: any = {
     status: 'ACTIVE',
     edition: '企业旗舰版 (Enterprise)',
     editionKey: 'enterprise',
-    issuer: '全源数科商业授权签发中心 (CA-ROOT)',
+    issuer: '全元数科商业授权签发中心 (CA-ROOT)',
     issuedDate: '2023-03-29 20:41:05',
     expireDate: '2030-09-11 07:14:06',
     maxConcurrentSessions: 50,
@@ -1895,7 +1895,7 @@ const defaultSystemApis: any[] = [
     status: '启用',
     authType: 'Bearer Token',
     rateLimit: '60次/分钟',
-    description: '全源在线Drawio流程设计器模型文件XML、泳道RACI与活动节点元数据存盘',
+    description: '全元在线Drawio流程设计器模型文件XML、泳道RACI与活动节点元数据存盘',
     sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { flowId: 'flow_101', savedTime: '2026-03-26 15:30:00', nodeCount: 18 } }, null, 2),
     createTime: '2026-02-05 09:20:00',
   },
@@ -2109,7 +2109,7 @@ const initialFormEngineSchemas: any[] = [
         required: false,
         showInList: true,
         searchable: true,
-        placeholder: '如: 全源发〔2026〕088号',
+        placeholder: '如: 全元发〔2026〕088号',
         isSystem: false,
       },
       {
@@ -2535,7 +2535,7 @@ const ensureRootArch = () => {
       adaptScope: `集团总部、${currentComp}、各中心事业部`,
       ownerName: '系统管理员 (E0004)',
       deptName: '运营管理部',
-      flowDefine: '全源科技集团端到端主干流程架构',
+      flowDefine: '全元科技集团端到端主干流程架构',
       flowPurpose: '统领企业研发、营销、供应链全价值链',
       flowInput: '客户需求与市场洞察',
       flowOutput: '商业价值与客户满意',
@@ -3389,7 +3389,7 @@ app.get('/api/flow/attachment/download', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
   res.setHeader('Content-Type', 'application/octet-stream');
 
-  const content = `全源流程资产管理平台 - 流程相关附件文件\n附件名称: ${filename}\n附件编号: ${found.attNo || 'FJ-2026-01'}\n业务分类: ${found.category || '相关附件'}\n上传时间: ${found.publishTime || '2026-03-20'}\n\n【正式发文附件】\n苏州全元数字科技有限公司 业务流程执行参考材料。`;
+  const content = `全元流程资产管理平台 - 流程相关附件文件\n附件名称: ${filename}\n附件编号: ${found.attNo || 'FJ-2026-01'}\n业务分类: ${found.category || '相关附件'}\n上传时间: ${found.publishTime || '2026-03-20'}\n\n【正式发文附件】\n苏州全元数字科技有限公司 业务流程执行参考材料。`;
   res.send(content);
 });
 
@@ -4045,7 +4045,7 @@ app.post('/api/dict/item', (req, res) => {
 app.get('/api/dict/doc/download', (req, res) => {
   const { id, name } = req.query as { id?: string; name?: string };
   const found = dictBundle.sysDoc.find((d: any) => d.id === id || d.label === name) || {
-    label: name || '全源科技销售合同分级审批制度.pdf',
+    label: name || '全元科技销售合同分级审批制度.pdf',
     docNo: 'ZD-MKT-2026-01',
     validityPeriod: '2026-03-17 至 2029-03-16 (长期有效)',
   };
@@ -4054,7 +4054,7 @@ app.get('/api/dict/doc/download', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
   res.setHeader('Content-Type', 'application/octet-stream');
 
-  const content = `全源流程资产管理平台 - 制度文件正本\n文件名称: ${filename}\n制度编号: ${found.docNo || 'ZD-2026-01'}\n有效期: ${found.validityPeriod || '长期有效'}\n发布时间: ${found.publishTime || '2026-03-17'}\n\n【正式发文】\n全源数字科技（苏州）有限公司 内部合规管理制度。`;
+  const content = `全元流程资产管理平台 - 制度文件正本\n文件名称: ${filename}\n制度编号: ${found.docNo || 'ZD-2026-01'}\n有效期: ${found.validityPeriod || '长期有效'}\n发布时间: ${found.publishTime || '2026-03-17'}\n\n【正式发文】\n全元数字科技（苏州）有限公司 内部合规管理制度。`;
   res.send(content);
 });
 

@@ -2863,7 +2863,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                         {[
                           { key: 'docNo', label: '制度编码', sample: 'ZD-MKT-2026-01', masked: 'ZD-***-01' },
                           { key: 'secretLevel', label: '涉密等级', sample: '内部受限(工作秘密)', masked: '***(受限)' },
-                          { key: 'docOfficialNo', label: '发文红头文号', sample: '全源发〔2026〕088号', masked: '全源发〔2026〕***号' },
+                          { key: 'docOfficialNo', label: '发文红头文号', sample: '全元发〔2026〕088号', masked: '全元发〔2026〕***号' },
                           { key: 'approver', label: '合规审核人', sample: '李合规 (审计专员)', masked: '合规部 (脱敏)' },
                           { key: 'signer', label: '签发决策人', sample: '王副总 (分管副总裁)', masked: '高管办 (脱敏)' },
                         ].map((f) => {

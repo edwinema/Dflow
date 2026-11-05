@@ -498,7 +498,7 @@ export const FlowVersionDiffModal: React.FC<FlowVersionDiffModalProps> = ({
   // Export report as text file
   const handleExportReport = () => {
     const lines = [
-      `全源流程资产管理平台 - 流程版本比对分析报告`,
+      `全元流程资产管理平台 - 流程版本比对分析报告`,
       `流程编号: ${flow.flowNo || '-'}`,
       `流程名称: ${flow.label}`,
       `对比基准: ${baseVersion?.versionNo} (${baseVersion?.publishTime || '-'})`,

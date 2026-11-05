@@ -342,7 +342,7 @@ export default function App() {
             <div className="w-9 h-9 rounded bg-[#409eff] flex items-center justify-center font-bold text-lg">
               df
             </div>
-            <span className="text-lg font-semibold tracking-tight">全源流程管理平台 dflow</span>
+            <span className="text-lg font-semibold tracking-tight">全元流程管理平台 dflow</span>
           </div>
           <div className="space-y-4 max-w-md">
             <h1 className="text-3xl font-bold leading-tight">企业数字化流程架构设计与资产运营中心</h1>
@@ -354,7 +354,7 @@ export default function App() {
             </p>
           </div>
           <div className="text-xs text-[#909399]">
-            Copyright © 2026 全源数字科技版权所有
+            Copyright © 2026 全元数字科技版权所有
           </div>
         </div>
 
@@ -527,7 +527,7 @@ export default function App() {
                 <img src={systemLogo} alt="Logo" className="h-5 max-w-[50px] object-contain shrink-0" />
               ) : null}
               <span className="text-white font-bold text-[15px] tracking-wide truncate">
-                {systemDisplayName || '全源流程管理平台'}
+                {systemDisplayName || '全元流程管理平台'}
               </span>
             </div>
           )}

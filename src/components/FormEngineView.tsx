@@ -612,7 +612,7 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
       docName: '研发体系软件架构设计与发布评审标准管理办法',
       docLevel: '二级-业务管理办法',
       docCategory: '研发与技术工程',
-      referenceNo: '全源发〔2026〕088号',
+      referenceNo: '全元发〔2026〕088号',
       publishDept: '质量合规部',
       authorUser: '张三 (制度主管)',
       reviewerUser: '李合规 (审计专员)',
@@ -624,7 +624,7 @@ export const FormEngineView: React.FC<FormEngineViewProps> = ({
       securityLevel: '内部受限(工作秘密)',
       versionNo: 'V1.0',
       summaryText: '规范企业全栈数字化流程资产的设计标准、DOA审批链路与合规准入规范。',
-      docContent: '第一条 为保证全源科技数字化架构规范统一，特制定本管理办法...\n第二条 凡涉及主干流程变更须经委员会决议。',
+      docContent: '第一条 为保证全元科技数字化架构规范统一，特制定本管理办法...\n第二条 凡涉及主干流程变更须经委员会决议。',
       attachmentFile: '软件发布标准红头文件[2026]088号.pdf',
       autoAuditCycle: true,
     };

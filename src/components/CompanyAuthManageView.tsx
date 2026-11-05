@@ -45,10 +45,10 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
   const [saving, setSaving] = useState(false);
 
   // Display customizations
-  const [displayNameInput, setDisplayNameInput] = useState('全源流程资产管理平台 dflow');
+  const [displayNameInput, setDisplayNameInput] = useState('全元流程资产管理平台 dflow');
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [loginTitleSuffix, setLoginTitleSuffix] = useState('数字化流程设计与运营系统');
-  const [copyrightText, setCopyrightText] = useState('Copyright © 2026 全源数字科技版权所有');
+  const [copyrightText, setCopyrightText] = useState('Copyright © 2026 全元数字科技版权所有');
   const [watermarkEnabled, setWatermarkEnabled] = useState(false);
 
   // License Update Modal states
@@ -73,10 +73,10 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
       const json = await res.json();
       if (json.status === 1 && json.data) {
         setCompanyData(json.data);
-        setDisplayNameInput(json.data.systemDisplayName || '全源流程资产管理平台 dflow');
+        setDisplayNameInput(json.data.systemDisplayName || '全元流程资产管理平台 dflow');
         setLogoPreview(json.data.systemLogo || '');
         setLoginTitleSuffix(json.data.loginTitleSuffix || '数字化流程设计与运营系统');
-        setCopyrightText(json.data.copyrightText || 'Copyright © 2026 全源数字科技版权所有');
+        setCopyrightText(json.data.copyrightText || 'Copyright © 2026 全元数字科技版权所有');
         setWatermarkEnabled(Boolean(json.data.watermarkEnabled));
         setTargetCompanyName(json.data.companyName || '苏州全元数字科技有限公司');
         if (json.data.license?.machineCode) {
@@ -394,7 +394,7 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
                       </span>
                     </div>
                     <p className="text-xs text-[#909399] mt-0.5">
-                      全源企业级流程数字化资产运营平台 · 商业授权主体
+                      全元企业级流程数字化资产运营平台 · 商业授权主体
                     </p>
                   </div>
                 </div>
@@ -557,7 +557,7 @@ export const CompanyAuthManageView: React.FC<CompanyAuthManageViewProps> = ({
 
                 <div className="flex items-center justify-between">
                   <span className="text-[#909399] w-24 shrink-0">签发认证中心</span>
-                  <span className="text-[#303133]">{lic.issuer || '全源数科商业授权签发中心 (CA-ROOT)'}</span>
+                  <span className="text-[#303133]">{lic.issuer || '全元数科商业授权签发中心 (CA-ROOT)'}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
