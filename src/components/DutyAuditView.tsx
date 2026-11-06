@@ -25,6 +25,16 @@ import {
   Layers,
   ChevronDown,
   MoveHorizontal,
+  Calendar,
+  Filter,
+  SlidersHorizontal,
+  Sparkles,
+  List,
+  FileText,
+  CheckSquare,
+  ArrowUpDown,
+  Tag,
+  RefreshCw,
 } from 'lucide-react';
 import {
   useTableDnDAndResize,
@@ -51,6 +61,27 @@ interface AuditHistoryItem {
   action: string;
   nodeName: string;
   opinion: string;
+}
+
+export interface ApprovalHistoryEntry {
+  id: string;
+  taskId: string;
+  manualId: string;
+  manualName: string;
+  dutyItemId: string;
+  dutyNo: string;
+  dutyName: string;
+  categoryName: string;
+  scope: string;
+  time: string;
+  operator: string;
+  roleName: string;
+  deptName: string;
+  action: string;
+  nodeName: string;
+  opinion: string;
+  urgency?: string;
+  taskStatus: string;
 }
 
 export interface DutyAuditTask {
@@ -101,7 +132,7 @@ const AUDIT_COLUMNS: TableColumnConfig[] = [
   { key: 'urgency', title: '紧急程度', defaultWidth: 90, minWidth: 70, align: 'center' },
   { key: 'submitter', title: '送审人 / 时间', defaultWidth: 150, minWidth: 110 },
   { key: 'status', title: '状态', defaultWidth: 95, minWidth: 70, align: 'center' },
-  { key: 'actions', title: '审批操作', defaultWidth: 190, minWidth: 140, fixed: 'right', canDrag: false, align: 'center' },
+  { key: 'actions', title: '审批操作', defaultWidth: 220, minWidth: 170, fixed: 'right', canDrag: false, align: 'center' },
 ];
 
 export const DutyAuditView: React.FC<DutyAuditViewProps> = ({ onNavigate, showToast }) => {
@@ -177,6 +208,37 @@ export const DutyAuditView: React.FC<DutyAuditViewProps> = ({ onNavigate, showTo
     reason: '当前阶段专项事项涉及跨部门联审，转由指定专员承办。',
   });
 
+  // View Tab Switcher: 'tasks' | 'history'
+  const [activeTab, setActiveTab] = useState<'tasks' | 'history'>('tasks');
+
+  // Approval History Tab States
+  const [historyList, setHistoryList] = useState<ApprovalHistoryEntry[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyManualFilter, setHistoryManualFilter] = useState('全部');
+  const [historyDutyFilter, setHistoryDutyFilter] = useState('全部');
+  const [historyRoleFilter, setHistoryRoleFilter] = useState('全部');
+  const [historyActorFilter, setHistoryActorFilter] = useState('全部');
+  const [historyActionFilter, setHistoryActionFilter] = useState('全部');
+  const [historyKeyword, setHistoryKeyword] = useState('');
+  const [historyActiveKeyword, setHistoryActiveKeyword] = useState('');
+  const [historySort, setHistorySort] = useState<'desc' | 'asc'>('desc');
+  const [historyViewMode, setHistoryViewMode] = useState<'timeline' | 'table'>('timeline');
+  const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
+  const historyPageSize = 10;
+
+  const [historyMeta, setHistoryMeta] = useState<{
+    availableManuals: Array<{ id: string; name: string }>;
+    availableRoles: string[];
+    availableActors: string[];
+    availableActions: string[];
+  }>({
+    availableManuals: [],
+    availableRoles: [],
+    availableActors: [],
+    availableActions: [],
+  });
+
   // Fetch Tasks
   const fetchTasks = async () => {
     setLoading(true);
@@ -198,9 +260,117 @@ export const DutyAuditView: React.FC<DutyAuditViewProps> = ({ onNavigate, showTo
     }
   };
 
+  // Fetch History Logs
+  const fetchHistory = async (overrideParams?: Record<string, string>) => {
+    setHistoryLoading(true);
+    try {
+      const params = new URLSearchParams();
+      const manual = overrideParams?.manualId !== undefined ? overrideParams.manualId : historyManualFilter;
+      const duty = overrideParams?.dutyNo !== undefined ? overrideParams.dutyNo : historyDutyFilter;
+      const role = overrideParams?.roleName !== undefined ? overrideParams.roleName : historyRoleFilter;
+      const actor = overrideParams?.operator !== undefined ? overrideParams.operator : historyActorFilter;
+      const action = overrideParams?.action !== undefined ? overrideParams.action : historyActionFilter;
+      const kw = overrideParams?.keyword !== undefined ? overrideParams.keyword : historyActiveKeyword;
+      const sort = overrideParams?.sort !== undefined ? overrideParams.sort : historySort;
+
+      if (manual && manual !== '全部') params.append('manualId', manual);
+      if (duty && duty !== '全部') params.append('dutyNo', duty);
+      if (role && role !== '全部') params.append('roleName', role);
+      if (actor && actor !== '全部') params.append('operator', actor);
+      if (action && action !== '全部') params.append('action', action);
+      if (kw) params.append('keyword', kw);
+      params.append('sort', sort);
+
+      const res = await fetch(`/api/flowdoc/audit/history?${params.toString()}`).then((r) => r.json());
+      if (res.status === 1) {
+        setHistoryList(res.data || []);
+        setHistoryTotal(res.total || 0);
+        if (res.meta) {
+          setHistoryMeta(res.meta);
+        }
+      }
+    } catch {
+      showToast('获取审批历史日志失败', 'error');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
   }, [statusFilter, urgencyFilter, activeKeyword]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [
+    activeTab,
+    historyManualFilter,
+    historyDutyFilter,
+    historyRoleFilter,
+    historyActorFilter,
+    historyActionFilter,
+    historyActiveKeyword,
+    historySort,
+  ]);
+
+  // Jump to specific document/role in history tab
+  const handleViewDutyHistory = (task: DutyAuditTask) => {
+    setHistoryManualFilter(task.manualId);
+    setHistoryDutyFilter(task.dutyNo);
+    setHistoryRoleFilter('全部');
+    setHistoryActorFilter('全部');
+    setHistoryActionFilter('全部');
+    setHistoryKeyword('');
+    setHistoryActiveKeyword('');
+    setHistoryCurrentPage(1);
+    setActiveTab('history');
+    fetchHistory({
+      manualId: task.manualId,
+      dutyNo: task.dutyNo,
+      roleName: '全部',
+      operator: '全部',
+      action: '全部',
+      keyword: '',
+    });
+  };
+
+  // Open task detail by taskId from history log
+  const handleOpenTaskDetailById = (taskId: string) => {
+    const existing = tasks.find((t) => t.id === taskId);
+    if (existing) {
+      setDetailModal({ open: true, task: existing });
+    } else {
+      fetch(`/api/flowdoc/audit/tasks?keyword=${taskId}`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.data && res.data.length > 0) {
+            setDetailModal({ open: true, task: res.data[0] });
+          } else {
+            showToast('未找到对应的审核任务详情', 'warning');
+          }
+        })
+        .catch(() => showToast('加载审核任务详情失败', 'error'));
+    }
+  };
+
+  const paginatedHistory = useMemo(() => {
+    const start = (historyCurrentPage - 1) * historyPageSize;
+    return historyList.slice(start, start + historyPageSize);
+  }, [historyList, historyCurrentPage, historyPageSize]);
+
+  const historyTotalPages = Math.max(1, Math.ceil(historyList.length / historyPageSize));
+
+  const historyStats = useMemo(() => {
+    const total = historyList.length;
+    const approved = historyList.filter((h) => h.action === '审核通过').length;
+    const rejected = historyList.filter((h) => h.action === '审核驳回').length;
+    const transferred = historyList.filter((h) => h.action === '转办审批').length;
+    const distinctManuals = new Set(historyList.map((h) => h.manualName)).size;
+    const distinctActors = new Set(historyList.map((h) => h.operator)).size;
+    return { total, approved, rejected, transferred, distinctManuals, distinctActors };
+  }, [historyList]);
 
   // Search & Reset
   const handleSearch = () => {
@@ -400,19 +570,85 @@ export const DutyAuditView: React.FC<DutyAuditViewProps> = ({ onNavigate, showTo
             <ArrowRight className="w-3.5 h-3.5 rotate-180" />
             <span>返回权责建设</span>
           </button>
-          <button
-            type="button"
-            onClick={fetchTasks}
-            className="h-8 px-3 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>刷新待办任务</span>
-          </button>
+          {activeTab === 'tasks' ? (
+            <button
+              type="button"
+              onClick={fetchTasks}
+              className="h-8 px-3 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>刷新待办任务</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fetchHistory()}
+              className="h-8 px-3 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>刷新历史日志</span>
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
-        {/* KPI Stats Cards */}
+      {/* Top Tab Switcher: 审核任务处理 vs. 审批历史履历 (Approval History) */}
+      <div className="bg-white border-b border-[#e8e8e8] px-6 flex items-center justify-between shrink-0 shadow-2xs">
+        <div className="flex items-center gap-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('tasks')}
+            className={`py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              activeTab === 'tasks'
+                ? 'border-[#1890ff] text-[#1890ff]'
+                : 'border-transparent text-[#595959] hover:text-[#1890ff]'
+            }`}
+          >
+            <FileCheck2 className="w-4 h-4" />
+            <span>审核任务处理</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-medium ${
+                stats.pending > 0
+                  ? 'bg-[#fa8c16] text-white'
+                  : 'bg-[#f0f0f0] text-[#8c8c8c]'
+              }`}
+            >
+              {stats.pending > 0 ? `待办 ${stats.pending}` : stats.total}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('history');
+              fetchHistory();
+            }}
+            className={`py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              activeTab === 'history'
+                ? 'border-[#1890ff] text-[#1890ff]'
+                : 'border-transparent text-[#595959] hover:text-[#1890ff]'
+            }`}
+          >
+            <History className="w-4 h-4" />
+            <span>审批历史履历 (Approval History)</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-[#f6ffed] text-[#52c41a] text-[10.5px] font-medium border border-[#b7eb8f]">
+              {historyTotal > 0 ? `${historyTotal} 条记录` : '时间轴'}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-[11px] text-[#8c8c8c] flex items-center gap-2">
+          {activeTab === 'tasks' ? (
+            <span>支持多选批量通过/驳回与跨部门任务转办</span>
+          ) : (
+            <span>按特定文件手册或审批角色完整追溯时间轴操作日志</span>
+          )}
+        </div>
+      </div>
+
+      {activeTab === 'tasks' ? (
+        <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
+          {/* KPI Stats Cards */}
         <div className="grid grid-cols-5 gap-3 shrink-0">
           <div
             onClick={() => setStatusFilter('全部')}
@@ -928,6 +1164,16 @@ export const DutyAuditView: React.FC<DutyAuditViewProps> = ({ onNavigate, showTo
 
                                     <button
                                       type="button"
+                                      onClick={() => handleViewDutyHistory(task)}
+                                      className="text-[#722ed1] hover:text-[#531dab] hover:underline cursor-pointer flex items-center gap-0.5"
+                                      title="查阅该事项全生命周期审批历史履历"
+                                    >
+                                      <History className="w-3.5 h-3.5" />
+                                      <span>历史</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
                                       onClick={() => setDetailModal({ open: true, task })}
                                       className="text-[#595959] hover:text-[#1890ff] hover:underline cursor-pointer flex items-center gap-0.5"
                                       title="查看流转进度与审批日志"
@@ -985,8 +1231,696 @@ export const DutyAuditView: React.FC<DutyAuditViewProps> = ({ onNavigate, showTo
               </button>
             </div>
           </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* ============================================================ */
+        /* TAB 2: APPROVAL HISTORY (审批全链路操作履历日志追踪) */
+        /* ============================================================ */
+        <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
+          {/* 1. 特定权责文件或角色聚焦提示条 (Specific Document / Role Focus Banner) */}
+          {(historyManualFilter !== '全部' ||
+            historyDutyFilter !== '全部' ||
+            historyRoleFilter !== '全部' ||
+            historyActorFilter !== '全部') && (
+            <div className="bg-[#e6f7ff] border border-[#91d5ff] rounded-lg p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-2xs">
+              <div className="flex items-start md:items-center gap-2.5">
+                <div className="w-7 h-7 rounded-md bg-[#1890ff] text-white flex items-center justify-center shrink-0">
+                  <Filter className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-[#096dd9]">当前已聚焦特定履历日志：</span>
+                    {historyManualFilter !== '全部' && (
+                      <span className="px-2 py-0.5 rounded bg-white border border-[#91d5ff] text-[#1890ff] font-medium flex items-center gap-1">
+                        <FileText className="w-3 h-3 text-[#1890ff]" />
+                        <span>手册: {historyMeta.availableManuals.find((m) => m.id === historyManualFilter)?.name || historyManualFilter}</span>
+                      </span>
+                    )}
+                    {historyDutyFilter !== '全部' && (
+                      <span className="px-2 py-0.5 rounded bg-white border border-[#91d5ff] text-[#1890ff] font-medium font-mono">
+                        权责编号: {historyDutyFilter}
+                      </span>
+                    )}
+                    {historyRoleFilter !== '全部' && (
+                      <span className="px-2 py-0.5 rounded bg-white border border-[#91d5ff] text-[#722ed1] font-medium flex items-center gap-1">
+                        <Users className="w-3 h-3 text-[#722ed1]" />
+                        <span>角色: {historyRoleFilter}</span>
+                      </span>
+                    )}
+                    {historyActorFilter !== '全部' && (
+                      <span className="px-2 py-0.5 rounded bg-white border border-[#91d5ff] text-[#52c41a] font-medium flex items-center gap-1">
+                        <User className="w-3 h-3 text-[#52c41a]" />
+                        <span>操作人: {historyActorFilter}</span>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#595959] mt-0.5">
+                    已严格按时间顺序（Chronological Log）过滤出符合上述特定文件或角色的全部历史动作与审批批注，共匹配到{' '}
+                    <strong className="text-[#1890ff]">{historyList.length}</strong> 条操作记录
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryManualFilter('全部');
+                  setHistoryDutyFilter('全部');
+                  setHistoryRoleFilter('全部');
+                  setHistoryActorFilter('全部');
+                  setHistoryActionFilter('全部');
+                  setHistoryKeyword('');
+                  setHistoryActiveKeyword('');
+                  setHistoryCurrentPage(1);
+                  fetchHistory({
+                    manualId: '全部',
+                    dutyNo: '全部',
+                    roleName: '全部',
+                    operator: '全部',
+                    action: '全部',
+                    keyword: '',
+                  });
+                }}
+                className="h-7 px-3 rounded bg-white hover:bg-[#bae7ff] border border-[#91d5ff] text-[#1890ff] text-xs font-medium flex items-center gap-1 cursor-pointer shrink-0 transition-colors shadow-2xs"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>清除聚焦 · 查看全量历史</span>
+              </button>
+            </div>
+          )}
+
+          {/* 2. KPI 概览指标卡片 (Metrics Cards) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 shrink-0">
+            <div className="p-3.5 rounded-lg border border-[#e8e8e8] bg-white shadow-2xs">
+              <div className="flex items-center justify-between text-xs text-[#8c8c8c]">
+                <span>全部审批操作</span>
+                <History className="w-4 h-4 text-[#1890ff]" />
+              </div>
+              <div className="mt-2 text-2xl font-bold text-[#262626] font-mono-tabular">
+                {historyStats.total}
+              </div>
+              <div className="mt-1 text-[11px] text-[#8c8c8c]">含送审、通过、驳回与转办</div>
+            </div>
+
+            <div className="p-3.5 rounded-lg border border-[#e8e8e8] bg-white shadow-2xs">
+              <div className="flex items-center justify-between text-xs text-[#52c41a]">
+                <span className="font-medium">审核通过动作</span>
+                <CheckCircle2 className="w-4 h-4 text-[#52c41a]" />
+              </div>
+              <div className="mt-2 text-2xl font-bold text-[#52c41a] font-mono-tabular">
+                {historyStats.approved}
+              </div>
+              <div className="mt-1 text-[11px] text-[#8c8c8c]">各级节点审核通过记录</div>
+            </div>
+
+            <div className="p-3.5 rounded-lg border border-[#e8e8e8] bg-white shadow-2xs">
+              <div className="flex items-center justify-between text-xs text-[#ff4d4f]">
+                <span className="font-medium">审核驳回拦截</span>
+                <XCircle className="w-4 h-4 text-[#ff4d4f]" />
+              </div>
+              <div className="mt-2 text-2xl font-bold text-[#ff4d4f] font-mono-tabular">
+                {historyStats.rejected}
+              </div>
+              <div className="mt-1 text-[11px] text-[#8c8c8c]">退回起草人修改项</div>
+            </div>
+
+            <div className="p-3.5 rounded-lg border border-[#e8e8e8] bg-white shadow-2xs">
+              <div className="flex items-center justify-between text-xs text-[#722ed1]">
+                <span className="font-medium">转办协作记录</span>
+                <UserCheck className="w-4 h-4 text-[#722ed1]" />
+              </div>
+              <div className="mt-2 text-2xl font-bold text-[#722ed1] font-mono-tabular">
+                {historyStats.transferred}
+              </div>
+              <div className="mt-1 text-[11px] text-[#8c8c8c]">跨业务跨角色移交记录</div>
+            </div>
+
+            <div className="p-3.5 rounded-lg border border-[#e8e8e8] bg-white shadow-2xs col-span-2 sm:col-span-1">
+              <div className="flex items-center justify-between text-xs text-[#1890ff]">
+                <span>涵盖范围</span>
+                <Layers className="w-4 h-4 text-[#1890ff]" />
+              </div>
+              <div className="mt-2 text-xl font-bold text-[#262626]">
+                <span className="text-[#1890ff] font-mono">{historyStats.distinctManuals}</span> 本手册 ·{' '}
+                <span className="text-[#52c41a] font-mono">{historyStats.distinctActors}</span> 位经办人
+              </div>
+              <div className="mt-1 text-[11px] text-[#8c8c8c]">全权责体系透明追溯</div>
+            </div>
+          </div>
+
+          {/* 3. 多维筛选与检索卡片 (Filter Controls) */}
+          <div className="bg-white rounded-lg border border-[#e8e8e8] p-3.5 shadow-2xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* 权责手册/文件筛选 */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[#595959] font-medium shrink-0">手册文件:</span>
+                  <select
+                    value={historyManualFilter}
+                    onChange={(e) => {
+                      setHistoryManualFilter(e.target.value);
+                      setHistoryCurrentPage(1);
+                    }}
+                    className="h-8 max-w-[170px] px-2.5 rounded border border-[#d9d9d9] bg-white text-[#262626] text-xs focus:outline-none focus:border-[#1890ff] cursor-pointer"
+                  >
+                    <option value="全部">全部权责手册</option>
+                    {historyMeta.availableManuals.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 权责编号 / 事项 */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[#595959] font-medium shrink-0">权责事项/编号:</span>
+                  <input
+                    type="text"
+                    value={historyDutyFilter === '全部' ? '' : historyDutyFilter}
+                    onChange={(e) => {
+                      const v = e.target.value.trim();
+                      setHistoryDutyFilter(v || '全部');
+                      setHistoryCurrentPage(1);
+                    }}
+                    placeholder="输入编号如 EXP-001..."
+                    className="h-8 w-36 px-2.5 rounded border border-[#d9d9d9] bg-white text-[#262626] text-xs focus:outline-none focus:border-[#1890ff]"
+                  />
+                </div>
+
+                {/* 操作角色筛选 */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[#595959] font-medium shrink-0">角色:</span>
+                  <select
+                    value={historyRoleFilter}
+                    onChange={(e) => {
+                      setHistoryRoleFilter(e.target.value);
+                      setHistoryCurrentPage(1);
+                    }}
+                    className="h-8 px-2.5 rounded border border-[#d9d9d9] bg-white text-[#262626] text-xs focus:outline-none focus:border-[#1890ff] cursor-pointer"
+                  >
+                    <option value="全部">全部角色</option>
+                    {historyMeta.availableRoles.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 操作人 / Actor 筛选 */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[#595959] font-medium shrink-0">操作人:</span>
+                  <select
+                    value={historyActorFilter}
+                    onChange={(e) => {
+                      setHistoryActorFilter(e.target.value);
+                      setHistoryCurrentPage(1);
+                    }}
+                    className="h-8 px-2.5 rounded border border-[#d9d9d9] bg-white text-[#262626] text-xs focus:outline-none focus:border-[#1890ff] cursor-pointer"
+                  >
+                    <option value="全部">全部操作人</option>
+                    {historyMeta.availableActors.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 操作动作筛选 */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[#595959] font-medium shrink-0">动作类型:</span>
+                  <select
+                    value={historyActionFilter}
+                    onChange={(e) => {
+                      setHistoryActionFilter(e.target.value);
+                      setHistoryCurrentPage(1);
+                    }}
+                    className="h-8 px-2.5 rounded border border-[#d9d9d9] bg-white text-[#262626] text-xs focus:outline-none focus:border-[#1890ff] cursor-pointer"
+                  >
+                    <option value="全部">全部动作</option>
+                    <option value="提交送审">提交送审</option>
+                    <option value="审核通过">审核通过</option>
+                    <option value="审核驳回">审核驳回</option>
+                    <option value="转办审批">转办审批</option>
+                  </select>
+                </div>
+
+                {/* 综合关键字检索 */}
+                <div className="relative w-48">
+                  <input
+                    type="text"
+                    value={historyKeyword}
+                    onChange={(e) => setHistoryKeyword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setHistoryActiveKeyword(historyKeyword.trim());
+                        setHistoryCurrentPage(1);
+                      }
+                    }}
+                    placeholder="搜事项/批注/操作人..."
+                    className="h-8 w-full pl-7 pr-3 rounded border border-[#d9d9d9] bg-white text-[#262626] text-xs focus:outline-none focus:border-[#1890ff]"
+                  />
+                  <Search className="w-3.5 h-3.5 text-[#bfbfbf] absolute left-2 top-2.5 pointer-events-none" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryActiveKeyword(historyKeyword.trim());
+                    setHistoryCurrentPage(1);
+                  }}
+                  className="h-8 px-3 rounded bg-[#1890ff] hover:bg-[#40a9ff] text-white text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>查询</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryManualFilter('全部');
+                    setHistoryDutyFilter('全部');
+                    setHistoryRoleFilter('全部');
+                    setHistoryActorFilter('全部');
+                    setHistoryActionFilter('全部');
+                    setHistoryKeyword('');
+                    setHistoryActiveKeyword('');
+                    setHistoryCurrentPage(1);
+                  }}
+                  className="h-8 px-2.5 rounded bg-white hover:bg-[#f5f7fa] text-[#595959] border border-[#d9d9d9] text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>重置</span>
+                </button>
+              </div>
+
+              {/* 右侧视图与排序工具 */}
+              <div className="flex items-center gap-2 ml-auto">
+                {/* 排序按钮 */}
+                <button
+                  type="button"
+                  onClick={() => setHistorySort(historySort === 'desc' ? 'asc' : 'desc')}
+                  className="h-8 px-3 rounded border border-[#d9d9d9] bg-white hover:border-[#1890ff] hover:text-[#1890ff] text-xs text-[#595959] flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="点击切换时间排列顺序"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  <span>{historySort === 'desc' ? '时间倒序 (最新在前)' : '时间正序 (正向回溯)'}</span>
+                </button>
+
+                {/* 视图切换 */}
+                <div className="flex items-center rounded border border-[#d9d9d9] bg-[#fafafa] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryViewMode('timeline')}
+                    className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                      historyViewMode === 'timeline'
+                        ? 'bg-white text-[#1890ff] shadow-xs'
+                        : 'text-[#8c8c8c] hover:text-[#262626]'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>时间轴</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryViewMode('table')}
+                    className={`px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1 transition-all cursor-pointer ${
+                      historyViewMode === 'table'
+                        ? 'bg-white text-[#1890ff] shadow-xs'
+                        : 'text-[#8c8c8c] hover:text-[#262626]'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>表格明细</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. 履历展示内容区 (Timeline or Table) */}
+          {historyLoading ? (
+            <div className="bg-white rounded-lg border border-[#e8e8e8] p-12 text-center text-[#8c8c8c] text-xs">
+              <RotateCcw className="w-6 h-6 animate-spin mx-auto text-[#1890ff] mb-2" />
+              <span>正在加载审批历史日志...</span>
+            </div>
+          ) : historyList.length === 0 ? (
+            <div className="bg-white rounded-lg border border-[#e8e8e8] p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-[#f5f5f5] text-[#8c8c8c] flex items-center justify-center mx-auto">
+                <History className="w-6 h-6" />
+              </div>
+              <div className="text-sm font-semibold text-[#262626]">暂无符合条件的审批历史记录</div>
+              <p className="text-xs text-[#8c8c8c] max-w-md mx-auto">
+                未检索到该筛选条件下的流转动作。您可以切换权责手册、清空角色或操作人条件，或重新刷新数据。
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryManualFilter('全部');
+                  setHistoryDutyFilter('全部');
+                  setHistoryRoleFilter('全部');
+                  setHistoryActorFilter('全部');
+                  setHistoryActionFilter('全部');
+                  setHistoryKeyword('');
+                  setHistoryActiveKeyword('');
+                  fetchHistory({
+                    manualId: '全部',
+                    dutyNo: '全部',
+                    roleName: '全部',
+                    operator: '全部',
+                    action: '全部',
+                    keyword: '',
+                  });
+                }}
+                className="h-8 px-4 rounded bg-[#1890ff] text-white text-xs font-medium cursor-pointer shadow-xs"
+              >
+                查看全部操作历史
+              </button>
+            </div>
+          ) : historyViewMode === 'timeline' ? (
+            /* 4.A 时间轴模式 (Chronological Timeline) */
+            <div className="bg-white rounded-lg border border-[#e8e8e8] p-5 shadow-2xs space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-[#f0f0f0]">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-xs text-[#262626]">审批操作流转时间轴</span>
+                  <span className="text-[11px] text-[#8c8c8c]">（按执行发生时间点从最新到最早依次展开）</span>
+                </div>
+                <span className="text-xs text-[#8c8c8c]">
+                  当前展示 {paginatedHistory.length} / 共 {historyList.length} 条记录
+                </span>
+              </div>
+
+              <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#e8e8e8]">
+                {paginatedHistory.map((item, idx) => {
+                  const isPass = item.action === '审核通过';
+                  const isReject = item.action === '审核驳回';
+                  const isTransfer = item.action === '转办审批';
+                  const isSubmit = item.action === '提交送审';
+
+                  return (
+                    <div key={item.id || idx} className="relative group">
+                      {/* Timeline dot */}
+                      <div
+                        className={`absolute -left-6 top-1 w-5 h-5 rounded-full flex items-center justify-center ring-4 ring-white ${
+                          isPass
+                            ? 'bg-[#52c41a] text-white'
+                            : isReject
+                            ? 'bg-[#ff4d4f] text-white'
+                            : isTransfer
+                            ? 'bg-[#722ed1] text-white'
+                            : isSubmit
+                            ? 'bg-[#1890ff] text-white'
+                            : 'bg-[#d9d9d9] text-white'
+                        }`}
+                      >
+                        {isPass ? (
+                          <Check className="w-3 h-3 stroke-3" />
+                        ) : isReject ? (
+                          <X className="w-3 h-3 stroke-3" />
+                        ) : isTransfer ? (
+                          <UserCheck className="w-3 h-3" />
+                        ) : isSubmit ? (
+                          <Send className="w-2.5 h-2.5" />
+                        ) : (
+                          <Clock className="w-3 h-3" />
+                        )}
+                      </div>
+
+                      {/* Log Card */}
+                      <div className="bg-[#fafafa] group-hover:bg-[#f6f9fc] rounded-lg border border-[#e8e8e8] group-hover:border-[#91d5ff] p-4 transition-all duration-150 shadow-2xs space-y-3">
+                        {/* Card Top: Time, Action Badge, Node, Current Status */}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Action badge */}
+                            <span
+                              className={`px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 border ${
+                                isPass
+                                  ? 'bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]'
+                                  : isReject
+                                  ? 'bg-[#fff1f0] text-[#ff4d4f] border-[#ffa39e]'
+                                  : isTransfer
+                                  ? 'bg-[#f9f0ff] text-[#722ed1] border-[#d3adf7]'
+                                  : isSubmit
+                                  ? 'bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]'
+                                  : 'bg-white text-[#595959] border-[#d9d9d9]'
+                              }`}
+                            >
+                              {isPass && <CheckCircle2 className="w-3.5 h-3.5" />}
+                              {isReject && <AlertTriangle className="w-3.5 h-3.5" />}
+                              {isTransfer && <UserCheck className="w-3.5 h-3.5" />}
+                              {isSubmit && <Send className="w-3.5 h-3.5" />}
+                              <span>{item.action}</span>
+                            </span>
+
+                            {/* Node stage */}
+                            <span className="font-semibold text-xs text-[#262626] bg-white px-2 py-0.5 rounded border border-[#d9d9d9]">
+                              {item.nodeName}
+                            </span>
+
+                            {/* Timestamp */}
+                            <div className="flex items-center gap-1 text-[11.5px] font-mono text-[#8c8c8c] bg-white px-2 py-0.5 rounded border border-[#f0f0f0]">
+                              <Clock className="w-3 h-3 text-[#bfbfbf]" />
+                              <span>{item.time}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-[#8c8c8c]">
+                              单号: <span className="font-mono text-[#595959]">{item.taskId}</span>
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10.5px] font-medium border ${
+                                item.taskStatus === '已通过'
+                                  ? 'bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]'
+                                  : item.taskStatus === '待审核'
+                                  ? 'bg-[#fff7e6] text-[#fa8c16] border-[#ffd591]'
+                                  : item.taskStatus === '审核中'
+                                  ? 'bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]'
+                                  : 'bg-[#fff1f0] text-[#ff4d4f] border-[#ffa39e]'
+                              }`}
+                            >
+                              当前状态: {item.taskStatus}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Card Middle: Actor Information */}
+                        <div className="flex items-center gap-3 bg-white p-2.5 rounded border border-[#f0f0f0]">
+                          <div className="w-8 h-8 rounded-full bg-[#e6f7ff] text-[#1890ff] flex items-center justify-center font-bold text-xs shrink-0 border border-[#91d5ff]">
+                            {item.operator.slice(0, 1)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-xs text-[#262626]">{item.operator}</span>
+                              <span className="px-2 py-0.5 rounded text-[10.5px] bg-[#f5f5f5] text-[#595959] border border-[#e8e8e8]">
+                                角色: {item.roleName || '审批人'}
+                              </span>
+                              <span className="text-[11px] text-[#8c8c8c]">
+                                所属部门: {item.deptName || '综合管理部'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card Target Document & Duty Item */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs bg-white p-2.5 rounded border border-[#f0f0f0]">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[#8c8c8c] shrink-0">权责手册/文件:</span>
+                            <span className="font-medium text-[#262626] truncate" title={item.manualName}>
+                              {item.manualName}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[#8c8c8c] shrink-0">权责事项:</span>
+                            <span className="font-semibold text-[#1890ff] truncate" title={item.dutyName}>
+                              {item.dutyName}
+                            </span>
+                            <span className="font-mono text-[11px] text-[#8c8c8c] shrink-0">({item.dutyNo})</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[#8c8c8c] shrink-0">授权范围:</span>
+                            <span className="text-[#595959] truncate">{item.scope}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[#8c8c8c] shrink-0">紧急程度:</span>
+                            <span className="font-medium text-[#fa8c16]">{item.urgency || '普通'}</span>
+                          </div>
+                        </div>
+
+                        {/* Card Opinion / Comments */}
+                        {item.opinion && (
+                          <div className="bg-white rounded border border-[#f0f0f0] p-2.5 text-xs text-[#262626] border-l-3 border-l-[#1890ff]">
+                            <div className="text-[11px] text-[#8c8c8c] mb-0.5 flex items-center gap-1">
+                              <span>处理批注 / 意见说明：</span>
+                            </div>
+                            <p className="leading-relaxed whitespace-pre-wrap">{item.opinion}</p>
+                          </div>
+                        )}
+
+                        {/* Card Footer Action */}
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-[#bfbfbf]">
+                            操作时间戳: {item.time}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenTaskDetailById(item.taskId)}
+                            className="text-xs text-[#1890ff] hover:text-[#40a9ff] hover:underline font-medium flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>查看关联单据与多层级流转树</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* 4.B 表格明细模式 (Grid Table Mode) */
+            <div className="bg-white rounded-lg border border-[#e8e8e8] shadow-2xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#fafafa] border-b border-[#f0f0f0] text-[#595959] font-medium h-10">
+                      <th className="py-2 px-3 w-40 font-medium">操作时间</th>
+                      <th className="py-2 px-3 w-36 font-medium">操作人 (Actor)</th>
+                      <th className="py-2 px-3 w-28 font-medium">动作</th>
+                      <th className="py-2 px-3 w-48 font-medium">所属手册 / 权责文件</th>
+                      <th className="py-2 px-3 w-48 font-medium">权责事项 (编号)</th>
+                      <th className="py-2 px-3 w-32 font-medium">流转节点</th>
+                      <th className="py-2 px-3 font-medium">批注 / 意见说明</th>
+                      <th className="py-2 px-3 w-24 text-center font-medium">单据状态</th>
+                      <th className="py-2 px-3 w-24 text-center font-medium">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#f0f0f0]">
+                    {paginatedHistory.map((item, idx) => {
+                      const isPass = item.action === '审核通过';
+                      const isReject = item.action === '审核驳回';
+                      const isTransfer = item.action === '转办审批';
+
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-[#fafafa] transition-colors">
+                          <td className="py-3 px-3 font-mono text-[11px] text-[#8c8c8c] whitespace-nowrap">
+                            {item.time}
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="space-y-0.5">
+                              <div className="font-semibold text-[#262626] flex items-center gap-1">
+                                <User className="w-3 h-3 text-[#1890ff]" />
+                                <span>{item.operator}</span>
+                              </div>
+                              <div className="text-[10.5px] text-[#8c8c8c]">
+                                {item.roleName} · {item.deptName}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-semibold border inline-flex items-center gap-1 ${
+                                isPass
+                                  ? 'bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]'
+                                  : isReject
+                                  ? 'bg-[#fff1f0] text-[#ff4d4f] border-[#ffa39e]'
+                                  : isTransfer
+                                  ? 'bg-[#f9f0ff] text-[#722ed1] border-[#d3adf7]'
+                                  : 'bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]'
+                              }`}
+                            >
+                              {item.action}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-[#262626] font-medium" title={item.manualName}>
+                            <div className="truncate max-w-[180px]">{item.manualName}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="truncate max-w-[180px] font-medium text-[#1890ff]" title={item.dutyName}>
+                              {item.dutyName}
+                            </div>
+                            <div className="font-mono text-[10.5px] text-[#8c8c8c]">{item.dutyNo}</div>
+                          </td>
+                          <td className="py-3 px-3 text-[#595959]">{item.nodeName}</td>
+                          <td className="py-3 px-3 text-[#262626] max-w-xs">
+                            <div className="line-clamp-2 text-[11px] text-[#595959]" title={item.opinion}>
+                              {item.opinion || '-'}
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10.5px] font-medium border ${
+                                item.taskStatus === '已通过'
+                                  ? 'bg-[#f6ffed] text-[#52c41a] border-[#b7eb8f]'
+                                  : item.taskStatus === '待审核'
+                                  ? 'bg-[#fff7e6] text-[#fa8c16] border-[#ffd591]'
+                                  : item.taskStatus === '审核中'
+                                  ? 'bg-[#e6f7ff] text-[#1890ff] border-[#91d5ff]'
+                                  : 'bg-[#fff1f0] text-[#ff4d4f] border-[#ffa39e]'
+                              }`}
+                            >
+                              {item.taskStatus}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTaskDetailById(item.taskId)}
+                              className="text-[#1890ff] hover:underline cursor-pointer flex items-center justify-center gap-0.5 mx-auto"
+                              title="查看所属权责单据详情"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>详情</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 5. 履历分页条 (History Pagination) */}
+          <div className="py-2.5 px-4 bg-white rounded-lg border border-[#e8e8e8] flex items-center justify-between text-xs text-[#595959] shadow-2xs">
+            <div>
+              共 <span className="font-medium text-[#262626] font-mono">{historyList.length}</span> 条操作履历日志，当前显示第{' '}
+              <span className="font-medium text-[#262626] font-mono">{historyCurrentPage}</span> / {historyTotalPages} 页
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={historyCurrentPage <= 1}
+                onClick={() => setHistoryCurrentPage((p) => Math.max(1, p - 1))}
+                className={`px-2.5 py-1 rounded border text-xs ${
+                  historyCurrentPage <= 1
+                    ? 'border-[#d9d9d9] text-[#bfbfbf] bg-[#f5f5f5] cursor-not-allowed'
+                    : 'border-[#d9d9d9] text-[#262626] hover:border-[#1890ff] hover:text-[#1890ff] bg-white cursor-pointer'
+                }`}
+              >
+                上一页
+              </button>
+              <button
+                type="button"
+                disabled={historyCurrentPage >= historyTotalPages}
+                onClick={() => setHistoryCurrentPage((p) => Math.min(historyTotalPages, p + 1))}
+                className={`px-2.5 py-1 rounded border text-xs ${
+                  historyCurrentPage >= historyTotalPages
+                    ? 'border-[#d9d9d9] text-[#bfbfbf] bg-[#f5f5f5] cursor-not-allowed'
+                    : 'border-[#d9d9d9] text-[#262626] hover:border-[#1890ff] hover:text-[#1890ff] bg-white cursor-pointer'
+                }`}
+              >
+                下一页
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL 1: APPROVE DIALOG */}
       {approveModal.open && (
@@ -1474,10 +2408,23 @@ export const DutyAuditView: React.FC<DutyAuditViewProps> = ({ onNavigate, showTo
 
               {/* Approval History Log */}
               <div>
-                <h4 className="text-xs font-semibold text-[#262626] mb-3 flex items-center gap-1.5">
-                  <History className="w-4 h-4 text-[#8c8c8c]" />
-                  <span>审批流转日志追踪</span>
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold text-[#262626] flex items-center gap-1.5">
+                    <History className="w-4 h-4 text-[#8c8c8c]" />
+                    <span>审批流转日志追踪 (Approval History)</span>
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = detailModal.task;
+                      setDetailModal({ open: false, task: null });
+                      if (t) handleViewDutyHistory(t);
+                    }}
+                    className="text-[11px] text-[#1890ff] hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <span>在履历中心查阅该事项 &rarr;</span>
+                  </button>
+                </div>
 
                 <div className="border border-[#f0f0f0] rounded-lg overflow-hidden">
                   <table className="w-full text-left text-xs">

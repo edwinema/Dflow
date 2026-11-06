@@ -5262,6 +5262,140 @@ let dutyAuditTasks: any[] = [
       },
     ],
   },
+  {
+    id: 'SH-2026-004',
+    manualId: 'manual_2026',
+    manualName: '2026全元企业分权授权制度(DOA手册)',
+    dutyItemId: 'duty_2026_03',
+    dutyNo: 'FIN-DOA-003',
+    dutyName: '重大对外担保与资产处置审批',
+    categoryName: '财务管理中心',
+    scope: '集团总部及各事业部/控股子公司',
+    scenarioText: '【单笔金额>=5000万】: 董事会终审\n【单笔金额<5000万】: 总裁办公会审议',
+    submitter: '系统管理员',
+    submitTime: '2026-04-01 09:20:00',
+    urgency: '特急',
+    remark: '送审2026年度大额对外担保与资产处置授权权限矩阵。',
+    currentLevelIndex: 1,
+    currentApprover: '陈静',
+    currentLevelName: '第2级: 质量合规复核',
+    status: '已驳回',
+    levels: [
+      {
+        level: 1,
+        levelName: '第1级: 权责初审',
+        roleName: '权责推进专员',
+        approverName: '张明',
+        deptName: '权责管理部',
+        status: 'approved',
+        opinion: '经核定审批限额划分清晰，初审通过。',
+        operateTime: '2026-04-01 10:15:00',
+      },
+      {
+        level: 2,
+        levelName: '第2级: 质量合规复核',
+        roleName: '合规法务总监',
+        approverName: '陈静',
+        deptName: '质量合规部',
+        status: 'rejected',
+        opinion: '根据国有及集团重大资产管控指引，单笔超过5000万元需增加党委会前置研究讨论程序，请完善后重提。',
+        operateTime: '2026-04-01 15:40:00',
+      },
+    ],
+    history: [
+      {
+        time: '2026-04-01 09:20:00',
+        operator: '系统管理员',
+        action: '提交送审',
+        nodeName: '起草送审',
+        opinion: '送审2026年度大额对外担保与资产处置授权权限矩阵。',
+      },
+      {
+        time: '2026-04-01 10:15:00',
+        operator: '张明',
+        action: '审核通过',
+        nodeName: '第1级: 权责初审',
+        opinion: '经核定审批限额划分清晰，初审通过。',
+      },
+      {
+        time: '2026-04-01 15:40:00',
+        operator: '陈静',
+        action: '审核驳回',
+        nodeName: '第2级: 质量合规复核',
+        opinion: '根据国有及集团重大资产管控指引，单笔超过5000万元需增加党委会前置研究讨论程序，请完善后重提。',
+      },
+    ],
+  },
+  {
+    id: 'SH-2026-005',
+    manualId: 'manual_group_2025',
+    manualName: '2025年集团授权手册',
+    dutyItemId: 'duty_02',
+    dutyNo: 'HR-AUTH-006',
+    dutyName: '关键研发人才职级晋升与薪酬特批',
+    categoryName: '人力资源与组织发展',
+    scope: '研发中心及各产品线项目组',
+    scenarioText: '【研发资深专家/专家级】: 人力资源委员会\n【普通骨干专家】: 研发中心总经理',
+    submitter: '流程管理员',
+    submitTime: '2026-04-02 16:00:00',
+    urgency: '紧急',
+    remark: '提交高阶研发人才职级晋升与薪级特批流转配置。',
+    currentLevelIndex: 1,
+    currentApprover: '李芳',
+    currentLevelName: '第2级: 人力合规复核',
+    status: '审核中',
+    levels: [
+      {
+        level: 1,
+        levelName: '第1级: 权责初审',
+        roleName: '内控审计主管',
+        approverName: '王强',
+        deptName: '审计监察部',
+        status: 'approved',
+        opinion: '廉洁与组织纪律审查合格，转办审核通过。',
+        operateTime: '2026-04-03 14:20:00',
+      },
+      {
+        level: 2,
+        levelName: '第2级: 人力合规复核',
+        roleName: '人力风控经理',
+        approverName: '李芳',
+        deptName: '财务管理中心',
+        status: 'pending',
+      },
+      {
+        level: 3,
+        levelName: '第3级: 终审批准',
+        roleName: '决策委员会主任',
+        approverName: '刘建国',
+        deptName: '决策委员会',
+        status: 'waiting',
+      },
+    ],
+    history: [
+      {
+        time: '2026-04-02 16:00:00',
+        operator: '流程管理员',
+        action: '提交送审',
+        nodeName: '起草送审',
+        opinion: '提交高阶研发人才职级晋升与薪级特批流转配置。',
+      },
+      {
+        time: '2026-04-03 09:30:00',
+        operator: '张明',
+        action: '转办审批',
+        nodeName: '第1级: 权责初审',
+        opinion: '将审批转办给【王强】。原因：涉及核心关键岗特别晋升评审，需监察审计部王强主管进行前置合规复查。',
+      },
+      {
+        time: '2026-04-03 14:20:00',
+        operator: '王强',
+        action: '审核通过',
+        nodeName: '第1级: 权责初审',
+        opinion: '廉洁与组织纪律审查合格，转办审核通过。',
+      },
+    ],
+  },
 ];
 
 // Helper to find a duty item across manuals
@@ -5594,6 +5728,124 @@ app.post('/api/flowdoc/audit/tasks/batch-reject', (req, res) => {
   });
 
   res.json({ status: 1, allTasks: dutyAuditTasks, info: `已批量驳回 ${taskIds.length} 项审核任务` });
+});
+
+// 8. Query Full Approval History across tasks, documents, and roles (审批全链路操作履历日志)
+app.get('/api/flowdoc/audit/history', (req, res) => {
+  const { manualId, dutyNo, roleName, operator, action, keyword, sort = 'desc' } = req.query as Record<string, string>;
+
+  let historyLogs: any[] = [];
+
+  dutyAuditTasks.forEach((task) => {
+    if (!Array.isArray(task.history)) return;
+    task.history.forEach((h: any, idx: number) => {
+      // Find matching level for this history item to get roleName and deptName
+      const matchedLevel = task.levels?.find((lvl: any) =>
+        lvl.levelName === h.nodeName ||
+        lvl.approverName === h.operator
+      );
+
+      const role = h.roleName || matchedLevel?.roleName || (h.action === '提交送审' ? '送审发起人' : '审批责任人');
+      const dept = h.deptName || matchedLevel?.deptName || (h.action === '提交送审' ? '编制部门' : '审核部门');
+
+      historyLogs.push({
+        id: `${task.id}-h-${idx}`,
+        taskId: task.id,
+        manualId: task.manualId,
+        manualName: task.manualName,
+        dutyItemId: task.dutyItemId,
+        dutyNo: task.dutyNo,
+        dutyName: task.dutyName,
+        categoryName: task.categoryName,
+        scope: task.scope,
+        time: h.time,
+        operator: h.operator,
+        roleName: role,
+        deptName: dept,
+        action: h.action,
+        nodeName: h.nodeName,
+        opinion: h.opinion || '',
+        urgency: task.urgency,
+        taskStatus: task.status,
+      });
+    });
+  });
+
+  // Sort chronologically (default latest first)
+  if (sort === 'asc') {
+    historyLogs.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  } else {
+    historyLogs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  }
+
+  // Filter by document / manual
+  if (manualId && manualId !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.manualId === manualId);
+  }
+  // Filter by specific duty item
+  if (dutyNo && dutyNo !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.dutyNo === dutyNo || l.dutyItemId === dutyNo);
+  }
+  // Filter by role
+  if (roleName && roleName !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.roleName === roleName);
+  }
+  // Filter by actor / operator
+  if (operator && operator !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.operator === operator);
+  }
+  // Filter by action
+  if (action && action !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.action === action);
+  }
+  // Keyword search
+  if (keyword) {
+    const k = keyword.trim().toLowerCase();
+    historyLogs = historyLogs.filter(
+      (l) =>
+        l.dutyName?.toLowerCase().includes(k) ||
+        l.dutyNo?.toLowerCase().includes(k) ||
+        l.manualName?.toLowerCase().includes(k) ||
+        l.operator?.toLowerCase().includes(k) ||
+        l.roleName?.toLowerCase().includes(k) ||
+        l.nodeName?.toLowerCase().includes(k) ||
+        l.opinion?.toLowerCase().includes(k) ||
+        l.taskId?.toLowerCase().includes(k)
+    );
+  }
+
+  // Distinct meta for frontend filter dropdowns
+  const availableManualsMap = new Map();
+  const availableRolesSet = new Set<string>();
+  const availableActorsSet = new Set<string>();
+  const availableActionsSet = new Set<string>();
+
+  dutyAuditTasks.forEach((t) => {
+    if (t.manualId && t.manualName) {
+      availableManualsMap.set(t.manualId, t.manualName);
+    }
+  });
+
+  historyLogs.forEach((l) => {
+    if (l.roleName) availableRolesSet.add(l.roleName);
+    if (l.operator) availableActorsSet.add(l.operator);
+    if (l.action) availableActionsSet.add(l.action);
+  });
+
+  const meta = {
+    availableManuals: Array.from(availableManualsMap.entries()).map(([id, name]) => ({ id, name })),
+    availableRoles: Array.from(availableRolesSet),
+    availableActors: Array.from(availableActorsSet),
+    availableActions: Array.from(availableActionsSet),
+  };
+
+  res.json({
+    status: 1,
+    data: historyLogs,
+    total: historyLogs.length,
+    meta,
+    info: 'ok',
+  });
 });
 
 app.get('/api/flowdoc/duties', (_req, res) => {

@@ -74,6 +74,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     design: 0,  // 流程设计待办：待完善草稿/驳回重设计项
     execute: 3, // 流程执行待办：来自 /api/execute/tasks 中状态为进行中/待处理的任务
     duty: 1,    // 权责审核待办：来自 /api/flowdoc/duties 中待审核权责项
+    sysDoc: 1,  // 制度文件多级待审数
+    risk: 1,    // 风险合规多级待审数
   });
 
   const loadDashboardData = () => {
@@ -156,7 +158,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     fetch('/api/dict/bundle')
       .then((r) => r.json())
       .then((res) => {
-        if (res.data?.sysDoc) setSysDocs(res.data.sysDoc);
+        if (res.data?.sysDoc) {
+          setSysDocs(res.data.sysDoc);
+          const pendingSysDocs = res.data.sysDoc.filter((d: any) => d.status === 'pending').length;
+          setTodoCounts((prev) => ({ ...prev, sysDoc: pendingSysDocs }));
+        }
+        if (res.data?.risk) {
+          const pendingRisks = res.data.risk.filter((r: any) => r.status === 'pending').length;
+          setTodoCounts((prev) => ({ ...prev, risk: pendingRisks }));
+        }
       })
       .catch(() => {});
   };
@@ -193,9 +203,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return publicFlows;
   }, [activeFlowTab, responsibleFlows, partakeFlows, publicFlows]);
 
-  // 我的待办总数 = 流程审核 (3) + 流程设计 (0) + 流程执行 (3) + 权责审核 (1) = 7
+  // 我的待办总数 = 流程审核 + 流程设计 + 流程执行 + 权责审核 + 制度文件待审 + 风险合规待审
   const totalTodos =
-    todoCounts.verify + todoCounts.design + todoCounts.execute + todoCounts.duty;
+    todoCounts.verify +
+    todoCounts.design +
+    todoCounts.execute +
+    todoCounts.duty +
+    (todoCounts.sysDoc || 0) +
+    (todoCounts.risk || 0);
 
   return (
     <div className="space-y-4 select-none">
@@ -234,34 +249,46 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* 我的待办：统计逻辑验证：各分类待办之和 */}
-          <div className="flex items-center gap-2.5 pt-1 flex-wrap">
+          <div className="flex items-center gap-2 pt-1 flex-wrap">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1F2733] mr-1">
               <FileText className="w-4 h-4 text-[#2F7BFE]" />
               <span>我的待办（{totalTodos}）</span>
             </div>
             <button
               onClick={() => onNavigate('/build/verify')}
-              className="px-3 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
             >
               流程审核（{todoCounts.verify}）
             </button>
             <button
               onClick={() => onNavigate('/build/design')}
-              className="px-3 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
             >
               流程设计（{todoCounts.design}）
             </button>
             <button
               onClick={() => onNavigate('/execute/process')}
-              className="px-3 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
             >
               流程执行（{todoCounts.execute}）
             </button>
             <button
               onClick={() => onNavigate('/flowdoc/verify')}
-              className="px-3 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
             >
               权责审核（{todoCounts.duty}）
+            </button>
+            <button
+              onClick={() => onNavigate('/sysdoc/index2')}
+              className="px-2.5 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
+            >
+              制度审核（{todoCounts.sysDoc || 0}）
+            </button>
+            <button
+              onClick={() => onNavigate('/risk/index')}
+              className="px-2.5 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
+            >
+              风险审核（{todoCounts.risk || 0}）
             </button>
           </div>
         </div>
