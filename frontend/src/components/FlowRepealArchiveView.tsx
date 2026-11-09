@@ -26,6 +26,7 @@ import {
   FileWarning,
 } from 'lucide-react';
 import { DrawioBridge } from '../utils/drawioBridge';
+import { safeFetchJson } from '../utils/safeFetch';
 
 interface FlowRepealArchiveViewProps {
   currentUser?: any;
@@ -120,9 +121,9 @@ export const FlowRepealArchiveView: React.FC<FlowRepealArchiveViewProps> = ({
     setLoading(true);
     try {
       const [repRes, archRes, flowRes] = await Promise.all([
-        fetch('/api/flow/repeals').then((r) => r.json()),
-        fetch('/api/flow/fulltypes').then((r) => r.json()),
-        fetch('/api/flow/fullSimpleModels').then((r) => r.json()),
+        safeFetchJson('/api/flow/repeals', undefined, { data: [] }),
+        safeFetchJson('/api/flow/fulltypes', undefined, { data: [] }),
+        safeFetchJson('/api/flow/fullSimpleModels', undefined, { data: [] }),
       ]);
       setRepealList(repRes?.data || []);
       setArchList(archRes?.data || []);

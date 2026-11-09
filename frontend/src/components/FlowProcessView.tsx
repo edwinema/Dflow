@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { EnterpriseDataGrid, DataGridColumn } from './EnterpriseDataGrid';
 import { PersonSelectField } from './PersonSelectField';
+import { safeFetchJson } from '../utils/safeFetch';
 
 export interface RelatedFileItem {
   id: string;
@@ -188,17 +189,17 @@ export const FlowProcessView: React.FC<FlowProcessViewProps> = ({
     setLoading(true);
     try {
       const [tasksRes, archRes, flowsRes, dictRes, dutiesRes] = await Promise.all([
-        fetch('/api/execute/tasks').then((r) => r.json()),
-        fetch('/api/flow/fulltypes').then((r) => r.json()),
-        fetch('/api/flow/fullSimpleModels').then((r) => r.json()),
-        fetch('/api/dict/bundle').then((r) => r.json()),
-        fetch('/api/flowdoc/duties').then((r) => r.json()).catch(() => ({ data: [] })),
+        safeFetchJson('/api/execute/tasks', undefined, { data: [], users: [] }),
+        safeFetchJson('/api/flow/fulltypes', undefined, { data: [] }),
+        safeFetchJson('/api/flow/fullSimpleModels', undefined, { data: [] }),
+        safeFetchJson('/api/dict/bundle', undefined, { data: {} }),
+        safeFetchJson('/api/flowdoc/duties', undefined, { data: [] }),
       ]);
-      if (tasksRes.data) setTasks(tasksRes.data);
-      if (tasksRes.users) setUsers(tasksRes.users);
-      if (archRes.data) setArchTypes(archRes.data);
-      if (flowsRes.data) setFlows(flowsRes.data);
-      if (dictRes.data) setDictBundle(dictRes.data);
+      if (tasksRes?.data) setTasks(tasksRes.data);
+      if (tasksRes?.users) setUsers(tasksRes.users);
+      if (archRes?.data) setArchTypes(archRes.data);
+      if (flowsRes?.data) setFlows(flowsRes.data);
+      if (dictRes?.data) setDictBundle(dictRes.data);
       if (dutiesRes && Array.isArray(dutiesRes.data)) setDuties(dutiesRes.data);
     } catch {
       showToast('加载流程运行数据失败', 'error');

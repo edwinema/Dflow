@@ -41,7 +41,7 @@ const archTypes: any[] = [
     deptName: '运营管理部',
     prevArch: '',
     nextArch: 'dste 战略管理',
-    flowDefine: '全源科技集团端到端主干流程架构',
+    flowDefine: '全元科技集团端到端主干流程架构',
     flowPurpose: '统领企业研发、营销、供应链全价值链',
     flowInput: '客户需求与市场洞察',
     flowOutput: '商业价值与客户满意',
@@ -678,7 +678,7 @@ const flows: any[] = [
 ];
 
 const sysDocTree: any[] = [
-  { id: 'doc_dir_root', parentId: '', label: '全源制度文件库', code: 'ZD-ROOT' },
+  { id: 'doc_dir_root', parentId: '', label: '全元制度文件库', code: 'ZD-ROOT' },
   { id: 'doc_dir_strat', parentId: 'doc_dir_root', label: '01 战略与综合管理制度', code: 'ZD-STR' },
   { id: 'doc_dir_rd', parentId: 'doc_dir_root', label: '02 研发与技术管理制度', code: 'ZD-RD' },
   { id: 'doc_dir_mkt', parentId: 'doc_dir_root', label: '03 营销与商务管理制度', code: 'ZD-MKT' },
@@ -686,7 +686,7 @@ const sysDocTree: any[] = [
 ];
 
 const riskTree: any[] = [
-  { id: 'risk_dir_root', parentId: '', label: '全源风险库', code: 'RSK-ROOT' },
+  { id: 'risk_dir_root', parentId: '', label: '全元风险库', code: 'RSK-ROOT' },
   { id: 'risk_dir_strat', parentId: 'risk_dir_root', label: '01 战略规划风险', code: 'RSK-STR' },
   { id: 'risk_dir_rd', parentId: 'risk_dir_root', label: '02 产品研发与流片风险', code: 'RSK-RD' },
   { id: 'risk_dir_mkt', parentId: 'risk_dir_root', label: '03 商务与回款风险', code: 'RSK-FIN' },
@@ -724,6 +724,10 @@ const dictBundle: any = {
       ownerName: '质量合规部',
       status: 'approved',
       publishTime: '2026-03-10 14:20:00',
+      approvalFlow: [
+        { level: 1, levelName: '第1级: 业务线风控员初核', approverName: '李合规', roleName: '风控专员', deptName: '研发管理中心', status: 'approved', auditTime: '2026-03-09 10:30:00', auditRemark: '初审通过，风控指标与TR评审标准对齐' },
+        { level: 2, levelName: '第2级: 质量合规部终审', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部', status: 'approved', auditTime: '2026-03-10 14:15:00', auditRemark: '终审批准发布' },
+      ],
     },
     {
       id: 'risk_02',
@@ -736,6 +740,27 @@ const dictBundle: any = {
       ownerName: '财务部',
       status: 'approved',
       publishTime: '2026-03-12 09:45:00',
+      approvalFlow: [
+        { level: 1, levelName: '第1级: 业务线风控员初核', approverName: '李合规', roleName: '风控专员', deptName: '研发管理中心', status: 'approved', auditTime: '2026-03-11 16:00:00', auditRemark: '账期预警指标合理' },
+        { level: 2, levelName: '第2级: 质量合规部终审', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部', status: 'approved', auditTime: '2026-03-12 09:30:00', auditRemark: '终审同意入库发布' },
+      ],
+    },
+    {
+      id: 'risk_pending_01',
+      folderId: 'risk_dir_rd',
+      riskNo: 'RSK-RD-2026-03',
+      label: '芯片EDA仿真工具版本不兼容合规风险',
+      target: 'EDA工具链统一纳管率100%',
+      category: '02 研发与技术管理制度',
+      riskLevel: '高',
+      ownerName: '软件架构师',
+      status: 'pending',
+      currentLevel: 1,
+      publishTime: '2026-04-01 14:10:00',
+      approvalFlow: [
+        { level: 1, levelName: '第1级: 业务线风控员初核', approverName: '李合规', roleName: '风控专员', deptName: '研发管理中心', status: 'pending', auditTime: '', auditRemark: '' },
+        { level: 2, levelName: '第2级: 质量合规部终审', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部', status: 'waiting', auditTime: '', auditRemark: '' },
+      ],
     },
   ],
   rights: [
@@ -744,10 +769,51 @@ const dictBundle: any = {
   ],
   sysDoc: [
     {
+      id: 'doc_pending_01',
+      folderId: 'doc_dir_qual',
+      docNo: 'ZD-QMS-2026-05',
+      label: '2026全元质量内控红线与审计审查条例.docx',
+      category: '04 质量与流程合规制度',
+      versionNo: 'V1.0',
+      fileSize: '2.1 MB',
+      ownerName: '质量合规部',
+      status: 'pending',
+      currentLevel: 1,
+      publishTime: '2026-04-01 11:20:00',
+      validityPeriod: '2026-04-01 至 2029-03-31',
+      fileType: 'word',
+      approvalFlow: [
+        {
+          level: 1,
+          levelName: '第1级: 归口部门初审',
+          approverName: '张明',
+          roleName: '部门经理',
+          deptName: '流程管理部',
+          status: 'pending',
+        },
+        {
+          level: 2,
+          levelName: '第2级: 质量合规复核',
+          approverName: '陈静',
+          roleName: '合规总监',
+          deptName: '质量合规部',
+          status: 'waiting',
+        },
+        {
+          level: 3,
+          levelName: '第3级: 决策层终审签发',
+          approverName: '刘建国',
+          roleName: '副总裁',
+          deptName: '决策委员会',
+          status: 'waiting',
+        },
+      ],
+    },
+    {
       id: 'doc_01',
       folderId: 'doc_dir_mkt',
       docNo: 'ZD-MKT-2026-01',
-      label: '全源科技销售合同分级审批制度.pdf',
+      label: '全元科技销售合同分级审批制度.pdf',
       category: '03 营销与商务管理制度',
       versionNo: 'V2.0',
       fileSize: '3.2 MB',
@@ -758,11 +824,16 @@ const dictBundle: any = {
       effectiveEndDate: '2026-12-30',
       validityPeriod: '2026-04-02 至 2026-12-30',
       fileType: 'pdf',
-      referenceNo: '全源发〔2026〕088号',
+      referenceNo: '全元发〔2026〕088号',
       authorUser: '张三 (制度主管)',
       reviewerUser: '李合规 (审计专员)',
       approverUser: '王副总 (分管副总裁)',
       securityLevel: '内部受限(工作秘密)',
+      approvalFlow: [
+        { level: 1, levelName: '第1级: 归口部门初审', approverName: '张明', roleName: '部门主管', deptName: '流程管理部', status: 'approved', auditTime: '2026-03-16 11:20:00', auditRemark: '初审通过，商务条款清晰' },
+        { level: 2, levelName: '第2级: 质量合规复核', approverName: '陈静', roleName: '合规总监', deptName: '质量合规部', status: 'approved', auditTime: '2026-03-17 09:15:00', auditRemark: '复核通过，符合内控标准' },
+        { level: 3, levelName: '第3级: 决策层终审签发', approverName: '刘建国', roleName: '副总裁', deptName: '决策委员会', status: 'approved', auditTime: '2026-03-17 15:30:00', auditRemark: '准予正式发文并在全员查阅目录展示' },
+      ],
     },
     {
       id: 'doc_02',
@@ -782,7 +853,7 @@ const dictBundle: any = {
       id: 'doc_03',
       folderId: 'doc_dir_mkt',
       docNo: 'ZD-MKT-2026-03',
-      label: '全源销售权限与合同审批限额矩阵.xlsx',
+      label: '全元销售权限与合同审批限额矩阵.xlsx',
       category: '03 营销与商务管理制度',
       versionNo: 'V1.5',
       fileSize: '950 KB',
@@ -1707,10 +1778,10 @@ let companyAuthData: any = {
   authUsersCount: 200,
   activeUsersCount: 93,
   authVersion: 'V2.0.1',
-  systemDisplayName: '全源流程资产管理平台 dflow',
+  systemDisplayName: '全元流程资产管理平台 dflow',
   systemLogo: '',
   loginTitleSuffix: '数字化流程设计与运营系统',
-  copyrightText: 'Copyright © 2026 全源数字科技版权所有',
+  copyrightText: 'Copyright © 2026 全元数字科技版权所有',
   watermarkEnabled: false,
   roleQuotas: [
     { typeName: '流程规划岗', used: 17, total: 20 },
@@ -1726,7 +1797,7 @@ let companyAuthData: any = {
     status: 'ACTIVE',
     edition: '企业旗舰版 (Enterprise)',
     editionKey: 'enterprise',
-    issuer: '全源数科商业授权签发中心 (CA-ROOT)',
+    issuer: '全元数科商业授权签发中心 (CA-ROOT)',
     issuedDate: '2023-03-29 20:41:05',
     expireDate: '2030-09-11 07:14:06',
     maxConcurrentSessions: 50,
@@ -1895,7 +1966,7 @@ const defaultSystemApis: any[] = [
     status: '启用',
     authType: 'Bearer Token',
     rateLimit: '60次/分钟',
-    description: '全源在线Drawio流程设计器模型文件XML、泳道RACI与活动节点元数据存盘',
+    description: '全元在线Drawio流程设计器模型文件XML、泳道RACI与活动节点元数据存盘',
     sampleResponse: JSON.stringify({ code: 200, message: 'success', data: { flowId: 'flow_101', savedTime: '2026-03-26 15:30:00', nodeCount: 18 } }, null, 2),
     createTime: '2026-02-05 09:20:00',
   },
@@ -2109,7 +2180,7 @@ const initialFormEngineSchemas: any[] = [
         required: false,
         showInList: true,
         searchable: true,
-        placeholder: '如: 全源发〔2026〕088号',
+        placeholder: '如: 全元发〔2026〕088号',
         isSystem: false,
       },
       {
@@ -2535,7 +2606,7 @@ const ensureRootArch = () => {
       adaptScope: `集团总部、${currentComp}、各中心事业部`,
       ownerName: '系统管理员 (E0004)',
       deptName: '运营管理部',
-      flowDefine: '全源科技集团端到端主干流程架构',
+      flowDefine: '全元科技集团端到端主干流程架构',
       flowPurpose: '统领企业研发、营销、供应链全价值链',
       flowInput: '客户需求与市场洞察',
       flowOutput: '商业价值与客户满意',
@@ -2563,6 +2634,19 @@ app.get('/api/flow/fulltypes', (_req, res) => {
 
 app.get('/api/flow/fullSimpleModels', (_req, res) => {
   res.json({ status: 1, data: flows, info: 'ok' });
+});
+
+app.get(['/api/flow/tree', '/api/tree'], (_req, res) => {
+  ensureRootArch();
+  res.json({
+    status: 1,
+    data: {
+      archs: archTypes,
+      flows,
+      dict: dictBundle,
+    },
+    info: 'ok',
+  });
 });
 
 app.get('/api/flow/type', (req, res) => {
@@ -3389,7 +3473,7 @@ app.get('/api/flow/attachment/download', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
   res.setHeader('Content-Type', 'application/octet-stream');
 
-  const content = `全源流程资产管理平台 - 流程相关附件文件\n附件名称: ${filename}\n附件编号: ${found.attNo || 'FJ-2026-01'}\n业务分类: ${found.category || '相关附件'}\n上传时间: ${found.publishTime || '2026-03-20'}\n\n【正式发文附件】\n苏州全元数字科技有限公司 业务流程执行参考材料。`;
+  const content = `全元流程资产管理平台 - 流程相关附件文件\n附件名称: ${filename}\n附件编号: ${found.attNo || 'FJ-2026-01'}\n业务分类: ${found.category || '相关附件'}\n上传时间: ${found.publishTime || '2026-03-20'}\n\n【正式发文附件】\n苏州全元数字科技有限公司 业务流程执行参考材料。`;
   res.send(content);
 });
 
@@ -4006,26 +4090,138 @@ app.post('/api/dict/tree', (req, res) => {
   res.json({ status: 1, info: 'ok' });
 });
 
+// 制度文件与风险合规的多层级审批路径全局配置
+const defaultApprovalPathConfigStore = {
+  sysDoc: [
+    {
+      level: 1,
+      levelName: '第1级: 归口部门初审',
+      approverName: '张明',
+      roleName: '部门经理',
+      deptName: '流程管理部',
+    },
+    {
+      level: 2,
+      levelName: '第2级: 质量合规复核',
+      approverName: '陈静',
+      roleName: '合规总监',
+      deptName: '质量合规部',
+    },
+    {
+      level: 3,
+      levelName: '第3级: 决策层终审签发',
+      approverName: '刘建国',
+      roleName: '副总裁',
+      deptName: '决策委员会',
+    },
+  ],
+  risk: [
+    {
+      level: 1,
+      levelName: '第1级: 业务线风控员初核',
+      approverName: '李合规',
+      roleName: '风控专员',
+      deptName: '研发管理中心',
+    },
+    {
+      level: 2,
+      levelName: '第2级: 质量合规部终审',
+      approverName: '陈静',
+      roleName: '合规总监',
+      deptName: '质量合规部',
+    },
+  ],
+};
+
+let approvalPathConfigStore: any = JSON.parse(JSON.stringify(defaultApprovalPathConfigStore));
+
+// 获取审批路径配置
+app.get('/api/dict/approval-path', (_req, res) => {
+  res.json({
+    status: 1,
+    data: approvalPathConfigStore,
+    info: 'ok',
+  });
+});
+
+// 保存审批路径配置
+app.post('/api/dict/approval-path', (req, res) => {
+  const { type, paths, sysDoc, risk } = req.body || {};
+  if (type && Array.isArray(paths)) {
+    if (type === 'sysDoc' || type === 'risk') {
+      approvalPathConfigStore[type] = paths;
+    }
+  }
+  if (Array.isArray(sysDoc)) {
+    approvalPathConfigStore.sysDoc = sysDoc;
+  }
+  if (Array.isArray(risk)) {
+    approvalPathConfigStore.risk = risk;
+  }
+  res.json({
+    status: 1,
+    data: approvalPathConfigStore,
+    info: '审批路径配置已更新并生效',
+  });
+});
+
 app.post('/api/dict/item', (req, res) => {
-  const { itemType, action, item, id } = req.body || {};
+  const { itemType, action, item, id, auditor, auditRemark, decisionOverride } = req.body || {};
   const list = itemType === 'risk' ? dictBundle.risk : dictBundle.sysDoc;
+  const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
   if (action === 'create' && item) {
+    const defaultTemplate = (itemType === 'risk' ? approvalPathConfigStore.risk : approvalPathConfigStore.sysDoc) || [];
+    const sourceFlow = Array.isArray(item.approvalFlow) && item.approvalFlow.length > 0
+      ? item.approvalFlow
+      : defaultTemplate;
+
+    const approvalFlow = sourceFlow.map((node: any, idx: number) => ({
+      level: idx + 1,
+      levelName: node.levelName || `第${idx + 1}级: 节点初审`,
+      approverName: node.approverName || '流程合规审核员',
+      roleName: node.roleName || '审批人',
+      deptName: node.deptName || '综合管理部',
+      status: idx === 0 ? 'pending' : 'waiting',
+      auditor: '',
+      auditRemark: '',
+      auditTime: '',
+    }));
+
     const newItem = {
       ...item,
       id: `${itemType || 'doc'}_${Date.now().toString(36)}`,
+      status: item.status || 'pending',
+      currentLevel: 1,
+      approvalFlow,
+      applyTime: nowStr,
       validityPeriod: item.validityPeriod || '2026-03-17 至 2029-03-16 (长期有效)',
-      publishTime: item.publishTime || new Date().toISOString().slice(0, 19).replace('T', ' '),
+      publishTime: item.publishTime || nowStr,
     };
     list.unshift(newItem);
     return res.json({ status: 1, data: newItem, bundle: dictBundle, info: 'ok' });
   }
+
   if (action === 'update' && item && item.id) {
     const idx = list.findIndex((x: any) => x.id === item.id);
     if (idx >= 0) {
+      // If updating an item and restarting approval flow
+      if (item.resubmitApproval && Array.isArray(list[idx].approvalFlow)) {
+        list[idx].approvalFlow = list[idx].approvalFlow.map((lvl: any, i: number) => ({
+          ...lvl,
+          status: i === 0 ? 'pending' : 'waiting',
+          auditor: '',
+          auditRemark: '',
+          auditTime: '',
+        }));
+        item.status = 'pending';
+        item.currentLevel = 1;
+      }
       list[idx] = { ...list[idx], ...item };
       return res.json({ status: 1, data: list[idx], bundle: dictBundle, info: 'ok' });
     }
   }
+
   if (action === 'delete' && id) {
     const idx = list.findIndex((x: any) => x.id === id);
     if (idx >= 0) {
@@ -4033,11 +4229,88 @@ app.post('/api/dict/item', (req, res) => {
       return res.json({ status: 1, data: removed[0], bundle: dictBundle, info: 'ok' });
     }
   }
+
   if (action === 'approve' && id) {
     const target = list.find((x: any) => x.id === id);
-    if (target) target.status = 'approved';
+    if (target) {
+      if (Array.isArray(target.approvalFlow) && target.approvalFlow.length > 0) {
+        const curIdx = target.approvalFlow.findIndex((n: any) => n.status === 'pending');
+        if (curIdx >= 0) {
+          const curLevel = target.approvalFlow[curIdx];
+          curLevel.status = 'approved';
+          curLevel.auditor = auditor || curLevel.approverName || '流程合规审核员';
+          curLevel.auditRemark = auditRemark || '审批通过，准予进入下一层级复审';
+          curLevel.auditTime = nowStr;
+
+          // Check if there is a next level
+          if (curIdx + 1 < target.approvalFlow.length) {
+            const nextLevel = target.approvalFlow[curIdx + 1];
+            nextLevel.status = 'pending';
+            target.currentLevel = nextLevel.level;
+            target.status = 'pending'; // Still pending next level
+            target.lastAuditRemark = curLevel.auditRemark;
+            target.auditTime = nowStr;
+          } else {
+            // All levels approved! Officially published!
+            target.status = 'approved';
+            target.auditTime = nowStr;
+            target.auditor = auditor || curLevel.approverName;
+            target.auditRemark = auditRemark || '多层级审批全部通过，已正式生效并在查阅目录发布';
+          }
+        } else {
+          target.status = 'approved';
+          target.auditTime = nowStr;
+          target.auditor = auditor || '流程合规审核员';
+          target.auditRemark = auditRemark || '审批通过，已准予在查阅目录发布生效';
+        }
+      } else {
+        target.status = 'approved';
+        target.auditTime = nowStr;
+        target.auditor = auditor || '流程合规审核员';
+        target.auditRemark = auditRemark || '审批通过，已准予在查阅目录发布生效';
+      }
+    }
     return res.json({ status: 1, data: target, bundle: dictBundle, info: 'ok' });
   }
+
+  if (action === 'reject' && id) {
+    const target = list.find((x: any) => x.id === id);
+    if (target) {
+      if (Array.isArray(target.approvalFlow) && target.approvalFlow.length > 0) {
+        const curIdx = target.approvalFlow.findIndex((n: any) => n.status === 'pending');
+        if (curIdx >= 0) {
+          const curLevel = target.approvalFlow[curIdx];
+          curLevel.status = 'rejected';
+          curLevel.auditor = auditor || curLevel.approverName || '流程合规审核员';
+          curLevel.auditRemark = auditRemark || '审批驳回，请按合规意见补充完善后重新提交';
+          curLevel.auditTime = nowStr;
+        }
+      }
+      target.status = 'rejected';
+      target.auditTime = nowStr;
+      target.auditor = auditor || '流程合规审核员';
+      target.auditRemark = auditRemark || '审批驳回，请按合规意见补充完善后重新提交';
+    }
+    return res.json({ status: 1, data: target, bundle: dictBundle, info: 'ok' });
+  }
+
+  if (action === 'resubmit' && id) {
+    const target = list.find((x: any) => x.id === id);
+    if (target && Array.isArray(target.approvalFlow)) {
+      target.approvalFlow = target.approvalFlow.map((lvl: any, i: number) => ({
+        ...lvl,
+        status: i === 0 ? 'pending' : 'waiting',
+        auditor: '',
+        auditRemark: '',
+        auditTime: '',
+      }));
+      target.status = 'pending';
+      target.currentLevel = 1;
+      target.applyTime = nowStr;
+      return res.json({ status: 1, data: target, bundle: dictBundle, info: '已重新送审' });
+    }
+  }
+
   res.json({ status: 1, bundle: dictBundle, info: 'ok' });
 });
 
@@ -4045,7 +4318,7 @@ app.post('/api/dict/item', (req, res) => {
 app.get('/api/dict/doc/download', (req, res) => {
   const { id, name } = req.query as { id?: string; name?: string };
   const found = dictBundle.sysDoc.find((d: any) => d.id === id || d.label === name) || {
-    label: name || '全源科技销售合同分级审批制度.pdf',
+    label: name || '全元科技销售合同分级审批制度.pdf',
     docNo: 'ZD-MKT-2026-01',
     validityPeriod: '2026-03-17 至 2029-03-16 (长期有效)',
   };
@@ -4054,7 +4327,7 @@ app.get('/api/dict/doc/download', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
   res.setHeader('Content-Type', 'application/octet-stream');
 
-  const content = `全源流程资产管理平台 - 制度文件正本\n文件名称: ${filename}\n制度编号: ${found.docNo || 'ZD-2026-01'}\n有效期: ${found.validityPeriod || '长期有效'}\n发布时间: ${found.publishTime || '2026-03-17'}\n\n【正式发文】\n全源数字科技（苏州）有限公司 内部合规管理制度。`;
+  const content = `全元流程资产管理平台 - 制度文件正本\n文件名称: ${filename}\n制度编号: ${found.docNo || 'ZD-2026-01'}\n有效期: ${found.validityPeriod || '长期有效'}\n发布时间: ${found.publishTime || '2026-03-17'}\n\n【正式发文】\n全元数字科技（苏州）有限公司 内部合规管理制度。`;
   res.send(content);
 });
 
@@ -5002,6 +5275,140 @@ let dutyAuditTasks: any[] = [
       },
     ],
   },
+  {
+    id: 'SH-2026-004',
+    manualId: 'manual_2026',
+    manualName: '2026全元企业分权授权制度(DOA手册)',
+    dutyItemId: 'duty_2026_03',
+    dutyNo: 'FIN-DOA-003',
+    dutyName: '重大对外担保与资产处置审批',
+    categoryName: '财务管理中心',
+    scope: '集团总部及各事业部/控股子公司',
+    scenarioText: '【单笔金额>=5000万】: 董事会终审\n【单笔金额<5000万】: 总裁办公会审议',
+    submitter: '系统管理员',
+    submitTime: '2026-04-01 09:20:00',
+    urgency: '特急',
+    remark: '送审2026年度大额对外担保与资产处置授权权限矩阵。',
+    currentLevelIndex: 1,
+    currentApprover: '陈静',
+    currentLevelName: '第2级: 质量合规复核',
+    status: '已驳回',
+    levels: [
+      {
+        level: 1,
+        levelName: '第1级: 权责初审',
+        roleName: '权责推进专员',
+        approverName: '张明',
+        deptName: '权责管理部',
+        status: 'approved',
+        opinion: '经核定审批限额划分清晰，初审通过。',
+        operateTime: '2026-04-01 10:15:00',
+      },
+      {
+        level: 2,
+        levelName: '第2级: 质量合规复核',
+        roleName: '合规法务总监',
+        approverName: '陈静',
+        deptName: '质量合规部',
+        status: 'rejected',
+        opinion: '根据国有及集团重大资产管控指引，单笔超过5000万元需增加党委会前置研究讨论程序，请完善后重提。',
+        operateTime: '2026-04-01 15:40:00',
+      },
+    ],
+    history: [
+      {
+        time: '2026-04-01 09:20:00',
+        operator: '系统管理员',
+        action: '提交送审',
+        nodeName: '起草送审',
+        opinion: '送审2026年度大额对外担保与资产处置授权权限矩阵。',
+      },
+      {
+        time: '2026-04-01 10:15:00',
+        operator: '张明',
+        action: '审核通过',
+        nodeName: '第1级: 权责初审',
+        opinion: '经核定审批限额划分清晰，初审通过。',
+      },
+      {
+        time: '2026-04-01 15:40:00',
+        operator: '陈静',
+        action: '审核驳回',
+        nodeName: '第2级: 质量合规复核',
+        opinion: '根据国有及集团重大资产管控指引，单笔超过5000万元需增加党委会前置研究讨论程序，请完善后重提。',
+      },
+    ],
+  },
+  {
+    id: 'SH-2026-005',
+    manualId: 'manual_group_2025',
+    manualName: '2025年集团授权手册',
+    dutyItemId: 'duty_02',
+    dutyNo: 'HR-AUTH-006',
+    dutyName: '关键研发人才职级晋升与薪酬特批',
+    categoryName: '人力资源与组织发展',
+    scope: '研发中心及各产品线项目组',
+    scenarioText: '【研发资深专家/专家级】: 人力资源委员会\n【普通骨干专家】: 研发中心总经理',
+    submitter: '流程管理员',
+    submitTime: '2026-04-02 16:00:00',
+    urgency: '紧急',
+    remark: '提交高阶研发人才职级晋升与薪级特批流转配置。',
+    currentLevelIndex: 1,
+    currentApprover: '李芳',
+    currentLevelName: '第2级: 人力合规复核',
+    status: '审核中',
+    levels: [
+      {
+        level: 1,
+        levelName: '第1级: 权责初审',
+        roleName: '内控审计主管',
+        approverName: '王强',
+        deptName: '审计监察部',
+        status: 'approved',
+        opinion: '廉洁与组织纪律审查合格，转办审核通过。',
+        operateTime: '2026-04-03 14:20:00',
+      },
+      {
+        level: 2,
+        levelName: '第2级: 人力合规复核',
+        roleName: '人力风控经理',
+        approverName: '李芳',
+        deptName: '财务管理中心',
+        status: 'pending',
+      },
+      {
+        level: 3,
+        levelName: '第3级: 终审批准',
+        roleName: '决策委员会主任',
+        approverName: '刘建国',
+        deptName: '决策委员会',
+        status: 'waiting',
+      },
+    ],
+    history: [
+      {
+        time: '2026-04-02 16:00:00',
+        operator: '流程管理员',
+        action: '提交送审',
+        nodeName: '起草送审',
+        opinion: '提交高阶研发人才职级晋升与薪级特批流转配置。',
+      },
+      {
+        time: '2026-04-03 09:30:00',
+        operator: '张明',
+        action: '转办审批',
+        nodeName: '第1级: 权责初审',
+        opinion: '将审批转办给【王强】。原因：涉及核心关键岗特别晋升评审，需监察审计部王强主管进行前置合规复查。',
+      },
+      {
+        time: '2026-04-03 14:20:00',
+        operator: '王强',
+        action: '审核通过',
+        nodeName: '第1级: 权责初审',
+        opinion: '廉洁与组织纪律审查合格，转办审核通过。',
+      },
+    ],
+  },
 ];
 
 // Helper to find a duty item across manuals
@@ -5336,6 +5743,124 @@ app.post('/api/flowdoc/audit/tasks/batch-reject', (req, res) => {
   res.json({ status: 1, allTasks: dutyAuditTasks, info: `已批量驳回 ${taskIds.length} 项审核任务` });
 });
 
+// 8. Query Full Approval History across tasks, documents, and roles (审批全链路操作履历日志)
+app.get('/api/flowdoc/audit/history', (req, res) => {
+  const { manualId, dutyNo, roleName, operator, action, keyword, sort = 'desc' } = req.query as Record<string, string>;
+
+  let historyLogs: any[] = [];
+
+  dutyAuditTasks.forEach((task) => {
+    if (!Array.isArray(task.history)) return;
+    task.history.forEach((h: any, idx: number) => {
+      // Find matching level for this history item to get roleName and deptName
+      const matchedLevel = task.levels?.find((lvl: any) =>
+        lvl.levelName === h.nodeName ||
+        lvl.approverName === h.operator
+      );
+
+      const role = h.roleName || matchedLevel?.roleName || (h.action === '提交送审' ? '送审发起人' : '审批责任人');
+      const dept = h.deptName || matchedLevel?.deptName || (h.action === '提交送审' ? '编制部门' : '审核部门');
+
+      historyLogs.push({
+        id: `${task.id}-h-${idx}`,
+        taskId: task.id,
+        manualId: task.manualId,
+        manualName: task.manualName,
+        dutyItemId: task.dutyItemId,
+        dutyNo: task.dutyNo,
+        dutyName: task.dutyName,
+        categoryName: task.categoryName,
+        scope: task.scope,
+        time: h.time,
+        operator: h.operator,
+        roleName: role,
+        deptName: dept,
+        action: h.action,
+        nodeName: h.nodeName,
+        opinion: h.opinion || '',
+        urgency: task.urgency,
+        taskStatus: task.status,
+      });
+    });
+  });
+
+  // Sort chronologically (default latest first)
+  if (sort === 'asc') {
+    historyLogs.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  } else {
+    historyLogs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  }
+
+  // Filter by document / manual
+  if (manualId && manualId !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.manualId === manualId);
+  }
+  // Filter by specific duty item
+  if (dutyNo && dutyNo !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.dutyNo === dutyNo || l.dutyItemId === dutyNo);
+  }
+  // Filter by role
+  if (roleName && roleName !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.roleName === roleName);
+  }
+  // Filter by actor / operator
+  if (operator && operator !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.operator === operator);
+  }
+  // Filter by action
+  if (action && action !== '全部') {
+    historyLogs = historyLogs.filter((l) => l.action === action);
+  }
+  // Keyword search
+  if (keyword) {
+    const k = keyword.trim().toLowerCase();
+    historyLogs = historyLogs.filter(
+      (l) =>
+        l.dutyName?.toLowerCase().includes(k) ||
+        l.dutyNo?.toLowerCase().includes(k) ||
+        l.manualName?.toLowerCase().includes(k) ||
+        l.operator?.toLowerCase().includes(k) ||
+        l.roleName?.toLowerCase().includes(k) ||
+        l.nodeName?.toLowerCase().includes(k) ||
+        l.opinion?.toLowerCase().includes(k) ||
+        l.taskId?.toLowerCase().includes(k)
+    );
+  }
+
+  // Distinct meta for frontend filter dropdowns
+  const availableManualsMap = new Map();
+  const availableRolesSet = new Set<string>();
+  const availableActorsSet = new Set<string>();
+  const availableActionsSet = new Set<string>();
+
+  dutyAuditTasks.forEach((t) => {
+    if (t.manualId && t.manualName) {
+      availableManualsMap.set(t.manualId, t.manualName);
+    }
+  });
+
+  historyLogs.forEach((l) => {
+    if (l.roleName) availableRolesSet.add(l.roleName);
+    if (l.operator) availableActorsSet.add(l.operator);
+    if (l.action) availableActionsSet.add(l.action);
+  });
+
+  const meta = {
+    availableManuals: Array.from(availableManualsMap.entries()).map(([id, name]) => ({ id, name })),
+    availableRoles: Array.from(availableRolesSet),
+    availableActors: Array.from(availableActorsSet),
+    availableActions: Array.from(availableActionsSet),
+  };
+
+  res.json({
+    status: 1,
+    data: historyLogs,
+    total: historyLogs.length,
+    meta,
+    info: 'ok',
+  });
+});
+
 app.get('/api/flowdoc/duties', (_req, res) => {
   res.json({ status: 1, data: dutyTables, categories: dutyCategories, collabDepts: DEFAULT_COLLAB_DEPTS, info: 'ok' });
 });
@@ -5363,7 +5888,7 @@ app.get('/api/org/bundle', (_req, res) => {
 });
 
 app.post('/api/org/roles', (req, res) => {
-  const { roleName, roleKey, roleType = '自定义角色', dataScope = '本部门数据', menuPermissions = ['协同工作', '流程资产'], remark = '' } = req.body || {};
+  const { roleName, roleKey, roleType = '自定义角色', dataScope = '本部门数据', roleSort, status = '0', menuPermissions = ['collab', 'property'], remark = '' } = req.body || {};
   if (!roleName || !roleName.trim()) {
     return res.status(400).json({ status: 0, info: '角色名称不能为空' });
   }
@@ -5373,12 +5898,12 @@ app.post('/api/org/roles', (req, res) => {
     roleName: roleName.trim(),
     roleKey: roleKey ? roleKey.trim() : 'role_' + Math.random().toString(36).substring(2, 6),
     roleType,
-    roleSort: orgRoles.length + 1,
+    roleSort: Number(roleSort) || (orgRoles.length + 1),
     dataScope,
     boundPositions: ['业务人员'],
-    menuPermissions,
+    menuPermissions: Array.isArray(menuPermissions) && menuPermissions.length > 0 ? menuPermissions : ['collab', 'property'],
     userCount: 0,
-    status: '0',
+    status: status || '0',
     remark: remark || '自定义业务角色',
     createTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
   };
@@ -5404,8 +5929,10 @@ app.delete('/api/org/roles/:id', (req, res) => {
 app.post('/api/org/roles/:id/permissions', (req, res) => {
   const target = orgRoles.find((r) => r.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到指定角色' });
-  const { menuPermissions = [] } = req.body || {};
+  const { menuPermissions = [], featurePermissions, fieldPermissions } = req.body || {};
   target.menuPermissions = menuPermissions;
+  if (featurePermissions) target.featurePermissions = featurePermissions;
+  if (fieldPermissions) target.fieldPermissions = fieldPermissions;
   res.json({ status: 1, data: target, list: orgRoles, info: '角色权限配置已保存并即时生效' });
 });
 
@@ -8225,6 +8752,11 @@ async function startServer() {
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: 'spa',
+  });
+
+  // Prevent unhandled /api/* requests from falling through to Vite SPA index.html fallback
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ status: 0, error: 'API endpoint not found', data: null });
   });
 
   app.use(vite.middlewares);

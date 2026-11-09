@@ -2636,6 +2636,19 @@ app.get('/api/flow/fullSimpleModels', (_req, res) => {
   res.json({ status: 1, data: flows, info: 'ok' });
 });
 
+app.get(['/api/flow/tree', '/api/tree'], (_req, res) => {
+  ensureRootArch();
+  res.json({
+    status: 1,
+    data: {
+      archs: archTypes,
+      flows,
+      dict: dictBundle,
+    },
+    info: 'ok',
+  });
+});
+
 app.get('/api/flow/type', (req, res) => {
   ensureRootArch();
   const found = archTypes.find((a) => a.id === req.query.id) || archTypes[0];
@@ -8739,6 +8752,11 @@ async function startServer() {
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: 'spa',
+  });
+
+  // Prevent unhandled /api/* requests from falling through to Vite SPA index.html fallback
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ status: 0, error: 'API endpoint not found', data: null });
   });
 
   app.use(vite.middlewares);

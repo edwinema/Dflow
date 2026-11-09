@@ -48,6 +48,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { FlowPageStandardHeader, getArchHierarchyPath } from './FlowPageStandardHeader';
 import { UnifiedCardDetailView } from './UnifiedCardDetailView';
 import { FlowPublishAuditModal } from './FlowPublishAuditModal';
+import { safeFetchJson } from '../utils/safeFetch';
 
 interface FlowDesignViewProps {
   initialSelectedFlowId?: string | null;
@@ -654,17 +655,24 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
   const prevReportedIdRef = useRef<string | null>(null);
   const externalPropFlowIdRef = useRef<string | null | undefined>(initialSelectedFlowId);
 
-  const loadAllTreeData = async (targetId?: string | null) => {
+  const loadAllTreeData = async (targetId?: string | null, retryCount = 0) => {
     try {
       const [archRes, flowRes, dictRes] = await Promise.all([
-        fetch('/api/flow/fulltypes').then((r) => r.json()),
-        fetch('/api/flow/fullSimpleModels').then((r) => r.json()),
-        fetch('/api/dict/bundle').then((r) => r.json()),
+        safeFetchJson('/api/flow/fulltypes'),
+        safeFetchJson('/api/flow/fullSimpleModels'),
+        safeFetchJson('/api/dict/bundle'),
       ]);
       let archs = archRes?.data || [];
       const flows = flowRes?.data || [];
 
-      // 确保新服务器全新部署时，默认显示根架构「企业流程架构全景」
+      // If backend was temporarily spinning up and returned null, retry up to 2 times
+      if ((!archRes || !flowRes) && retryCount < 2) {
+        setTimeout(() => {
+          loadAllTreeData(targetId, retryCount + 1);
+        }, 800);
+      }
+
+      // 确保新服务器全新部署或网络异常时，默认显示根架构「企业流程架构全景」
       const hasRoot = archs.some((a: any) => !a.parentId || a.id === 'arch_root');
       if (!hasRoot) {
         archs = [DEFAULT_ROOT_ARCH, ...archs];
@@ -711,7 +719,7 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
         setArchTab('arch');
       }
     } catch (err) {
-      console.error('Failed to load tree data', err);
+      console.warn('Notice loading tree data, using resilient defaults:', err);
     }
   };
 

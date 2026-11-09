@@ -50,6 +50,7 @@ import { FlowPageStandardHeader, getArchHierarchyPath } from './FlowPageStandard
 import { UnifiedCardDetailView } from './UnifiedCardDetailView';
 import { FlowVersionDiffModal } from './FlowVersionDiffModal';
 import { NodeSummaryDrawer } from './NodeSummaryDrawer';
+import { safeFetchJson } from '../utils/safeFetch';
 
 interface PropertyOverviewViewProps {
   initialSelectedFlowId?: string | null;
@@ -347,16 +348,23 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
     window.addEventListener('mouseup', onUp);
   };
 
-  const loadAllData = async () => {
+  const loadAllData = async (retryCount = 0) => {
     try {
       const [archRes, flowRes, dictRes, repealRes] = await Promise.all([
-        fetch('/api/flow/fulltypes').then((r) => r.json()),
-        fetch('/api/flow/fullSimpleModels').then((r) => r.json()),
-        fetch('/api/dict/bundle').then((r) => r.json()),
-        fetch('/api/flow/repeals').then((r) => r.json()),
+        safeFetchJson('/api/flow/fulltypes'),
+        safeFetchJson('/api/flow/fullSimpleModels'),
+        safeFetchJson('/api/dict/bundle'),
+        safeFetchJson('/api/flow/repeals'),
       ]);
       let archs = archRes?.data || [];
       const flows = flowRes?.data || [];
+
+      // If backend was temporarily spinning up and returned null, retry up to 2 times
+      if ((!archRes || !flowRes) && retryCount < 2) {
+        setTimeout(() => {
+          loadAllData(retryCount + 1);
+        }, 800);
+      }
 
       // 确保新服务器全新部署时，默认显示根架构「企业流程架构全景」
       const hasRoot = archs.some((a: any) => !a.parentId || a.id === 'arch_root');
