@@ -79,10 +79,18 @@
     }
     .badge-item {
       cursor: pointer;
-      transition: transform 0.12s ease;
+      user-select: none;
+      transition: filter 0.15s ease, opacity 0.15s ease;
     }
     .badge-item:hover {
-      transform: scale(1.15);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45)) brightness(1.18);
+    }
+    .badge-item:active {
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3)) brightness(0.92);
+    }
+    .badge-item text {
+      pointer-events: none;
+      user-select: none;
     }
     .mx-edge-group {
       cursor: pointer;
@@ -1298,12 +1306,21 @@
           }
 
           const badges = computeNodeBadges(node);
-          const badgesSvg = badges.map(b => `
-            <g class="badge-item" data-badge="${b.key}" data-kind="${b.kind}" transform="translate(${b.x}, ${b.y})">
-              <rect x="0" y="0" width="${b.w}" height="${b.h}" rx="3" fill="${b.bg}" stroke="#ffffff" stroke-width="1"/>
-              <text x="${b.w/2}" y="${b.h - 4}" text-anchor="middle" font-size="9" font-weight="700" fill="#ffffff">${escapeXml(b.text)}</text>
+          const badgesSvg = badges.map(b => {
+            const tip = b.key === 'info' ? '点击查看并编辑节点详细属性' :
+                        b.key === 'in' ? '前置输入物料 (点击查看属性)' :
+                        b.key === 'out' ? '后置输出物料 (点击查看属性)' :
+                        b.key === 'link' ? '资产联动关系 (点击查看属性)' :
+                        b.key === 'raci' ? 'RACI职责矩阵 (点击查看属性)' :
+                        b.key === 'kcp' ? '关键控制点 KCP (点击查看属性)' : '节点属性 (点击查看)';
+            return `
+            <g class="badge-item" data-badge="${b.key}" data-kind="${b.kind}" transform="translate(${b.x}, ${b.y})" style="pointer-events:all; cursor:pointer;">
+              <title>${tip}</title>
+              <rect x="0" y="0" width="${b.w}" height="${b.h}" rx="3" fill="${b.bg}" stroke="#ffffff" stroke-width="1" pointer-events="all"/>
+              <text x="${b.w/2}" y="${b.h - 4}" text-anchor="middle" font-size="9" font-weight="700" fill="#ffffff" pointer-events="none">${escapeXml(b.text)}</text>
             </g>
-          `).join('');
+          `;
+          }).join('');
 
           const ports = isSwim ? [] : [
             { cx: w / 2, cy: 0 },
@@ -1343,21 +1360,34 @@
           `;
 
           g.querySelectorAll('.badge-item').forEach(bEl => {
-            bEl.addEventListener('mousedown', (ev) => ev.stopPropagation());
-            bEl.addEventListener('click', (ev) => {
-              ev.stopPropagation();
-              const badge = bEl.getAttribute('data-badge');
-              const kind = bEl.getAttribute('data-kind');
+            const handleBadgeTrigger = (ev) => {
+              if (ev) {
+                ev.stopPropagation();
+                if (ev.preventDefault) ev.preventDefault();
+              }
+              const badge = bEl.getAttribute('data-badge') || 'info';
+              const kind = bEl.getAttribute('data-kind') || 'info';
+              const cellPayload = serializeCellForHost(node);
+
               selectedIds = new Set([node.id]);
               render();
               emitSelectionToHost();
+
               postToHost({
                 event: 'dflow:badge',
                 badge,
                 kind,
-                cell: serializeCellForHost(node)
+                cell: cellPayload
               });
-            });
+              postToHost({
+                event: 'dflow:openProps',
+                cell: cellPayload
+              });
+            };
+
+            bEl.addEventListener('mousedown', (ev) => ev.stopPropagation());
+            bEl.addEventListener('mouseup', (ev) => ev.stopPropagation());
+            bEl.addEventListener('click', handleBadgeTrigger);
           });
 
           if (!isReadOnly) {

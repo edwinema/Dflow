@@ -540,7 +540,7 @@ export const DrawioDesigner: React.FC<DrawioDesignerProps> = ({
   const [selectedCells, setSelectedCells] = useState<any[]>([]);
   const selectedCell = selectedCells[0] || null;
   const [panelCell, setPanelCell] = useState<any | null>(null);
-  const [rightDrawerMode, setRightDrawerMode] = useState<'none' | 'ai' | 'props'>('props');
+  const [rightDrawerMode, setRightDrawerMode] = useState<'none' | 'ai' | 'props'>('none');
 
   const [paletteColorMode, setPaletteColorMode] = useState<'mono' | 'color'>('color');
   const [shapeSearch, setShapeSearch] = useState('');
