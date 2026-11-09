@@ -36,6 +36,7 @@ import {
   Folder,
   FolderOpen,
   GitCompare,
+  Loader2,
 } from 'lucide-react';
 import { DrawioBridge } from '../utils/drawioBridge';
 import { parseFlowNodes } from '../utils/flowSchema';
@@ -48,6 +49,7 @@ import {
 import { FlowPageStandardHeader, getArchHierarchyPath } from './FlowPageStandardHeader';
 import { UnifiedCardDetailView } from './UnifiedCardDetailView';
 import { FlowVersionDiffModal } from './FlowVersionDiffModal';
+import { NodeSummaryDrawer } from './NodeSummaryDrawer';
 
 interface PropertyOverviewViewProps {
   initialSelectedFlowId?: string | null;
@@ -312,6 +314,16 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
 
   const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const previewBridgeRef = useRef<DrawioBridge | null>(null);
+
+  // 节点属性内容汇总抽屉 (匹配设计图 image_26800346.png)
+  const [summaryNodeCell, setSummaryNodeCell] = useState<any | null>(null);
+
+  // 业务集成视图：图谱模式与矩阵模式切换
+  const [ywjcstSubView, setYwjcstSubView] = useState<'diagram' | 'matrix'>('diagram');
+  const archPreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const archPreviewBridgeRef = useRef<DrawioBridge | null>(null);
+  const [archIntegrationXml, setArchIntegrationXml] = useState<string>('');
+  const [archIntegrationLoading, setArchIntegrationLoading] = useState(false);
 
   const handleStartResizeTree = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -608,6 +620,16 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
       onReady: () => {
         bridge.loadXml(currentFlow.xml, currentFlow.label);
       },
+      onBadgeClick: ({ cell }) => {
+        if (cell) {
+          setSummaryNodeCell(cell);
+        }
+      },
+      onOpenProps: (cell) => {
+        if (cell) {
+          setSummaryNodeCell(cell);
+        }
+      },
       onExport: ({ format, data }) => {
         if (format === 'png' && data) {
           const a = document.createElement('a');
@@ -630,6 +652,63 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
       previewBridgeRef.current = null;
     };
   }, [selectedNode.type, selectedNode.id, flowTab, currentFlow?.xml, currentFlow?.unedited, showDiagramForUnedited]);
+
+  // 加载业务集成视图架构图谱
+  const fetchAndLoadArchIntegrationDiagram = async (archId: string, archLabel: string) => {
+    setArchIntegrationLoading(true);
+    try {
+      const res = await fetch(`/api/flow/${archId}/xml`).then((r) => r.json());
+      const xml = res.data?.xml || '';
+      setArchIntegrationXml(xml);
+      if (!archPreviewBridgeRef.current) {
+        const bridge = new DrawioBridge({
+          onReady: () => {
+            bridge.loadXml(xml, `${archLabel} - 业务集成视图`);
+          },
+          onBadgeClick: ({ cell }) => {
+            if (cell) setSummaryNodeCell(cell);
+          },
+          onOpenProps: (cell) => {
+            if (cell) setSummaryNodeCell(cell);
+          },
+          onExport: ({ format, data }) => {
+            if (format === 'png' && data) {
+              const a = document.createElement('a');
+              a.href = data;
+              a.download = `${archLabel || '流程架构'}-业务集成视图.png`;
+              a.click();
+              showToast('已导出 PNG 图表', 'success');
+            }
+          },
+        });
+        archPreviewBridgeRef.current = bridge;
+        if (archPreviewIframeRef.current) {
+          bridge.attachIframe(archPreviewIframeRef.current);
+          setTimeout(() => {
+            bridge.loadXml(xml, `${archLabel} - 业务集成视图`);
+          }, 180);
+        }
+      } else {
+        archPreviewBridgeRef.current.loadXml(xml, `${archLabel} - 业务集成视图`);
+      }
+    } catch {
+      //
+    } finally {
+      setArchIntegrationLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedNode.type !== 'arch' || archTab !== 'ywjcst' || !currentArch?.id) return;
+    fetchAndLoadArchIntegrationDiagram(currentArch.id, currentArch.label);
+  }, [selectedNode.type, selectedNode.id, archTab, currentArch?.id]);
+
+  useEffect(() => {
+    return () => {
+      archPreviewBridgeRef.current?.destroy();
+      archPreviewBridgeRef.current = null;
+    };
+  }, []);
 
   const handleSearch = () => {
     setAppliedFilters({
@@ -1941,6 +2020,84 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                 {/* ============================================================== */}
                 {archTab === 'ywjcst' && currentArch && (
                   <div className="space-y-4">
+                    {/* View Switcher Header */}
+                    <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-[#e2e8f0] shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <Network className="w-4 h-4 text-[#409eff]" />
+                        <span className="font-bold text-xs text-[#1f2733]">
+                          【{currentArch.label}】端到端业务集成视图
+                        </span>
+                        <span className="text-[11px] text-[#909399] ml-2">
+                          层级：{resolveArchLevel(currentArch, archList)} · 责任人：{currentArch.ownerName || '系统管理员'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 bg-[#f1f5f9] p-0.5 rounded-lg border border-[#e2e8f0] text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setYwjcstSubView('diagram')}
+                            className={`px-3 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors ${
+                              ywjcstSubView === 'diagram'
+                                ? 'bg-white text-[#1677ff] font-semibold shadow-2xs'
+                                : 'text-[#64748b] hover:text-[#1677ff]'
+                            }`}
+                          >
+                            业务集成图谱
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setYwjcstSubView('matrix')}
+                            className={`px-3 py-1 rounded-md text-xs font-medium cursor-pointer transition-colors ${
+                              ywjcstSubView === 'matrix'
+                                ? 'bg-white text-[#1677ff] font-semibold shadow-2xs'
+                                : 'text-[#64748b] hover:text-[#1677ff]'
+                            }`}
+                          >
+                            接口协同矩阵
+                          </button>
+                        </div>
+                        {ywjcstSubView === 'diagram' && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => archPreviewBridgeRef.current?.fit()}
+                              className="h-7 px-2 rounded border border-[#dcdfe6] bg-white hover:text-[#409eff] hover:border-[#409eff] text-xs text-[#606266] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                              title="自适应画布大小"
+                            >
+                              <Maximize2 className="w-3.5 h-3.5" />
+                              <span>自适应</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => archPreviewBridgeRef.current?.exportDiagram('png')}
+                              className="h-7 px-2.5 rounded border border-[#dcdfe6] bg-white hover:border-[#409eff] hover:text-[#409eff] text-xs text-[#606266] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                              title="导出图片"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>导出</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {ywjcstSubView === 'diagram' ? (
+                      <div className="bg-white rounded-xl border border-[#e4e7ed] shadow-2xs overflow-hidden flex flex-col min-h-[580px] relative">
+                        {archIntegrationLoading && (
+                          <div className="absolute inset-0 bg-white/70 backdrop-blur-2xs flex items-center justify-center z-10 text-xs text-[#409eff] gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>正在加载业务集成视图...</span>
+                          </div>
+                        )}
+                        <iframe
+                          ref={archPreviewIframeRef}
+                          title="业务集成视图图谱"
+                          src="/drawio/index.html?embed=1&proto=json&ui=min&lang=zh&dflowReadOnly=1&modified=0"
+                          className="w-full flex-1 min-h-[580px] border-0 block"
+                        />
+                      </div>
+                    ) : (
+                      <>
                     {/* 架构端到端流转边界看板 */}
                     <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-4">
                       <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#e2e8f0]">
@@ -2043,8 +2200,10 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
                         </div>
                       )}
                     </div>
-                  </div>
+                  </>
                 )}
+              </div>
+            )}
 
                 {/* ============================================================== */}
                 {/* 2. 架构卡片 (Architecture Properties Specification Table)        */}
@@ -2457,6 +2616,14 @@ export const PropertyOverviewView: React.FC<PropertyOverviewViewProps> = ({
           initialCompareVer={diffModal.compareVer}
         />
       )}
+
+      {/* 节点属性内容汇总抽屉 (对应设计图 image_26800346.png) */}
+      <NodeSummaryDrawer
+        open={!!summaryNodeCell}
+        cell={summaryNodeCell}
+        onClose={() => setSummaryNodeCell(null)}
+        showToast={showToast}
+      />
     </div>
   );
 };

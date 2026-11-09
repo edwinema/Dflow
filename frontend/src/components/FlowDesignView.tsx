@@ -48,6 +48,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { FlowPageStandardHeader, getArchHierarchyPath } from './FlowPageStandardHeader';
 import { UnifiedCardDetailView } from './UnifiedCardDetailView';
 import { FlowPublishAuditModal } from './FlowPublishAuditModal';
+import { NodeSummaryDrawer } from './NodeSummaryDrawer';
 
 interface FlowDesignViewProps {
   initialSelectedFlowId?: string | null;
@@ -375,7 +376,7 @@ export const DEFAULT_ROOT_ARCH = {
   adaptScope: '集团总部、苏州全元数字科技有限公司、各中心事业部',
   ownerName: '系统管理员 (E0004)',
   deptName: '运营管理部',
-  flowDefine: '全源科技集团端到端主干流程架构',
+  flowDefine: '全元科技集团端到端主干流程架构',
   flowPurpose: '统领企业研发、营销、供应链全价值链',
   versionNo: 'V2',
   publishUserName: '系统管理员',
@@ -608,6 +609,9 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
 
   const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const previewBridgeRef = useRef<DrawioBridge | null>(null);
+
+  // 节点属性内容汇总抽屉 (匹配设计图 image_26800346.png)
+  const [summaryNodeCell, setSummaryNodeCell] = useState<any | null>(null);
 
   const archPreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const archPreviewBridgeRef = useRef<DrawioBridge | null>(null);
@@ -924,6 +928,16 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
       onReady: () => {
         bridge.loadXml(currentFlow.xml, currentFlow.label);
       },
+      onBadgeClick: ({ cell }) => {
+        if (cell) {
+          setSummaryNodeCell(cell);
+        }
+      },
+      onOpenProps: (cell) => {
+        if (cell) {
+          setSummaryNodeCell(cell);
+        }
+      },
       onExport: ({ format, data }) => {
         if (format === 'png' && data) {
           const a = document.createElement('a');
@@ -966,6 +980,16 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
         const bridge = new DrawioBridge({
           onReady: () => {
             bridge.loadXml(xml, `${archLabel} - 业务集成视图`);
+          },
+          onBadgeClick: ({ cell }) => {
+            if (cell) {
+              setSummaryNodeCell(cell);
+            }
+          },
+          onOpenProps: (cell) => {
+            if (cell) {
+              setSummaryNodeCell(cell);
+            }
           },
           onExport: ({ format, data }) => {
             if (format === 'png' && data) {
@@ -3573,7 +3597,7 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
               </strong>
             </span>
           </div>
-          <span>全源流程资产运营平台 · dflow</span>
+          <span>全元流程资产运营平台 · dflow</span>
         </div>
       </div>
 
@@ -5124,6 +5148,14 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
         onSuccess={() => {
           loadAllTreeData();
         }}
+        showToast={showToast}
+      />
+
+      {/* 节点属性内容汇总抽屉 (对应设计图 image_26800346.png) */}
+      <NodeSummaryDrawer
+        open={!!summaryNodeCell}
+        cell={summaryNodeCell}
+        onClose={() => setSummaryNodeCell(null)}
         showToast={showToast}
       />
     </div>
