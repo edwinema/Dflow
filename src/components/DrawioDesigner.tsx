@@ -1103,7 +1103,7 @@ export const DrawioDesigner: React.FC<DrawioDesignerProps> = ({
             <span>返回</span>
           </button>
           <div className="w-6 h-6 rounded bg-[#1677ff] text-white font-black text-[12px] flex items-center justify-center shadow-xs select-none">
-            On
+            Q
           </div>
 
           {/* Editable Flow Title */}
