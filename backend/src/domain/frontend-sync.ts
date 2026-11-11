@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Actor, Registry, State } from './types';
+import { validateDocumentContent } from './document-templates';
 
 export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
   const { dutyAuditTasks, archTypes, flows, orgRoles } = s;
@@ -30,6 +31,7 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
     const now=new Date().toISOString();
     const reply=(row:any)=>res.json({status:1,data:row,bundle:s.dictBundle,info:'ok'});
     if(action==='create') {
+      validateDocumentContent(item);
       if(!item || typeof item!=='object' || Array.isArray(item))throw new BadRequestException('条目不能为空');
       const chain=levels(item.approvalFlow?.length?item.approvalFlow:config()[itemType]);
       const row={...item,id:`${itemType}_${randomUUID()}`,status:'pending',approvalFlow:chain,currentLevel:1,applyTime:now,validityPeriod:item.validityPeriod||'',publishTime:'',auditTime:'',auditor:'',auditRemark:'',approvalHistory:[]};
@@ -39,6 +41,7 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
     if(!target)throw new NotFoundException('条目不存在');
     if(action==='delete') { list.splice(list.indexOf(target),1); return reply(target); }
     if(action==='update') {
+      validateDocumentContent(item);
       if(!item || typeof item!=='object')throw new BadRequestException('条目不能为空');
       const chain=levels(item.approvalFlow??target.approvalFlow??config()[itemType]);
       // Editing content invalidates prior approval; clients cannot forge approval state.

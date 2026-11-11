@@ -149,12 +149,14 @@ export class NativeService {
       await c.query('INSERT INTO files(id,filename,content_type,content,owner_id,sha256) VALUES($1,$2,$3,$4,$5,$6)',[id,input.filename,input.contentType,bytes,actor.id,createHash('sha256').update(bytes).digest('hex')]);
       return ok({id,filename:input.filename,size:bytes.length});
     }
-    if(method==='GET'&&path==='/api/dict/doc/download') {
+    if(method==='GET'&&['/api/dict/doc/download','/api/dict/doc/preview'].includes(path)) {
       const doc=s.dictBundle.sysDoc.find((d:any)=>d.id===req.query.id||d.label===req.query.name);
       if(!doc?.fileId)throw new NotFoundException('该制度尚未上传正式文件');
       const file=(await c.query('SELECT * FROM files WHERE id=$1',[doc.fileId])).rows[0];
       if(!file)throw new NotFoundException('文件不存在');
-      response.headers={'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(file.filename)}`};
+      const preview=path.endsWith('/preview');
+      if(preview&&file.content_type!=='application/pdf')throw new BadRequestException('该格式请下载原文件后查看');
+      response.headers={'Content-Type':preview?'application/pdf':'application/octet-stream','Content-Disposition':`${preview?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(file.filename)}`};
       response.body=Buffer.from(file.content);return true;
     }
     if(!path.startsWith('/api/mining/'))return false;
