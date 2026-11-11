@@ -8747,10 +8747,14 @@ app.post('/api/mining/ai-diagnose', async (req, res) => {
 });
 
 async function startServer() {
-  const PORT = Number(process.env.PORT) || 3000;
+  // Dev server must strictly run on port 3000 as required by AI Studio
+  const PORT = 3000;
 
   const vite = await createViteServer({
-    server: { middlewareMode: true },
+    server: {
+      middlewareMode: true,
+      hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
+    },
     appType: 'spa',
   });
 
