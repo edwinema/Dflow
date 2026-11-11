@@ -107,6 +107,27 @@ test('idempotency replays safely and rejects key reuse with different body',asyn
   const b=await request('POST','/api/flow/model',body,{},admin,headers);assert.equal(a.body.data.id,b.body.data.id);
   await status(request('POST','/api/flow/model',{...body,label:'changed'},{},admin,headers),409);
 });
+test('document catalog roots support persisted child creation and rename with safe deletion',async()=>{
+  for(const treeType of ['sysDoc','risk']) {
+    const treeKey=treeType+'Tree';
+    const root=(await request('GET','/api/dict/bundle')).body.data[treeKey].find(node=>!node.parentId);
+    assert.ok(root);
+    const folder=(await request('POST','/api/dict/tree',{treeType,action:'create',parentId:root.id,label:'业务目录'})).body.data;
+    assert.equal(folder.parentId,root.id);
+    await status(request('POST','/api/dict/tree',{treeType,action:'create',parentId:root.id,label:'业务目录'}),409);
+    await request('POST','/api/dict/tree',{treeType,action:'rename',id:folder.id,label:'研发制度目录'});
+    const restarted=new DomainService(db,new NativeService());
+    const bundle=(await restarted.dispatch({method:'GET',path:'/api/dict/bundle',body:{},query:{},headers:{}},admin)).body.data;
+    assert.equal(bundle[treeKey].find(node=>node.id===folder.id).label,'研发制度目录');
+    const item=(await request('POST','/api/dict/item',{itemType:treeType,action:'create',item:{label:'目录引用文档',folderId:folder.id}})).body.data;
+    await status(request('POST','/api/dict/tree',{treeType,action:'delete',id:folder.id}),409);
+    await status(request('POST','/api/dict/tree',{treeType,action:'delete',id:root.id}),409);
+    await status(request('POST','/api/dict/tree',{treeType,action:'rename',id:folder.id,label:'越权'}, {},{...admin,roles:['viewer']}),403);
+    await request('POST','/api/dict/item',{itemType:treeType,action:'delete',id:item.id});
+    await request('POST','/api/dict/tree',{treeType,action:'delete',id:folder.id});
+    assert.equal((await request('GET','/api/dict/bundle')).body.data[treeKey].some(node=>node.id===folder.id),false);
+  }
+});
 test('positions and job titles support persisted manual creation and atomic validated CSV imports',async()=>{
   const dept=(await request('POST','/api/org/depts',{deptName:'目录测试部门',deptCode:'CAT001',parentDeptCode:''})).body.data;
   const position=(await request('POST','/api/org/positions',{postCode:'CAT_POST_1',postName:'岗位一',deptId:dept.id,sort:2,status:'0'})).body.data;
