@@ -13,6 +13,7 @@ import {
   Users,
   ShieldCheck,
   Briefcase,
+  Award,
   KeyRound,
   FileSpreadsheet,
   AlertCircle,
@@ -108,6 +109,81 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
   const [importDeptModalVisible, setImportDeptModalVisible] = useState(false);
   const [importDeptPreviewList, setImportDeptPreviewList] = useState<any[]>([]);
+
+  // =========================================================================
+  // 岗位管理 State
+  // =========================================================================
+  const [postSearchText, setPostSearchText] = useState('');
+  const [postSearchDept, setPostSearchDept] = useState('');
+  const [postSearchStatus, setPostSearchStatus] = useState('');
+  const [selectedPostIds, setSelectedPostIds] = useState<string[]>([]);
+  const [editPostModal, setEditPostModal] = useState<{
+    visible: boolean;
+    isCreate: boolean;
+    data: any;
+  }>({
+    visible: false,
+    isCreate: true,
+    data: {
+      postCode: '',
+      postName: '',
+      deptName: '',
+      deptCode: '',
+      sort: 1,
+      status: '0',
+      remark: '',
+    },
+  });
+  const [deletePostConfirm, setDeletePostConfirm] = useState<{
+    visible: boolean;
+    post: any | null;
+  }>({
+    visible: false,
+    post: null,
+  });
+  const [batchDeletePostConfirm, setBatchDeletePostConfirm] = useState(false);
+  const [importPostModalVisible, setImportPostModalVisible] = useState(false);
+  const [importPostPreviewList, setImportPostPreviewList] = useState<any[]>([]);
+  const [postPageNum, setPostPageNum] = useState<number>(1);
+  const [postPageSize, setPostPageSize] = useState<number>(10);
+
+  // =========================================================================
+  // 职位管理 State
+  // =========================================================================
+  const [jobSearchText, setJobSearchText] = useState('');
+  const [jobSearchSeries, setJobSearchSeries] = useState('');
+  const [jobSearchRank, setJobSearchRank] = useState('');
+  const [jobSearchStatus, setJobSearchStatus] = useState('');
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
+  const [editJobModal, setEditJobModal] = useState<{
+    visible: boolean;
+    isCreate: boolean;
+    data: any;
+  }>({
+    visible: false,
+    isCreate: true,
+    data: {
+      jobCode: '',
+      jobName: '',
+      rankLevel: 'P5',
+      jobSeries: '技术/专业职系',
+      sort: 1,
+      status: '0',
+      remark: '',
+    },
+  });
+  const [deleteJobConfirm, setDeleteJobConfirm] = useState<{
+    visible: boolean;
+    job: any | null;
+  }>({
+    visible: false,
+    job: null,
+  });
+  const [batchDeleteJobConfirm, setBatchDeleteJobConfirm] = useState(false);
+  const [importJobModalVisible, setImportJobModalVisible] = useState(false);
+  const [importJobPreviewList, setImportJobPreviewList] = useState<any[]>([]);
+  const [jobPageNum, setJobPageNum] = useState<number>(1);
+  const [jobPageSize, setJobPageSize] = useState<number>(10);
 
   // =========================================================================
   // 2. 用户管理 State & Handlers
@@ -621,6 +697,579 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
       }
     } catch (e) {
       showToast('重置部门失败', 'error');
+    }
+  };
+
+  // =========================================================================
+  // 通用 CSV 下载与解析工具
+  // =========================================================================
+  const downloadCsv = (filename: string, header: string[], rows: (string | number)[][]) => {
+    const content =
+      '\uFEFF' +
+      [
+        header.join(','),
+        ...rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')),
+      ].join('\r\n');
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // =========================================================================
+  // 岗位管理 (Post Management) 业务逻辑
+  // =========================================================================
+  const filteredPositions = useMemo(() => {
+    let list = [...positions];
+    if (postSearchText.trim()) {
+      const q = postSearchText.trim().toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.postName?.toLowerCase().includes(q) ||
+          p.postCode?.toLowerCase().includes(q) ||
+          p.remark?.toLowerCase().includes(q)
+      );
+    }
+    if (postSearchDept) {
+      list = list.filter((p) => p.deptName === postSearchDept);
+    }
+    if (postSearchStatus !== '') {
+      list = list.filter((p) => p.status === postSearchStatus);
+    }
+    return list;
+  }, [positions, postSearchText, postSearchDept, postSearchStatus]);
+
+  const pagedPositions = useMemo(() => {
+    const start = (postPageNum - 1) * postPageSize;
+    return filteredPositions.slice(start, start + postPageSize);
+  }, [filteredPositions, postPageNum, postPageSize]);
+
+  const isAllPostSelected =
+    pagedPositions.length > 0 && pagedPositions.every((p) => selectedPostIds.includes(p.id));
+
+  const handleSelectAllPost = (checked: boolean) => {
+    if (checked) {
+      const allIds = Array.from(new Set([...selectedPostIds, ...pagedPositions.map((p) => p.id)]));
+      setSelectedPostIds(allIds);
+    } else {
+      const pagedIdSet = new Set(pagedPositions.map((p) => p.id));
+      setSelectedPostIds(selectedPostIds.filter((id) => !pagedIdSet.has(id)));
+    }
+  };
+
+  const handleSelectPostRow = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedPostIds((prev) => [...prev, id]);
+    } else {
+      setSelectedPostIds((prev) => prev.filter((item) => item !== id));
+    }
+  };
+
+  const handleOpenCreatePost = () => {
+    const nextSort = positions.length + 1;
+    const autoCode = `POST_${String(nextSort).padStart(3, '0')}`;
+    setEditPostModal({
+      visible: true,
+      isCreate: true,
+      data: {
+        postCode: autoCode,
+        postName: '',
+        deptName: depts[0]?.deptName || '未分配部门',
+        deptCode: depts[0]?.deptCode || '',
+        sort: nextSort,
+        status: '0',
+        remark: '',
+      },
+    });
+  };
+
+  const handleOpenEditPost = (post: any) => {
+    setEditPostModal({
+      visible: true,
+      isCreate: false,
+      data: {
+        id: post.id,
+        postCode: post.postCode || '',
+        postName: post.postName || '',
+        deptName: post.deptName || '',
+        deptCode: post.deptCode || '',
+        sort: post.sort ?? 1,
+        status: post.status ?? '0',
+        remark: post.remark || '',
+      },
+    });
+  };
+
+  const handleSavePost = async () => {
+    const { isCreate, data } = editPostModal;
+    if (!data.postName || !data.postName.trim()) {
+      showToast('请输入岗位名称', 'warning');
+      return;
+    }
+    if (!data.postCode || !data.postCode.trim()) {
+      showToast('请输入岗位编码', 'warning');
+      return;
+    }
+
+    try {
+      if (isCreate) {
+        const res = await fetch('/api/org/positions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (json.status === 1) {
+          showToast(`新增岗位【${data.postName}】成功`, 'success');
+          setPositions(json.list);
+          setEditPostModal((prev) => ({ ...prev, visible: false }));
+        } else {
+          showToast(json.info || '新增岗位失败', 'error');
+        }
+      } else {
+        const res = await fetch(`/api/org/positions/${data.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (json.status === 1) {
+          showToast(`修改岗位【${data.postName}】成功`, 'success');
+          setPositions(json.list);
+          setEditPostModal((prev) => ({ ...prev, visible: false }));
+        } else {
+          showToast(json.info || '修改岗位失败', 'error');
+        }
+      }
+    } catch {
+      showToast('保存岗位失败', 'error');
+    }
+  };
+
+  const handleConfirmDeleteSinglePost = async () => {
+    if (!deletePostConfirm.post) return;
+    try {
+      const res = await fetch(`/api/org/positions/${deletePostConfirm.post.id}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (json.status === 1) {
+        showToast('已成功删除岗位', 'success');
+        setPositions(json.list);
+        setSelectedPostIds((prev) => prev.filter((id) => id !== deletePostConfirm.post.id));
+        setDeletePostConfirm({ visible: false, post: null });
+      } else {
+        showToast(json.info || '删除失败', 'error');
+      }
+    } catch {
+      showToast('删除岗位失败', 'error');
+    }
+  };
+
+  const handleConfirmBatchDeletePost = async () => {
+    try {
+      const res = await fetch('/api/org/positions/batch-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedPostIds }),
+      });
+      const json = await res.json();
+      if (json.status === 1) {
+        showToast(json.info || '批量删除岗位成功', 'success');
+        setPositions(json.list);
+        setSelectedPostIds([]);
+        setBatchDeletePostConfirm(false);
+      } else {
+        showToast(json.info || '批量删除失败', 'error');
+      }
+    } catch {
+      showToast('批量删除岗位失败', 'error');
+    }
+  };
+
+  const handleDownloadPostTemplate = () => {
+    const headers = ['岗位编码', '岗位名称', '归属部门', '排序号', '状态(0正常/1停用)', '职责描述'];
+    const sampleRows = [
+      ['POST_011', '资深AI算法架构师', '系统管理部', '11', '0', '负责企业AI大模型与智能流程调度'],
+      ['POST_012', '精益流程效能主管', '流程管理部', '12', '0', '负责六西格玛流程诊断与端到端度量'],
+      ['POST_013', '风险合规审计专员', '法律合规与内控部', '13', '0', '负责KCP关键控制点与法务合规审计'],
+      ['POST_014', '敏捷产品经理', '研发管理中心', '14', '0', '负责产品生命周期与Charter评审落地'],
+      ['POST_015', '供应链物料调度专家', '市场营销中心', '15', '0', '负责物料齐套与产销协同'],
+    ];
+    downloadCsv('企业岗位导入标准模板.csv', headers, sampleRows);
+    showToast('已下载岗位导入标准模板', 'success');
+  };
+
+  const handleExportPostList = () => {
+    const headers = ['岗位编号', '岗位名称', '归属部门', '排序号', '状态', '职责描述', '创建时间'];
+    const rows = filteredPositions.map((p) => [
+      p.postCode,
+      p.postName,
+      p.deptName,
+      p.sort,
+      p.status === '0' ? '正常' : '停用',
+      p.remark || '',
+      p.createTime,
+    ]);
+    downloadCsv(`企业岗位库清单_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    showToast(`已成功导出 ${filteredPositions.length} 个岗位记录`, 'success');
+  };
+
+  const handleOpenImportPost = () => {
+    const defaultSamples = [
+      { postCode: 'POST_011', postName: '资深AI算法架构师', deptName: '系统管理部', sort: 11, status: '0', remark: '负责企业AI大模型与智能流程调度' },
+      { postCode: 'POST_012', postName: '精益流程效能主管', deptName: '流程管理部', sort: 12, status: '0', remark: '负责六西格玛流程诊断与端到端度量' },
+      { postCode: 'POST_013', postName: '风险合规审计专员', deptName: '法律合规与内控部', sort: 13, status: '0', remark: '负责KCP关键控制点与法务合规审计' },
+      { postCode: 'POST_014', postName: '敏捷产品经理', deptName: '研发管理中心', sort: 14, status: '0', remark: '负责产品生命周期与Charter评审落地' },
+      { postCode: 'POST_015', postName: '供应链物料调度专家', deptName: '市场营销中心', sort: 15, status: '0', remark: '负责物料齐套与产销协同' },
+    ];
+    setImportPostPreviewList(defaultSamples);
+    setImportPostModalVisible(true);
+  };
+
+  const handleFileSelectPostImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = (event.target?.result as string) || '';
+        const lines = text.split(/\r\n|\n/).filter((l) => l.trim().length > 0);
+        if (lines.length <= 1) {
+          showToast('文件未包含有效数据行', 'warning');
+          return;
+        }
+        // skip header line
+        const parsed: any[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(',').map((p) => p.replace(/^"|"$/g, '').trim());
+          if (parts[1]) {
+            parsed.push({
+              postCode: parts[0] || `POST_${String(positions.length + parsed.length + 1).padStart(3, '0')}`,
+              postName: parts[1],
+              deptName: parts[2] || '未分配部门',
+              sort: Number(parts[3]) || positions.length + parsed.length + 1,
+              status: parts[4] === '停用' || parts[4] === '1' ? '1' : '0',
+              remark: parts[5] || '',
+            });
+          }
+        }
+        if (parsed.length > 0) {
+          setImportPostPreviewList(parsed);
+          showToast(`解析成功，共识别到 ${parsed.length} 条岗位数据`, 'success');
+        } else {
+          showToast('未识别到格式正确的岗位数据', 'warning');
+        }
+      } catch {
+        showToast('读取文件失败，请检查文件格式', 'error');
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  };
+
+  const handleConfirmImportPost = async () => {
+    if (importPostPreviewList.length === 0) {
+      showToast('无可导入的岗位数据', 'warning');
+      return;
+    }
+    try {
+      const res = await fetch('/api/org/positions/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: importPostPreviewList }),
+      });
+      const json = await res.json();
+      if (json.status === 1) {
+        showToast(json.info || `成功导入 ${importPostPreviewList.length} 个岗位`, 'success');
+        setPositions(json.list);
+        setImportPostModalVisible(false);
+      } else {
+        showToast(json.info || '导入岗位失败', 'error');
+      }
+    } catch {
+      showToast('导入岗位失败', 'error');
+    }
+  };
+
+  // =========================================================================
+  // 职位管理 (Job / Rank Management) 业务逻辑
+  // =========================================================================
+  const filteredJobTitles = useMemo(() => {
+    let list = [...jobTitles];
+    if (jobSearchText.trim()) {
+      const q = jobSearchText.trim().toLowerCase();
+      list = list.filter(
+        (j) =>
+          j.jobName?.toLowerCase().includes(q) ||
+          j.jobCode?.toLowerCase().includes(q) ||
+          j.remark?.toLowerCase().includes(q)
+      );
+    }
+    if (jobSearchSeries) {
+      list = list.filter((j) => j.jobSeries === jobSearchSeries);
+    }
+    if (jobSearchRank) {
+      list = list.filter((j) => j.rankLevel === jobSearchRank);
+    }
+    if (jobSearchStatus !== '') {
+      list = list.filter((j) => j.status === jobSearchStatus);
+    }
+    return list;
+  }, [jobTitles, jobSearchText, jobSearchSeries, jobSearchRank, jobSearchStatus]);
+
+  const pagedJobTitles = useMemo(() => {
+    const start = (jobPageNum - 1) * jobPageSize;
+    return filteredJobTitles.slice(start, start + jobPageSize);
+  }, [filteredJobTitles, jobPageNum, jobPageSize]);
+
+  const isAllJobSelected =
+    pagedJobTitles.length > 0 && pagedJobTitles.every((j) => selectedJobIds.includes(j.id));
+
+  const handleSelectAllJob = (checked: boolean) => {
+    if (checked) {
+      const allIds = Array.from(new Set([...selectedJobIds, ...pagedJobTitles.map((j) => j.id)]));
+      setSelectedJobIds(allIds);
+    } else {
+      const pagedIdSet = new Set(pagedJobTitles.map((j) => j.id));
+      setSelectedJobIds(selectedJobIds.filter((id) => !pagedIdSet.has(id)));
+    }
+  };
+
+  const handleSelectJobRow = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedJobIds((prev) => [...prev, id]);
+    } else {
+      setSelectedJobIds((prev) => prev.filter((item) => item !== id));
+    }
+  };
+
+  const handleOpenCreateJob = () => {
+    const nextSort = jobTitles.length + 1;
+    const autoCode = `RANK_P${nextSort + 3}`;
+    setEditJobModal({
+      visible: true,
+      isCreate: true,
+      data: {
+        jobCode: autoCode,
+        jobName: '',
+        rankLevel: 'P6',
+        jobSeries: '技术/专业职系',
+        sort: nextSort,
+        status: '0',
+        remark: '',
+      },
+    });
+  };
+
+  const handleOpenEditJob = (job: any) => {
+    setEditJobModal({
+      visible: true,
+      isCreate: false,
+      data: {
+        id: job.id,
+        jobCode: job.jobCode || '',
+        jobName: job.jobName || '',
+        rankLevel: job.rankLevel || 'P5',
+        jobSeries: job.jobSeries || '技术/专业职系',
+        sort: job.sort ?? 1,
+        status: job.status ?? '0',
+        remark: job.remark || '',
+      },
+    });
+  };
+
+  const handleSaveJob = async () => {
+    const { isCreate, data } = editJobModal;
+    if (!data.jobName || !data.jobName.trim()) {
+      showToast('请输入职位/职级名称', 'warning');
+      return;
+    }
+    if (!data.jobCode || !data.jobCode.trim()) {
+      showToast('请输入职级编码', 'warning');
+      return;
+    }
+
+    try {
+      if (isCreate) {
+        const res = await fetch('/api/org/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (json.status === 1) {
+          showToast(`新增职位【${data.jobName}】成功`, 'success');
+          setJobTitles(json.list);
+          setEditJobModal((prev) => ({ ...prev, visible: false }));
+        } else {
+          showToast(json.info || '新增职位失败', 'error');
+        }
+      } else {
+        const res = await fetch(`/api/org/jobs/${data.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (json.status === 1) {
+          showToast(`修改职位【${data.jobName}】成功`, 'success');
+          setJobTitles(json.list);
+          setEditJobModal((prev) => ({ ...prev, visible: false }));
+        } else {
+          showToast(json.info || '修改职位失败', 'error');
+        }
+      }
+    } catch {
+      showToast('保存职位失败', 'error');
+    }
+  };
+
+  const handleConfirmDeleteSingleJob = async () => {
+    if (!deleteJobConfirm.job) return;
+    try {
+      const res = await fetch(`/api/org/jobs/${deleteJobConfirm.job.id}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (json.status === 1) {
+        showToast('已成功删除职位', 'success');
+        setJobTitles(json.list);
+        setSelectedJobIds((prev) => prev.filter((id) => id !== deleteJobConfirm.job.id));
+        setDeleteJobConfirm({ visible: false, job: null });
+      } else {
+        showToast(json.info || '删除失败', 'error');
+      }
+    } catch {
+      showToast('删除职位失败', 'error');
+    }
+  };
+
+  const handleConfirmBatchDeleteJob = async () => {
+    try {
+      const res = await fetch('/api/org/jobs/batch-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedJobIds }),
+      });
+      const json = await res.json();
+      if (json.status === 1) {
+        showToast(json.info || '批量删除职位成功', 'success');
+        setJobTitles(json.list);
+        setSelectedJobIds([]);
+        setBatchDeleteJobConfirm(false);
+      } else {
+        showToast(json.info || '批量删除失败', 'error');
+      }
+    } catch {
+      showToast('批量删除职位失败', 'error');
+    }
+  };
+
+  const handleDownloadJobTemplate = () => {
+    const headers = ['职级编码', '职位/职级名称', '职级等阶', '所属职系', '排序号', '状态(0正常/1停用)', '职责概述'];
+    const sampleRows = [
+      ['RANK_P8', '资深主任工程师 / 首席技术专家', 'P8', '技术/专业职系', '8', '0', '国家级行业技术领跑与前沿攻坚'],
+      ['RANK_P9', '集团首席科学家 / 院士级顾问', 'P9', '专家职系', '9', '0', '顶层技术蓝图与战略级卡脖子破局'],
+      ['RANK_M4', '事业群总裁 / 集团高级副总裁', 'M4', '管理职系', '10', '0', '全集群业务战略规划与损益核算'],
+      ['RANK_S1', '战略大客户商务总监', 'S1', '市场/商务职系', '11', '0', '头部标杆客户开发与重大战役突破'],
+      ['RANK_F2', '合规与监察特级主管', 'F2', '综合职能职系', '12', '0', '集团廉洁内审、风控合规与治理审计'],
+    ];
+    downloadCsv('企业职位与职级导入标准模板.csv', headers, sampleRows);
+    showToast('已下载职位导入标准模板', 'success');
+  };
+
+  const handleExportJobList = () => {
+    const headers = ['职级编码', '职级名称', '职级等阶', '所属职系', '排序号', '状态', '职责概述', '创建时间'];
+    const rows = filteredJobTitles.map((j) => [
+      j.jobCode,
+      j.jobName,
+      j.rankLevel,
+      j.jobSeries,
+      j.sort,
+      j.status === '0' ? '正常' : '停用',
+      j.remark || '',
+      j.createTime,
+    ]);
+    downloadCsv(`企业职位与职级清单_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    showToast(`已成功导出 ${filteredJobTitles.length} 个职位职级记录`, 'success');
+  };
+
+  const handleOpenImportJob = () => {
+    const defaultSamples = [
+      { jobCode: 'RANK_P8', jobName: '资深主任工程师 / 首席技术专家', rankLevel: 'P8', jobSeries: '技术/专业职系', sort: 8, status: '0', remark: '国家级行业技术领跑与前沿攻坚' },
+      { jobCode: 'RANK_P9', jobName: '集团首席科学家 / 院士级顾问', rankLevel: 'P9', jobSeries: '专家职系', sort: 9, status: '0', remark: '顶层技术蓝图与战略级卡脖子破局' },
+      { jobCode: 'RANK_M4', jobName: '事业群总裁 / 集团高级副总裁', rankLevel: 'M4', jobSeries: '管理职系', sort: 10, status: '0', remark: '全集群业务战略规划与损益核算' },
+      { jobCode: 'RANK_S1', jobName: '战略大客户商务总监', rankLevel: 'S1', jobSeries: '市场/商务职系', sort: 11, status: '0', remark: '头部标杆客户开发与重大战役突破' },
+      { jobCode: 'RANK_F2', jobName: '合规与监察特级主管', rankLevel: 'F2', jobSeries: '综合职能职系', sort: 12, status: '0', remark: '集团廉洁内审、风控合规与治理审计' },
+    ];
+    setImportJobPreviewList(defaultSamples);
+    setImportJobModalVisible(true);
+  };
+
+  const handleFileSelectJobImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = (event.target?.result as string) || '';
+        const lines = text.split(/\r\n|\n/).filter((l) => l.trim().length > 0);
+        if (lines.length <= 1) {
+          showToast('文件未包含有效数据行', 'warning');
+          return;
+        }
+        const parsed: any[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(',').map((p) => p.replace(/^"|"$/g, '').trim());
+          if (parts[1]) {
+            parsed.push({
+              jobCode: parts[0] || `RANK_P${jobTitles.length + parsed.length + 4}`,
+              jobName: parts[1],
+              rankLevel: parts[2] || 'P5',
+              jobSeries: parts[3] || '技术/专业职系',
+              sort: Number(parts[4]) || jobTitles.length + parsed.length + 1,
+              status: parts[5] === '停用' || parts[5] === '1' ? '1' : '0',
+              remark: parts[6] || '',
+            });
+          }
+        }
+        if (parsed.length > 0) {
+          setImportJobPreviewList(parsed);
+          showToast(`解析成功，共识别到 ${parsed.length} 条职位数据`, 'success');
+        } else {
+          showToast('未识别到格式正确的职位数据', 'warning');
+        }
+      } catch {
+        showToast('读取文件失败，请检查文件格式', 'error');
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  };
+
+  const handleConfirmImportJob = async () => {
+    if (importJobPreviewList.length === 0) {
+      showToast('无可导入的职位数据', 'warning');
+      return;
+    }
+    try {
+      const res = await fetch('/api/org/jobs/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: importJobPreviewList }),
+      });
+      const json = await res.json();
+      if (json.status === 1) {
+        showToast(json.info || `成功导入 ${importJobPreviewList.length} 个职位职级`, 'success');
+        setJobTitles(json.list);
+        setImportJobModalVisible(false);
+      } else {
+        showToast(json.info || '导入职位失败', 'error');
+      }
+    } catch {
+      showToast('导入职位失败', 'error');
     }
   };
 
@@ -1382,43 +2031,251 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
           {/* Sub Tab: 岗位管理 */}
           {activeSubTab === 'post' && (
             <div className="flex-1 bg-white rounded border border-[#E4E7ED] p-4 flex flex-col min-h-0 overflow-hidden shadow-xs">
-              <div className="flex items-center justify-between mb-3 shrink-0">
+              {/* Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3 shrink-0 bg-[#F8F9FA] p-2.5 rounded border border-[#EBEEF5]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative w-52">
+                    <input
+                      type="text"
+                      value={postSearchText}
+                      onChange={(e) => {
+                        setPostSearchText(e.target.value);
+                        setPostPageNum(1);
+                      }}
+                      placeholder="搜索岗位名称 / 岗位编码"
+                      className="w-full h-8 pl-8 pr-7 rounded border border-[#DCDFE6] text-xs bg-white focus:border-[#2F7BFE] focus:outline-none"
+                    />
+                    <Search className="w-3.5 h-3.5 text-[#909399] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    {postSearchText && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPostSearchText('');
+                          setPostPageNum(1);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[#C0C4CC] hover:text-[#909399]"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <select
+                    value={postSearchDept}
+                    onChange={(e) => {
+                      setPostSearchDept(e.target.value);
+                      setPostPageNum(1);
+                    }}
+                    className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs bg-white focus:border-[#2F7BFE] focus:outline-none"
+                  >
+                    <option value="">全部归属部门</option>
+                    {depts.map((d) => (
+                      <option key={d.id} value={d.deptName}>
+                        {d.deptName}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={postSearchStatus}
+                    onChange={(e) => {
+                      setPostSearchStatus(e.target.value);
+                      setPostPageNum(1);
+                    }}
+                    className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs bg-white focus:border-[#2F7BFE] focus:outline-none"
+                  >
+                    <option value="">全部状态</option>
+                    <option value="0">正常</option>
+                    <option value="1">停用</option>
+                  </select>
+
+                  {(postSearchText || postSearchDept || postSearchStatus !== '') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPostSearchText('');
+                        setPostSearchDept('');
+                        setPostSearchStatus('');
+                        setPostPageNum(1);
+                      }}
+                      className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs text-[#606266] bg-white hover:bg-[#F5F7FA] flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>重置</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Right Action Buttons: 手动新增岗位 + 导入岗位 */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#606266] font-medium">企业岗位库</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#ECF5FF] text-[#2F7BFE] text-[11px]">
-                    {positions.length} 个岗位
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleOpenCreatePost}
+                    className="h-8 px-3 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>手动添加岗位</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenImportPost}
+                    className="h-8 px-3 rounded border border-[#B3D8FF] bg-[#ECF5FF] hover:bg-[#2F7BFE] text-[#2F7BFE] hover:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>导入岗位</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportPostList}
+                    className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs text-[#606266] bg-white hover:bg-[#F5F7FA] flex items-center gap-1 cursor-pointer"
+                    title="导出当前筛选岗位"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>导出</span>
+                  </button>
+
+                  {selectedPostIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setBatchDeletePostConfirm(true)}
+                      className="h-8 px-2.5 rounded bg-[#FEF0F0] border border-[#FDE2E2] hover:bg-[#F56C6C] text-[#F56C6C] hover:text-white text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>批量删除 ({selectedPostIds.length})</span>
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Table Container */}
               <div className="flex-1 overflow-auto border border-[#E4E7ED] rounded">
                 <table className="w-full text-left border-collapse text-xs">
-                  <thead className="bg-[#FAFAFA] text-[#606266] border-b border-[#E4E7ED]">
+                  <thead className="bg-[#FAFAFA] text-[#606266] border-b border-[#E4E7ED] sticky top-0 z-10">
                     <tr className="h-10">
-                      <th className="py-2 px-3">岗位编号</th>
-                      <th className="py-2 px-3">岗位名称</th>
-                      <th className="py-2 px-3">归属部门</th>
-                      <th className="py-2 px-3">排序号</th>
-                      <th className="py-2 px-3 text-center">状态</th>
-                      <th className="py-2 px-3">创建时间</th>
+                      <th className="py-2 px-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isAllPostSelected}
+                          onChange={(e) => handleSelectAllPost(e.target.checked)}
+                          className="rounded border-[#DCDFE6] text-[#2F7BFE] cursor-pointer"
+                        />
+                      </th>
+                      <th className="py-2 px-3 w-28">岗位编号</th>
+                      <th className="py-2 px-3 w-44">岗位名称</th>
+                      <th className="py-2 px-3 w-36">归属部门</th>
+                      <th className="py-2 px-3 w-20 text-center">排序号</th>
+                      <th className="py-2 px-3 w-24 text-center">状态</th>
+                      <th className="py-2 px-3">职责与说明</th>
+                      <th className="py-2 px-3 w-36">创建时间</th>
+                      <th className="py-2 px-3 w-28 text-center sticky right-0 bg-[#FAFAFA] shadow-[-2px_0_4px_rgba(0,0,0,0.02)]">
+                        操作
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E4E7ED] text-[#303133]">
-                    {positions.map((p) => (
-                      <tr key={p.id} className="h-11 hover:bg-[#F9FAFB]">
-                        <td className="py-2 px-3 font-mono text-[#606266]">{p.postCode}</td>
-                        <td className="py-2 px-3 font-medium">{p.postName}</td>
-                        <td className="py-2 px-3 text-[#2F7BFE]">{p.deptName}</td>
-                        <td className="py-2 px-3 font-mono">{p.sort}</td>
-                        <td className="py-2 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded bg-[#F0F9EB] text-[#67C23A] text-[11px]">
-                            正常
-                          </span>
+                    {pagedPositions.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-12 text-center text-[#909399]">
+                          暂无符合条件的岗位数据，可通过上方【手动添加岗位】或【导入岗位】录入
                         </td>
-                        <td className="py-2 px-3 text-[#909399] font-mono">{p.createTime}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      pagedPositions.map((p) => (
+                        <tr
+                          key={p.id}
+                          className={`h-11 transition-colors ${
+                            selectedPostIds.includes(p.id) ? 'bg-[#F2F7FF]' : 'hover:bg-[#F9FAFB]'
+                          }`}
+                        >
+                          <td className="py-2 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedPostIds.includes(p.id)}
+                              onChange={(e) => handleSelectPostRow(p.id, e.target.checked)}
+                              className="rounded border-[#DCDFE6] text-[#2F7BFE] cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-2 px-3 font-mono text-[#606266]">{p.postCode}</td>
+                          <td className="py-2 px-3 font-medium text-[#303133]">{p.postName}</td>
+                          <td className="py-2 px-3 text-[#2F7BFE] font-medium">{p.deptName}</td>
+                          <td className="py-2 px-3 text-center font-mono text-[#606266]">
+                            {p.sort ?? '-'}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            {p.status === '0' ? (
+                              <span className="px-2 py-0.5 rounded bg-[#F0F9EB] text-[#67C23A] text-[11px] font-medium">
+                                正常
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-[#F4F4F5] text-[#909399] text-[11px] font-medium">
+                                停用
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-[#909399] truncate max-w-xs" title={p.remark}>
+                            {p.remark || '-'}
+                          </td>
+                          <td className="py-2 px-3 text-[#909399] font-mono text-[11px]">
+                            {p.createTime || '-'}
+                          </td>
+                          <td className="py-2 px-3 text-center sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.02)]">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditPost(p)}
+                                className="text-[#2F7BFE] hover:underline flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <PenLine className="w-3 h-3" />
+                                <span>编辑</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletePostConfirm({ visible: true, post: p })}
+                                className="text-[#F56C6C] hover:underline flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>删除</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Pagination Bar */}
+              <div className="mt-2.5 pt-2 border-t border-[#EBEEF5] flex items-center justify-between text-xs text-[#909399] shrink-0">
+                <div>
+                  共 <span className="font-semibold text-[#303133]">{filteredPositions.length}</span> 个岗位
+                  {selectedPostIds.length > 0 && (
+                    <span className="ml-2 text-[#2F7BFE]">已选中 {selectedPostIds.length} 项</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={postPageNum <= 1}
+                    onClick={() => setPostPageNum((p) => Math.max(1, p - 1))}
+                    className="h-7 px-2 rounded border border-[#DCDFE6] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F5F7FA] cursor-pointer"
+                  >
+                    上一页
+                  </button>
+                  <span className="text-xs text-[#606266] font-mono">
+                    第 {postPageNum} / {Math.ceil(filteredPositions.length / postPageSize) || 1} 页
+                  </span>
+                  <button
+                    type="button"
+                    disabled={postPageNum >= Math.ceil(filteredPositions.length / postPageSize)}
+                    onClick={() => setPostPageNum((p) => p + 1)}
+                    className="h-7 px-2 rounded border border-[#DCDFE6] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F5F7FA] cursor-pointer"
+                  >
+                    下一页
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1426,45 +2283,277 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
           {/* Sub Tab: 职位管理 */}
           {activeSubTab === 'job' && (
             <div className="flex-1 bg-white rounded border border-[#E4E7ED] p-4 flex flex-col min-h-0 overflow-hidden shadow-xs">
-              <div className="flex items-center justify-between mb-3 shrink-0">
+              {/* Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3 shrink-0 bg-[#F8F9FA] p-2.5 rounded border border-[#EBEEF5]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative w-52">
+                    <input
+                      type="text"
+                      value={jobSearchText}
+                      onChange={(e) => {
+                        setJobSearchText(e.target.value);
+                        setJobPageNum(1);
+                      }}
+                      placeholder="搜索职位名称 / 职级编码"
+                      className="w-full h-8 pl-8 pr-7 rounded border border-[#DCDFE6] text-xs bg-white focus:border-[#2F7BFE] focus:outline-none"
+                    />
+                    <Search className="w-3.5 h-3.5 text-[#909399] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    {jobSearchText && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJobSearchText('');
+                          setJobPageNum(1);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[#C0C4CC] hover:text-[#909399]"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <select
+                    value={jobSearchSeries}
+                    onChange={(e) => {
+                      setJobSearchSeries(e.target.value);
+                      setJobPageNum(1);
+                    }}
+                    className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs bg-white focus:border-[#2F7BFE] focus:outline-none"
+                  >
+                    <option value="">全部所属职系</option>
+                    <option value="技术/专业职系">技术/专业职系</option>
+                    <option value="专家职系">专家职系</option>
+                    <option value="管理职系">管理职系</option>
+                    <option value="市场/商务职系">市场/商务职系</option>
+                    <option value="综合职能职系">综合职能职系</option>
+                  </select>
+
+                  <select
+                    value={jobSearchRank}
+                    onChange={(e) => {
+                      setJobSearchRank(e.target.value);
+                      setJobPageNum(1);
+                    }}
+                    className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs bg-white focus:border-[#2F7BFE] focus:outline-none"
+                  >
+                    <option value="">全部职级等阶</option>
+                    <option value="P4">P4</option>
+                    <option value="P5">P5</option>
+                    <option value="P6">P6</option>
+                    <option value="P7">P7</option>
+                    <option value="P8">P8</option>
+                    <option value="P9">P9</option>
+                    <option value="M1">M1</option>
+                    <option value="M2">M2</option>
+                    <option value="M3">M3</option>
+                    <option value="M4">M4</option>
+                    <option value="S1">S1</option>
+                    <option value="F2">F2</option>
+                  </select>
+
+                  <select
+                    value={jobSearchStatus}
+                    onChange={(e) => {
+                      setJobSearchStatus(e.target.value);
+                      setJobPageNum(1);
+                    }}
+                    className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs bg-white focus:border-[#2F7BFE] focus:outline-none"
+                  >
+                    <option value="">全部状态</option>
+                    <option value="0">正常</option>
+                    <option value="1">停用</option>
+                  </select>
+
+                  {(jobSearchText || jobSearchSeries || jobSearchRank || jobSearchStatus !== '') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJobSearchText('');
+                        setJobSearchSeries('');
+                        setJobSearchRank('');
+                        setJobSearchStatus('');
+                        setJobPageNum(1);
+                      }}
+                      className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs text-[#606266] bg-white hover:bg-[#F5F7FA] flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>重置</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Right Action Buttons: 手动新增职位 + 导入职位 */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#606266] font-medium">企业职级与职系库</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#ECF5FF] text-[#2F7BFE] text-[11px]">
-                    {jobTitles.length} 个职级
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleOpenCreateJob}
+                    className="h-8 px-3 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>手动添加职位</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenImportJob}
+                    className="h-8 px-3 rounded border border-[#B3D8FF] bg-[#ECF5FF] hover:bg-[#2F7BFE] text-[#2F7BFE] hover:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>导入职位</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportJobList}
+                    className="h-8 px-2.5 rounded border border-[#DCDFE6] text-xs text-[#606266] bg-white hover:bg-[#F5F7FA] flex items-center gap-1 cursor-pointer"
+                    title="导出当前筛选职位"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>导出</span>
+                  </button>
+
+                  {selectedJobIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setBatchDeleteJobConfirm(true)}
+                      className="h-8 px-2.5 rounded bg-[#FEF0F0] border border-[#FDE2E2] hover:bg-[#F56C6C] text-[#F56C6C] hover:text-white text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>批量删除 ({selectedJobIds.length})</span>
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Table Container */}
               <div className="flex-1 overflow-auto border border-[#E4E7ED] rounded">
                 <table className="w-full text-left border-collapse text-xs">
-                  <thead className="bg-[#FAFAFA] text-[#606266] border-b border-[#E4E7ED]">
+                  <thead className="bg-[#FAFAFA] text-[#606266] border-b border-[#E4E7ED] sticky top-0 z-10">
                     <tr className="h-10">
-                      <th className="py-2 px-3">职级编码</th>
-                      <th className="py-2 px-3">职级名称</th>
-                      <th className="py-2 px-3">职级等阶</th>
-                      <th className="py-2 px-3">所属职系</th>
-                      <th className="py-2 px-3">职责概述</th>
-                      <th className="py-2 px-3 text-center">状态</th>
+                      <th className="py-2 px-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isAllJobSelected}
+                          onChange={(e) => handleSelectAllJob(e.target.checked)}
+                          className="rounded border-[#DCDFE6] text-[#2F7BFE] cursor-pointer"
+                        />
+                      </th>
+                      <th className="py-2 px-3 w-28">职级编码</th>
+                      <th className="py-2 px-3 w-48">职位 / 职级名称</th>
+                      <th className="py-2 px-3 w-24 text-center">职级等阶</th>
+                      <th className="py-2 px-3 w-32">所属职系</th>
+                      <th className="py-2 px-3 w-20 text-center">排序号</th>
+                      <th className="py-2 px-3">职责概述与要求</th>
+                      <th className="py-2 px-3 w-20 text-center">状态</th>
+                      <th className="py-2 px-3 w-28 text-center sticky right-0 bg-[#FAFAFA] shadow-[-2px_0_4px_rgba(0,0,0,0.02)]">
+                        操作
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E4E7ED] text-[#303133]">
-                    {jobTitles.map((j) => (
-                      <tr key={j.id} className="h-11 hover:bg-[#F9FAFB]">
-                        <td className="py-2 px-3 font-mono text-[#606266]">{j.jobCode}</td>
-                        <td className="py-2 px-3 font-medium">{j.jobName}</td>
-                        <td className="py-2 px-3 font-mono text-[#2F7BFE] font-semibold">
-                          {j.rankLevel}
-                        </td>
-                        <td className="py-2 px-3 text-[#606266]">{j.jobSeries}</td>
-                        <td className="py-2 px-3 text-[#909399] truncate max-w-xs">{j.remark}</td>
-                        <td className="py-2 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded bg-[#F0F9EB] text-[#67C23A] text-[11px]">
-                            正常
-                          </span>
+                    {pagedJobTitles.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-12 text-center text-[#909399]">
+                          暂无符合条件的职位职级数据，可通过上方【手动添加职位】或【导入职位】录入
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      pagedJobTitles.map((j) => (
+                        <tr
+                          key={j.id}
+                          className={`h-11 transition-colors ${
+                            selectedJobIds.includes(j.id) ? 'bg-[#F2F7FF]' : 'hover:bg-[#F9FAFB]'
+                          }`}
+                        >
+                          <td className="py-2 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedJobIds.includes(j.id)}
+                              onChange={(e) => handleSelectJobRow(j.id, e.target.checked)}
+                              className="rounded border-[#DCDFE6] text-[#2F7BFE] cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-2 px-3 font-mono text-[#606266]">{j.jobCode}</td>
+                          <td className="py-2 px-3 font-medium text-[#303133]">{j.jobName}</td>
+                          <td className="py-2 px-3 text-center">
+                            <span className="font-mono text-[#2F7BFE] font-bold bg-[#ECF5FF] px-2 py-0.5 rounded text-[11px]">
+                              {j.rankLevel}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-[#606266]">{j.jobSeries}</td>
+                          <td className="py-2 px-3 text-center font-mono text-[#606266]">
+                            {j.sort ?? '-'}
+                          </td>
+                          <td className="py-2 px-3 text-[#909399] truncate max-w-xs" title={j.remark}>
+                            {j.remark || '-'}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            {j.status === '0' ? (
+                              <span className="px-2 py-0.5 rounded bg-[#F0F9EB] text-[#67C23A] text-[11px] font-medium">
+                                正常
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-[#F4F4F5] text-[#909399] text-[11px] font-medium">
+                                停用
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-center sticky right-0 bg-white shadow-[-2px_0_4px_rgba(0,0,0,0.02)]">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditJob(j)}
+                                className="text-[#2F7BFE] hover:underline flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <PenLine className="w-3 h-3" />
+                                <span>编辑</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteJobConfirm({ visible: true, job: j })}
+                                className="text-[#F56C6C] hover:underline flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>删除</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Pagination Bar */}
+              <div className="mt-2.5 pt-2 border-t border-[#EBEEF5] flex items-center justify-between text-xs text-[#909399] shrink-0">
+                <div>
+                  共 <span className="font-semibold text-[#303133]">{filteredJobTitles.length}</span> 个职级
+                  {selectedJobIds.length > 0 && (
+                    <span className="ml-2 text-[#2F7BFE]">已选中 {selectedJobIds.length} 项</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={jobPageNum <= 1}
+                    onClick={() => setJobPageNum((p) => Math.max(1, p - 1))}
+                    className="h-7 px-2 rounded border border-[#DCDFE6] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F5F7FA] cursor-pointer"
+                  >
+                    上一页
+                  </button>
+                  <span className="text-xs text-[#606266] font-mono">
+                    第 {jobPageNum} / {Math.ceil(filteredJobTitles.length / jobPageSize) || 1} 页
+                  </span>
+                  <button
+                    type="button"
+                    disabled={jobPageNum >= Math.ceil(filteredJobTitles.length / jobPageSize)}
+                    onClick={() => setJobPageNum((p) => p + 1)}
+                    className="h-7 px-2 rounded border border-[#DCDFE6] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F5F7FA] cursor-pointer"
+                  >
+                    下一页
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -4581,6 +5670,781 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                 className="h-7 px-3 rounded bg-[#F56C6C] hover:bg-[#E64242] text-white text-xs font-medium cursor-pointer shadow-xs"
               >
                 确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 岗位管理弹窗: 新增/修改岗位 */}
+      {/* ============================================================== */}
+      {editPostModal.visible && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-[520px] bg-white rounded-lg shadow-2xl border border-[#E4E7ED] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <div className="h-12 bg-[#F8F9FA] px-5 border-b border-[#E4E7ED] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-[#2F7BFE]" />
+                <span className="font-semibold text-sm text-[#303133]">
+                  {editPostModal.isCreate ? '手动新增岗位' : '修改岗位信息'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditPostModal((prev) => ({ ...prev, visible: false }))}
+                className="text-[#909399] hover:text-[#303133] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">
+                    <span className="text-red-500 mr-0.5">*</span>岗位名称
+                  </label>
+                  <input
+                    type="text"
+                    value={editPostModal.data.postName}
+                    onChange={(e) =>
+                      setEditPostModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, postName: e.target.value },
+                      }))
+                    }
+                    placeholder="例：高级流程架构师"
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">
+                    <span className="text-red-500 mr-0.5">*</span>岗位编码
+                  </label>
+                  <input
+                    type="text"
+                    value={editPostModal.data.postCode}
+                    onChange={(e) =>
+                      setEditPostModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, postCode: e.target.value },
+                      }))
+                    }
+                    placeholder="例：POST_016"
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">
+                    <span className="text-red-500 mr-0.5">*</span>归属部门
+                  </label>
+                  <select
+                    value={editPostModal.data.deptName}
+                    onChange={(e) =>
+                      setEditPostModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, deptName: e.target.value },
+                      }))
+                    }
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs bg-white cursor-pointer"
+                  >
+                    <option value="">请选择归属部门</option>
+                    {depts.map((d) => (
+                      <option key={d.id || d.deptCode} value={d.deptName}>
+                        {d.deptName} ({d.deptCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">显示排序</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editPostModal.data.sort}
+                    onChange={(e) =>
+                      setEditPostModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, sort: Number(e.target.value) || 1 },
+                      }))
+                    }
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#606266] mb-1">岗位状态</label>
+                <div className="flex items-center gap-4 h-8">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                    <input
+                      type="radio"
+                      name="postStatus"
+                      value="0"
+                      checked={editPostModal.data.status === '0'}
+                      onChange={() =>
+                        setEditPostModal((prev) => ({
+                          ...prev,
+                          data: { ...prev.data, status: '0' },
+                        }))
+                      }
+                      className="text-[#2F7BFE]"
+                    />
+                    <span>正常</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500">
+                    <input
+                      type="radio"
+                      name="postStatus"
+                      value="1"
+                      checked={editPostModal.data.status === '1'}
+                      onChange={() =>
+                        setEditPostModal((prev) => ({
+                          ...prev,
+                          data: { ...prev.data, status: '1' },
+                        }))
+                      }
+                      className="text-gray-400"
+                    />
+                    <span>停用</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#606266] mb-1">岗位职责与描述</label>
+                <textarea
+                  rows={3}
+                  value={editPostModal.data.remark}
+                  onChange={(e) =>
+                    setEditPostModal((prev) => ({
+                      ...prev,
+                      data: { ...prev.data, remark: e.target.value },
+                    }))
+                  }
+                  placeholder="请输入该岗位的具体职责范畴、资格要求或业务分工说明..."
+                  className="w-full p-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="h-12 bg-[#F8F9FA] px-5 border-t border-[#E4E7ED] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setEditPostModal((prev) => ({ ...prev, visible: false }))}
+                className="h-8 px-4 rounded border border-[#DCDFE6] text-xs text-[#606266] hover:bg-white cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePost}
+                className="h-8 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>确认保存</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 岗位单项删除确认 */}
+      {deletePostConfirm.visible && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-[400px] bg-white rounded-lg shadow-xl border border-[#E4E7ED] p-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-[#FEF0F0] text-[#F56C6C] flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-sm text-[#303133] mb-1">确认删除岗位？</h4>
+                <p className="text-xs text-[#606266] leading-relaxed">
+                  即将删除岗位【
+                  <span className="font-semibold text-[#303133]">
+                    {deletePostConfirm.post?.postName}
+                  </span>
+                  】（编码: <span className="font-mono">{deletePostConfirm.post?.postCode}</span>
+                  ），删除后岗位关联关系将解除。
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletePostConfirm({ visible: false, post: null })}
+                className="h-7 px-3 rounded border border-[#DCDFE6] text-xs text-[#606266] hover:bg-[#F5F7FA] cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSinglePost}
+                className="h-7 px-3 rounded bg-[#F56C6C] hover:bg-[#E64242] text-white text-xs font-medium cursor-pointer shadow-xs"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 岗位批量删除确认 */}
+      {batchDeletePostConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-[400px] bg-white rounded-lg shadow-xl border border-[#E4E7ED] p-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-[#FEF0F0] text-[#F56C6C] flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-sm text-[#303133] mb-1">确认批量删除选中岗位？</h4>
+                <p className="text-xs text-[#606266] leading-relaxed">
+                  即将批量删除已勾选的 <span className="font-semibold text-red-600">{selectedPostIds.length}</span> 个岗位，删除后不可撤销，请确认是否继续？
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBatchDeletePostConfirm(false)}
+                className="h-7 px-3 rounded border border-[#DCDFE6] text-xs text-[#606266] hover:bg-[#F5F7FA] cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBatchDeletePost}
+                className="h-7 px-3 rounded bg-[#F56C6C] hover:bg-[#E64242] text-white text-xs font-medium cursor-pointer shadow-xs"
+              >
+                确认批量删除 ({selectedPostIds.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 岗位导入弹窗 */}
+      {importPostModalVisible && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-[660px] bg-white rounded-lg shadow-2xl border border-[#E4E7ED] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <div className="h-12 bg-[#F8F9FA] px-5 border-b border-[#E4E7ED] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Upload className="w-4 h-4 text-[#2F7BFE]" />
+                <span className="font-semibold text-sm text-[#303133]">导入企业岗位数据</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportPostModalVisible(false)}
+                className="text-[#909399] hover:text-[#303133] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <label className="p-4 rounded border border-dashed border-[#2F7BFE] bg-[#F2F7FF] flex flex-col items-center justify-center text-center cursor-pointer hover:bg-[#EBF3FF] transition-colors block">
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileSelectPostImport}
+                  className="hidden"
+                />
+                <FileSpreadsheet className="w-8 h-8 text-[#2F7BFE] mb-2" />
+                <p className="text-xs font-semibold text-[#303133] mb-1">
+                  点击浏览或拖拽 Excel (.xlsx) / CSV 岗位清单至此处
+                </p>
+                <p className="text-[11px] text-[#909399]">
+                  标准列格式：岗位编码、岗位名称、归属部门、排序号、状态(0正常/1停用)、职责描述
+                </p>
+              </label>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-[#303133]">
+                    待导入岗位清单预览 ({importPostPreviewList.length} 条)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDownloadPostTemplate}
+                    className="text-[11px] text-[#2F7BFE] hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>下载岗位导入模板</span>
+                  </button>
+                </div>
+
+                <div className="border border-[#E4E7ED] rounded overflow-hidden max-h-52 overflow-y-auto">
+                  <table className="w-full text-center border-collapse text-[11px]">
+                    <thead className="bg-[#FAFAFA] text-[#606266] border-b border-[#E4E7ED]">
+                      <tr>
+                        <th className="py-2 px-3">岗位编码</th>
+                        <th className="py-2 px-3">岗位名称</th>
+                        <th className="py-2 px-3">归属部门</th>
+                        <th className="py-2 px-3">排序号</th>
+                        <th className="py-2 px-3">状态</th>
+                        <th className="py-2 px-3">职责描述</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E4E7ED]">
+                      {importPostPreviewList.map((item, i) => (
+                        <tr key={i} className="hover:bg-[#F9FAFB]">
+                          <td className="py-1.5 px-3 font-mono font-medium text-[#2F7BFE]">
+                            {item.postCode}
+                          </td>
+                          <td className="py-1.5 px-3 font-medium text-[#303133]">
+                            {item.postName}
+                          </td>
+                          <td className="py-1.5 px-3">{item.deptName}</td>
+                          <td className="py-1.5 px-3 font-mono">{item.sort}</td>
+                          <td className="py-1.5 px-3">
+                            <span
+                              className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${
+                                item.status === '0'
+                                  ? 'bg-[#F0F9EB] text-[#67C23A] border border-[#C2E7B0]'
+                                  : 'bg-[#FEF0F0] text-[#F56C6C] border border-[#FBC4C4]'
+                              }`}
+                            >
+                              {item.status === '0' ? '正常' : '停用'}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-3 text-[#909399] max-w-[180px] truncate" title={item.remark}>
+                            {item.remark || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-12 bg-[#F8F9FA] px-5 border-t border-[#E4E7ED] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setImportPostModalVisible(false)}
+                className="h-8 px-4 rounded border border-[#DCDFE6] text-xs text-[#606266] hover:bg-white cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmImportPost}
+                className="h-8 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>确认批量导入 ({importPostPreviewList.length})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 职位管理弹窗: 新增/修改职位与职级 */}
+      {/* ============================================================== */}
+      {editJobModal.visible && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-[520px] bg-white rounded-lg shadow-2xl border border-[#E4E7ED] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <div className="h-12 bg-[#F8F9FA] px-5 border-b border-[#E4E7ED] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-[#2F7BFE]" />
+                <span className="font-semibold text-sm text-[#303133]">
+                  {editJobModal.isCreate ? '手动新增职位/职级' : '修改职位与职级信息'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditJobModal((prev) => ({ ...prev, visible: false }))}
+                className="text-[#909399] hover:text-[#303133] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">
+                    <span className="text-red-500 mr-0.5">*</span>职位/职级名称
+                  </label>
+                  <input
+                    type="text"
+                    value={editJobModal.data.jobName}
+                    onChange={(e) =>
+                      setEditJobModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, jobName: e.target.value },
+                      }))
+                    }
+                    placeholder="例：高级技术专家 / 资深经理"
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">
+                    <span className="text-red-500 mr-0.5">*</span>职级编码
+                  </label>
+                  <input
+                    type="text"
+                    value={editJobModal.data.jobCode}
+                    onChange={(e) =>
+                      setEditJobModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, jobCode: e.target.value },
+                      }))
+                    }
+                    placeholder="例：RANK_P7"
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">
+                    <span className="text-red-500 mr-0.5">*</span>职级等阶
+                  </label>
+                  <select
+                    value={editJobModal.data.rankLevel}
+                    onChange={(e) =>
+                      setEditJobModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, rankLevel: e.target.value },
+                      }))
+                    }
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs bg-white cursor-pointer font-medium"
+                  >
+                    <option value="P4">P4 - 初级工程师 / 专员</option>
+                    <option value="P5">P5 - 中级工程师 / 资深专员</option>
+                    <option value="P6">P6 - 高级工程师 / 主管</option>
+                    <option value="P7">P7 - 资深专家 / 团队主管</option>
+                    <option value="P8">P8 - 主任工程师 / 资深专家</option>
+                    <option value="P9">P9 - 首席科学家 / 院士级专家</option>
+                    <option value="M1">M1 - 基层业务主管</option>
+                    <option value="M2">M2 - 中层部门经理</option>
+                    <option value="M3">M3 - 总监 / 部门负责人</option>
+                    <option value="M4">M4 - 事业部总经理 / VP</option>
+                    <option value="S1">S1 - 资深商务专家 / 销售总监</option>
+                    <option value="F2">F2 - 财务/合规特级主管</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">
+                    <span className="text-red-500 mr-0.5">*</span>所属职系
+                  </label>
+                  <select
+                    value={editJobModal.data.jobSeries}
+                    onChange={(e) =>
+                      setEditJobModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, jobSeries: e.target.value },
+                      }))
+                    }
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs bg-white cursor-pointer"
+                  >
+                    <option value="技术/专业职系">技术/专业职系</option>
+                    <option value="专家职系">专家职系</option>
+                    <option value="管理职系">管理职系</option>
+                    <option value="市场/商务职系">市场/商务职系</option>
+                    <option value="综合职能职系">综合职能职系</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">显示排序</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editJobModal.data.sort}
+                    onChange={(e) =>
+                      setEditJobModal((prev) => ({
+                        ...prev,
+                        data: { ...prev.data, sort: Number(e.target.value) || 1 },
+                      }))
+                    }
+                    className="w-full h-8 px-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#606266] mb-1">职位状态</label>
+                  <div className="flex items-center gap-4 h-8">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                      <input
+                        type="radio"
+                        name="jobStatus"
+                        value="0"
+                        checked={editJobModal.data.status === '0'}
+                        onChange={() =>
+                          setEditJobModal((prev) => ({
+                            ...prev,
+                            data: { ...prev.data, status: '0' },
+                          }))
+                        }
+                        className="text-[#2F7BFE]"
+                      />
+                      <span>正常</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500">
+                      <input
+                        type="radio"
+                        name="jobStatus"
+                        value="1"
+                        checked={editJobModal.data.status === '1'}
+                        onChange={() =>
+                          setEditJobModal((prev) => ({
+                            ...prev,
+                            data: { ...prev.data, status: '1' },
+                          }))
+                        }
+                        className="text-gray-400"
+                      />
+                      <span>停用</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#606266] mb-1">职责概述与要求</label>
+                <textarea
+                  rows={3}
+                  value={editJobModal.data.remark}
+                  onChange={(e) =>
+                    setEditJobModal((prev) => ({
+                      ...prev,
+                      data: { ...prev.data, remark: e.target.value },
+                    }))
+                  }
+                  placeholder="请输入该职级等阶的核心职责、能力矩阵、晋升考核要求或业务贡献导向..."
+                  className="w-full p-2.5 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none text-xs resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="h-12 bg-[#F8F9FA] px-5 border-t border-[#E4E7ED] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setEditJobModal((prev) => ({ ...prev, visible: false }))}
+                className="h-8 px-4 rounded border border-[#DCDFE6] text-xs text-[#606266] hover:bg-white cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveJob}
+                className="h-8 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>确认保存</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 职位单项删除确认 */}
+      {deleteJobConfirm.visible && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-[400px] bg-white rounded-lg shadow-xl border border-[#E4E7ED] p-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-[#FEF0F0] text-[#F56C6C] flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-sm text-[#303133] mb-1">确认删除职位/职级？</h4>
+                <p className="text-xs text-[#606266] leading-relaxed">
+                  即将删除职位【
+                  <span className="font-semibold text-[#303133]">
+                    {deleteJobConfirm.job?.jobName}
+                  </span>
+                  】（等阶: <span className="font-semibold text-[#2F7BFE]">{deleteJobConfirm.job?.rankLevel}</span>
+                  ，编码: <span className="font-mono">{deleteJobConfirm.job?.jobCode}</span>
+                  ），删除后人员关联将解除绑定。
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteJobConfirm({ visible: false, job: null })}
+                className="h-7 px-3 rounded border border-[#DCDFE6] text-xs text-[#606266] hover:bg-[#F5F7FA] cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSingleJob}
+                className="h-7 px-3 rounded bg-[#F56C6C] hover:bg-[#E64242] text-white text-xs font-medium cursor-pointer shadow-xs"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 职位批量删除确认 */}
+      {batchDeleteJobConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-[400px] bg-white rounded-lg shadow-xl border border-[#E4E7ED] p-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-[#FEF0F0] text-[#F56C6C] flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-sm text-[#303133] mb-1">确认批量删除选中职位？</h4>
+                <p className="text-xs text-[#606266] leading-relaxed">
+                  即将批量删除已勾选的 <span className="font-semibold text-red-600">{selectedJobIds.length}</span> 个职位职级，删除后不可撤销，请确认是否继续？
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBatchDeleteJobConfirm(false)}
+                className="h-7 px-3 rounded border border-[#DCDFE6] text-xs text-[#606266] hover:bg-[#F5F7FA] cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBatchDeleteJob}
+                className="h-7 px-3 rounded bg-[#F56C6C] hover:bg-[#E64242] text-white text-xs font-medium cursor-pointer shadow-xs"
+              >
+                确认批量删除 ({selectedJobIds.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 职位导入弹窗 */}
+      {importJobModalVisible && (
+        <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-[680px] bg-white rounded-lg shadow-2xl border border-[#E4E7ED] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <div className="h-12 bg-[#F8F9FA] px-5 border-b border-[#E4E7ED] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Upload className="w-4 h-4 text-[#2F7BFE]" />
+                <span className="font-semibold text-sm text-[#303133]">导入职位与职级体系</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportJobModalVisible(false)}
+                className="text-[#909399] hover:text-[#303133] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <label className="p-4 rounded border border-dashed border-[#2F7BFE] bg-[#F2F7FF] flex flex-col items-center justify-center text-center cursor-pointer hover:bg-[#EBF3FF] transition-colors block">
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileSelectJobImport}
+                  className="hidden"
+                />
+                <FileSpreadsheet className="w-8 h-8 text-[#2F7BFE] mb-2" />
+                <p className="text-xs font-semibold text-[#303133] mb-1">
+                  点击浏览或拖拽 Excel (.xlsx) / CSV 职位清单至此处
+                </p>
+                <p className="text-[11px] text-[#909399]">
+                  标准列格式：职级编码、职位/职级名称、职级等阶、所属职系、排序号、状态(0正常/1停用)、职责概述
+                </p>
+              </label>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-[#303133]">
+                    待导入职位清单预览 ({importJobPreviewList.length} 条)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDownloadJobTemplate}
+                    className="text-[11px] text-[#2F7BFE] hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>下载职位导入模板</span>
+                  </button>
+                </div>
+
+                <div className="border border-[#E4E7ED] rounded overflow-hidden max-h-52 overflow-y-auto">
+                  <table className="w-full text-center border-collapse text-[11px]">
+                    <thead className="bg-[#FAFAFA] text-[#606266] border-b border-[#E4E7ED]">
+                      <tr>
+                        <th className="py-2 px-3">职级编码</th>
+                        <th className="py-2 px-3">职位名称</th>
+                        <th className="py-2 px-3">等阶</th>
+                        <th className="py-2 px-3">所属职系</th>
+                        <th className="py-2 px-3">排序号</th>
+                        <th className="py-2 px-3">状态</th>
+                        <th className="py-2 px-3">职责概述</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E4E7ED]">
+                      {importJobPreviewList.map((item, i) => (
+                        <tr key={i} className="hover:bg-[#F9FAFB]">
+                          <td className="py-1.5 px-3 font-mono font-medium text-[#2F7BFE]">
+                            {item.jobCode}
+                          </td>
+                          <td className="py-1.5 px-3 font-medium text-[#303133]">
+                            {item.jobName}
+                          </td>
+                          <td className="py-1.5 px-3">
+                            <span className="font-semibold text-[#2F7BFE] bg-[#ECF5FF] px-1.5 py-0.5 rounded text-[10px]">
+                              {item.rankLevel}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-3">{item.jobSeries}</td>
+                          <td className="py-1.5 px-3 font-mono">{item.sort}</td>
+                          <td className="py-1.5 px-3">
+                            <span
+                              className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${
+                                item.status === '0'
+                                  ? 'bg-[#F0F9EB] text-[#67C23A] border border-[#C2E7B0]'
+                                  : 'bg-[#FEF0F0] text-[#F56C6C] border border-[#FBC4C4]'
+                              }`}
+                            >
+                              {item.status === '0' ? '正常' : '停用'}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-3 text-[#909399] max-w-[180px] truncate" title={item.remark}>
+                            {item.remark || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-12 bg-[#F8F9FA] px-5 border-t border-[#E4E7ED] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setImportJobModalVisible(false)}
+                className="h-8 px-4 rounded border border-[#DCDFE6] text-xs text-[#606266] hover:bg-white cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmImportJob}
+                className="h-8 px-4 rounded bg-[#2F7BFE] hover:bg-[#2563EB] text-white text-xs font-medium cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>确认批量导入 ({importJobPreviewList.length})</span>
               </button>
             </div>
           </div>

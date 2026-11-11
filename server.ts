@@ -6019,6 +6019,235 @@ app.post('/api/org/depts/reset', (_req, res) => {
   res.json({ status: 1, list: orgDepts, companyName: currentComp, info: '已成功重置为设计稿预置部门组织架构' });
 });
 
+// Positions (岗位管理) Endpoints
+app.get('/api/org/positions', (req, res) => {
+  const { postCode, postName, deptName, status } = req.query as any;
+  let result = [...orgPositions];
+  if (postCode) {
+    result = result.filter((p) => p.postCode?.toLowerCase().includes(String(postCode).toLowerCase()));
+  }
+  if (postName) {
+    result = result.filter((p) => p.postName?.toLowerCase().includes(String(postName).toLowerCase()));
+  }
+  if (deptName) {
+    result = result.filter((p) => p.deptName?.toLowerCase().includes(String(deptName).toLowerCase()));
+  }
+  if (status !== undefined && status !== '') {
+    result = result.filter((p) => p.status === status);
+  }
+  res.json({ status: 1, data: result, list: orgPositions, total: result.length, info: 'ok' });
+});
+
+app.post('/api/org/positions', (req, res) => {
+  const { postCode, postName, deptName, deptCode = '', sort = orgPositions.length + 1, status = '0', remark = '' } = req.body || {};
+  if (!postName || !postName.trim()) {
+    return res.status(400).json({ status: 0, info: '岗位名称不能为空' });
+  }
+  const autoCode = postCode?.trim() || `POST_${String(orgPositions.length + 1).padStart(3, '0')}`;
+  const exists = orgPositions.some((p) => p.postCode === autoCode);
+  if (exists) {
+    return res.status(400).json({ status: 0, info: `岗位编码【${autoCode}】已存在` });
+  }
+  const newPos = {
+    id: 'pos_' + Math.random().toString(36).substring(2, 9),
+    postCode: autoCode,
+    postName: postName.trim(),
+    deptName: deptName || '未分配部门',
+    deptCode,
+    sort: Number(sort) || orgPositions.length + 1,
+    status: status || '0',
+    remark: remark || '',
+    createTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  };
+  orgPositions.push(newPos);
+  res.json({ status: 1, data: newPos, list: orgPositions, info: '新增岗位成功' });
+});
+
+app.put('/api/org/positions/:id', (req, res) => {
+  const target = orgPositions.find((p) => p.id === req.params.id);
+  if (!target) {
+    return res.status(404).json({ status: 0, info: '岗位不存在' });
+  }
+  const { postCode, postName, deptName, deptCode, sort, status, remark } = req.body || {};
+  if (postName !== undefined) target.postName = postName.trim();
+  if (postCode !== undefined) target.postCode = postCode.trim();
+  if (deptName !== undefined) target.deptName = deptName;
+  if (deptCode !== undefined) target.deptCode = deptCode;
+  if (sort !== undefined) target.sort = Number(sort);
+  if (status !== undefined) target.status = status;
+  if (remark !== undefined) target.remark = remark;
+  res.json({ status: 1, data: target, list: orgPositions, info: '更新岗位成功' });
+});
+
+app.delete('/api/org/positions/:id', (req, res) => {
+  const targetIndex = orgPositions.findIndex((p) => p.id === req.params.id);
+  if (targetIndex === -1) {
+    return res.status(404).json({ status: 0, info: '岗位不存在' });
+  }
+  const removed = orgPositions.splice(targetIndex, 1)[0];
+  res.json({ status: 1, data: removed, list: orgPositions, info: '删除岗位成功' });
+});
+
+app.post('/api/org/positions/batch-delete', (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ status: 0, info: '请选择需要删除的岗位' });
+  }
+  orgPositions = orgPositions.filter((p) => !ids.includes(p.id));
+  res.json({ status: 1, list: orgPositions, info: `成功批量删除 ${ids.length} 个岗位` });
+});
+
+app.post('/api/org/positions/import', (req, res) => {
+  const { items } = req.body || {};
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ status: 0, info: '未导入任何有效岗位数据' });
+  }
+  let addedCount = 0;
+  items.forEach((item: any, idx: number) => {
+    if (item.postName && item.postName.trim()) {
+      const code = item.postCode?.trim() || `POST_${String(orgPositions.length + 1).padStart(3, '0')}`;
+      const existing = orgPositions.find((p) => p.postCode === code);
+      if (existing) {
+        existing.postName = item.postName.trim();
+        if (item.deptName) existing.deptName = item.deptName.trim();
+        if (item.sort !== undefined) existing.sort = Number(item.sort);
+        if (item.remark !== undefined) existing.remark = item.remark;
+        addedCount++;
+      } else {
+        orgPositions.push({
+          id: 'pos_' + Math.random().toString(36).substring(2, 9),
+          postCode: code,
+          postName: item.postName.trim(),
+          deptName: item.deptName?.trim() || '未分配部门',
+          deptCode: item.deptCode || '',
+          sort: Number(item.sort) || (orgPositions.length + 1),
+          status: item.status || '0',
+          remark: item.remark || '',
+          createTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        });
+        addedCount++;
+      }
+    }
+  });
+  res.json({ status: 1, list: orgPositions, info: `成功导入/更新 ${addedCount} 个企业岗位` });
+});
+
+// Job Titles (职位管理/职级管理) Endpoints
+app.get('/api/org/jobs', (req, res) => {
+  const { jobCode, jobName, jobSeries, rankLevel, status } = req.query as any;
+  let result = [...orgJobTitles];
+  if (jobCode) {
+    result = result.filter((j) => j.jobCode?.toLowerCase().includes(String(jobCode).toLowerCase()));
+  }
+  if (jobName) {
+    result = result.filter((j) => j.jobName?.toLowerCase().includes(String(jobName).toLowerCase()));
+  }
+  if (jobSeries) {
+    result = result.filter((j) => j.jobSeries?.toLowerCase().includes(String(jobSeries).toLowerCase()));
+  }
+  if (rankLevel) {
+    result = result.filter((j) => j.rankLevel?.toLowerCase().includes(String(rankLevel).toLowerCase()));
+  }
+  if (status !== undefined && status !== '') {
+    result = result.filter((j) => j.status === status);
+  }
+  res.json({ status: 1, data: result, list: orgJobTitles, total: result.length, info: 'ok' });
+});
+
+app.post('/api/org/jobs', (req, res) => {
+  const { jobCode, jobName, rankLevel = 'P5', jobSeries = '技术/专业职系', sort = orgJobTitles.length + 1, status = '0', remark = '' } = req.body || {};
+  if (!jobName || !jobName.trim()) {
+    return res.status(400).json({ status: 0, info: '职位/职级名称不能为空' });
+  }
+  const autoCode = jobCode?.trim() || `RANK_${String(rankLevel || 'P' + (orgJobTitles.length + 1)).toUpperCase()}`;
+  const exists = orgJobTitles.some((j) => j.jobCode === autoCode);
+  if (exists) {
+    return res.status(400).json({ status: 0, info: `职位编码【${autoCode}】已存在` });
+  }
+  const newJob = {
+    id: 'job_' + Math.random().toString(36).substring(2, 9),
+    jobCode: autoCode,
+    jobName: jobName.trim(),
+    rankLevel: rankLevel.trim(),
+    jobSeries: jobSeries.trim(),
+    sort: Number(sort) || orgJobTitles.length + 1,
+    status: status || '0',
+    remark: remark || '',
+    createTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  };
+  orgJobTitles.push(newJob);
+  res.json({ status: 1, data: newJob, list: orgJobTitles, info: '新增职位成功' });
+});
+
+app.put('/api/org/jobs/:id', (req, res) => {
+  const target = orgJobTitles.find((j) => j.id === req.params.id);
+  if (!target) {
+    return res.status(404).json({ status: 0, info: '职位不存在' });
+  }
+  const { jobCode, jobName, rankLevel, jobSeries, sort, status, remark } = req.body || {};
+  if (jobName !== undefined) target.jobName = jobName.trim();
+  if (jobCode !== undefined) target.jobCode = jobCode.trim();
+  if (rankLevel !== undefined) target.rankLevel = rankLevel.trim();
+  if (jobSeries !== undefined) target.jobSeries = jobSeries.trim();
+  if (sort !== undefined) target.sort = Number(sort);
+  if (status !== undefined) target.status = status;
+  if (remark !== undefined) target.remark = remark;
+  res.json({ status: 1, data: target, list: orgJobTitles, info: '更新职位成功' });
+});
+
+app.delete('/api/org/jobs/:id', (req, res) => {
+  const targetIndex = orgJobTitles.findIndex((j) => j.id === req.params.id);
+  if (targetIndex === -1) {
+    return res.status(404).json({ status: 0, info: '职位不存在' });
+  }
+  const removed = orgJobTitles.splice(targetIndex, 1)[0];
+  res.json({ status: 1, data: removed, list: orgJobTitles, info: '删除职位成功' });
+});
+
+app.post('/api/org/jobs/batch-delete', (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ status: 0, info: '请选择需要删除的职位' });
+  }
+  orgJobTitles = orgJobTitles.filter((j) => !ids.includes(j.id));
+  res.json({ status: 1, list: orgJobTitles, info: `成功批量删除 ${ids.length} 个职位` });
+});
+
+app.post('/api/org/jobs/import', (req, res) => {
+  const { items } = req.body || {};
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ status: 0, info: '未导入任何有效职位数据' });
+  }
+  let addedCount = 0;
+  items.forEach((item: any, idx: number) => {
+    if (item.jobName && item.jobName.trim()) {
+      const code = item.jobCode?.trim() || `RANK_P${idx + 4}`;
+      const existing = orgJobTitles.find((j) => j.jobCode === code);
+      if (existing) {
+        existing.jobName = item.jobName.trim();
+        if (item.rankLevel) existing.rankLevel = item.rankLevel.trim();
+        if (item.jobSeries) existing.jobSeries = item.jobSeries.trim();
+        if (item.remark !== undefined) existing.remark = item.remark;
+        addedCount++;
+      } else {
+        orgJobTitles.push({
+          id: 'job_' + Math.random().toString(36).substring(2, 9),
+          jobCode: code,
+          jobName: item.jobName.trim(),
+          rankLevel: item.rankLevel?.trim() || 'P5',
+          jobSeries: item.jobSeries?.trim() || '技术/专业职系',
+          sort: Number(item.sort) || (orgJobTitles.length + 1),
+          status: item.status || '0',
+          remark: item.remark || '',
+          createTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        });
+        addedCount++;
+      }
+    }
+  });
+  res.json({ status: 1, list: orgJobTitles, info: `成功导入/更新 ${addedCount} 个职位职级` });
+});
+
 // Users CRUD Endpoints
 app.get('/api/org/users', (req, res) => {
   const { userName, phonenumber, status, deptId, beginTime, endTime, pageNum = 1, pageSize = 10 } = req.query as any;
