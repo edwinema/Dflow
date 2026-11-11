@@ -3,8 +3,8 @@ import { promisify } from 'node:util';
 import { BadRequestException } from '@nestjs/common';
 const scrypt = promisify(derive);
 export async function hashPassword(password: string) {
-  if (typeof password !== 'string' || password.length < 12 || password.length > 256) {
-    throw new BadRequestException('密码长度必须为 12–256 个字符');
+  if (typeof password !== 'string' || password.length < 6 || password.length > 32) {
+    throw new BadRequestException('密码长度必须为 6–32 个字符');
   }
   const salt = randomBytes(16).toString('hex');
   const key = await scrypt(password, salt, 64) as Buffer;

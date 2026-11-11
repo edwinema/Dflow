@@ -63,7 +63,9 @@ test('scrypt password validation, hashing and verification',async()=>{
   const hash=await hashPassword(password);assert.ok(!hash.includes(password));
   assert.equal(await verifyPassword(password,hash),true);
   assert.equal(await verifyPassword('wrong',hash),false);
-  await status(hashPassword('123456'),400);
+  await status(hashPassword('12345'),400);
+  for(const value of ['123456','x'.repeat(32)]) assert.equal(await verifyPassword(value,await hashPassword(value)),true);
+  await status(hashPassword('x'.repeat(33)),400);
 });
 test('all 133 prototype routes have a domain or explicit native implementation',()=>{
   const routes=registry(emptyState(),admin).routes;
@@ -260,7 +262,7 @@ test('failed writes rollback fully; FK use and tree cycles are rejected',async()
   const root=await request('GET','/api/flow/type',{}, {id:'arch_root'});assert.equal(root.body.data.parentId,'');
   await status(request('DELETE','/api/flow/type',{}, {id:'arch_root'}),409);
   const before=(await request('GET','/api/org/users')).body.total;
-  await status(request('POST','/api/org/users',{userName:'weak',nickName:'Weak',password:'123456'}),400);
+  await status(request('POST','/api/org/users',{userName:'weak',nickName:'Weak',password:'12345'}),400);
   assert.equal((await request('GET','/api/org/users')).body.total,before);
 });
 test('flow approval state machine forbids replay',async()=>{
@@ -407,16 +409,23 @@ test('real Nest HTTP routing, exception filter, cookies and OpenAPI',async()=>{
     const missing=await fetch(base+'/api/flow/model/full?id=missing',{headers:{Cookie:cookie}});assert.equal(missing.status,404);assert.equal((await missing.json()).status,0);
     const headers={'Content-Type':'application/json',Origin:process.env.APP_ORIGIN,Cookie:cookie};
     const user={userName:'new-user-http',nickName:'新增用户',deptId:'',deptName:'',deptCode:'',positionName:'知识运营专家',roleNames:[],phonenumber:'13800000001',email:'new-user@example.invalid',sex:'0',status:'0',remark:'新增用户回归测试'};
-    for(const password of ['111111','x'.repeat(257)]) {
+    for(const password of ['11111','x'.repeat(33)]) {
       const invalid=await fetch(base+'/api/org/users',{method:'POST',headers,body:JSON.stringify({...user,password})});
-      assert.equal(invalid.status,400);assert.equal((await invalid.json()).info,'密码长度必须为 12–256 个字符');
+      assert.equal(invalid.status,400);assert.equal((await invalid.json()).info,'密码长度必须为 6–32 个字符');
     }
-    const initialPassword='Generated-test-16';
+    const initialPassword='123456';
     const created=await fetch(base+'/api/org/users',{method:'POST',headers,body:JSON.stringify({...user,password:initialPassword})});
     assert.equal(created.status,200);const added=await created.json();assert.ok(added.data.id);assert.ok(!JSON.stringify(added).includes(initialPassword));
     assert.equal((await fetch(base+'/api/session',{method:'POST',headers,body:JSON.stringify({userId:user.userName,password:initialPassword})})).status,200);
-    const invalidReset=await fetch(base+`/api/org/users/${added.data.id}/reset-password`,{method:'POST',headers,body:JSON.stringify({newPassword:'111111'})});
-    assert.equal(invalidReset.status,400);assert.equal((await invalidReset.json()).info,'密码长度必须为 12–256 个字符');
+    const invalidReset=await fetch(base+`/api/org/users/${added.data.id}/reset-password`,{method:'POST',headers,body:JSON.stringify({newPassword:'11111'})});
+    assert.equal(invalidReset.status,400);assert.equal((await invalidReset.json()).info,'密码长度必须为 6–32 个字符');
+    for(const newPassword of ['x'.repeat(32),'654321']) {
+      const reset=await fetch(base+`/api/org/users/${added.data.id}/reset-password`,{method:'POST',headers,body:JSON.stringify({newPassword})});
+      assert.equal(reset.status,200);
+      assert.equal((await fetch(base+'/api/session',{method:'POST',headers,body:JSON.stringify({userId:user.userName,password:newPassword})})).status,200);
+    }
+    const longReset=await fetch(base+`/api/org/users/${added.data.id}/reset-password`,{method:'POST',headers,body:JSON.stringify({newPassword:'x'.repeat(33)})});
+    assert.equal(longReset.status,400);
   } finally {await app.close();}
 });
 
