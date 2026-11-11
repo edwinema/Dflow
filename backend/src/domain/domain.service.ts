@@ -172,7 +172,7 @@ export class DomainService {
     }
     if(path==='/api/org/users/:id/reset-password'||path==='/api/org/users') {
       const password=req.body.newPassword??req.body.password;
-      if(password!==undefined&&(typeof password!=='string'||password.length<12||password.length>256))throw new BadRequestException('密码长度必须为 12–256 个字符');
+      if(password!==undefined&&(typeof password!=='string'||password.length<6||password.length>32))throw new BadRequestException('密码长度必须为 6–32 个字符');
     }
     if(path==='/api/system/company') {
       const allowed=['companyName','systemDisplayName','systemLogo','loginTitleSuffix','copyrightText','watermarkEnabled'];

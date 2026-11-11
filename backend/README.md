@@ -13,7 +13,7 @@ npm ci
 cp .env.example .env
 ```
 
-编辑 `.env`：设置 `DATABASE_URL`、`APP_ORIGIN=http://localhost:3000`，并为 `BOOTSTRAP_PASSWORD` 设置至少 12 个字符的唯一密码。数据库必须是新建的专用数据库。
+编辑 `.env`：设置 `DATABASE_URL`、`APP_ORIGIN=http://localhost:3000`，并为 `BOOTSTRAP_PASSWORD` 设置6–32 个字符的唯一密码。数据库必须是新建的专用数据库。
 
 ```sh
 node --env-file=.env --import tsx scripts/migrate.ts

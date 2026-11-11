@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const text = z.string();
 const id = text.min(1).max(200);
-const userPassword = text.min(12, '密码长度必须为 12–256 个字符').max(256, '密码长度必须为 12–256 个字符');
+const userPassword = text.min(6, '密码长度必须为 6–32 个字符').max(32, '密码长度必须为 6–32 个字符');
 const object = (properties: Record<string,z.ZodType>) => z.object(properties).passthrough();
 const actor = object({id, userId:text, userName:text, nickName:text, roles:z.array(z.enum(['admin','editor','auditor','viewer']))});
 const flow = object({id, label:text, parentId:text, xml:text.optional(), status:text.optional(), versionNo:text.optional()});
