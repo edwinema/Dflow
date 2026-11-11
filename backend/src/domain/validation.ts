@@ -19,12 +19,13 @@ const required: Record<string, string[]> = {
   'POST /api/execute/tasks/assign': ['modelId','assignee'],
   'POST /api/org/users': ['userName','nickName','password'],
 };
-export function authorize(method: string, path: string, actor: Actor) {
+export function authorize(method: string, path: string, actor: Actor, body: any = {}) {
   if (actor.roles.includes('admin')) return;
   if (method === 'GET') return;
   if (path.startsWith('/api/org/') || path.startsWith('/api/system/')) throw new ForbiddenException('需要管理员权限');
-  const approval = /\/audits\/(action|batch-action)|\/audit\/tasks\/|\/repeal\/action|\/publish$|\/batch-publish$/.test(path);
-  if (approval ? !actor.roles.includes('auditor') : !actor.roles.includes('editor')) throw new ForbiddenException('权限不足');
+  const approval = (path==='/api/dict/item'&&['approve','reject'].includes(body?.action)) || /\/audits\/(action|batch-action)|\/audit\/tasks\/|\/repeal\/(action|approveStep|confirmArchive|restore)$|\/publish$|\/batch-publish$/.test(path);
+  const editorAction=(path==='/api/flow/model/publish'&&body?.audit===true)||(path.startsWith('/api/flow/audits/')&&body?.action==='withdraw');
+  if ((approval&&!editorAction) ? !actor.roles.includes('auditor') : !actor.roles.includes('editor')) throw new ForbiddenException('权限不足');
 }
 export function prepare(method: string, path: string, req: DomainRequest, state: State, actor: Actor) {
   validateInput(req.body);
@@ -69,11 +70,34 @@ export function prepare(method: string, path: string, req: DomainRequest, state:
   for (const [prefix, key] of maps) if (path.startsWith(prefix) && id !== undefined) find(state[key], id);
   if (path === '/api/flow/:id/xml') find(state.flows, id);
   if (req.params.formKey) find(state.formEngineSchemas, req.params.formKey);
-  if (req.body.modelId) find(state.flows, req.body.modelId);
+  if (req.body.modelId && !path.startsWith('/api/system/models')) find(state.flows, req.body.modelId);
   if(path.startsWith('/api/flow/repeal/action')) {
     const record=find(state.flowRepealRecords,id);
     if(record.status!=='待审核')throw new ConflictException('废止申请已处理');
     if(!['approve','reject'].includes(req.body.action))throw new BadRequestException('废止审批动作无效');
+  }
+  if (method === 'POST' && path === '/api/flow/repeal/apply') {
+    const flow = find(state.flows, req.body.modelId);
+    if (flow.status !== 'published') throw new ConflictException('只有已发布流程可以申请废止');
+    if (state.flowRepealRecords.some((row: any) => row.modelId === flow.id && ['待审核','待部门审批','待合规复核','待集团流程管理员确认归档'].includes(row.status))) throw new ConflictException('该流程已有待处理废止申请');
+    req.body.applicant = actor.userName;
+  }
+  if (method === 'POST' && ['/api/flow/repeal/approveStep','/api/flow/repeal/confirmArchive','/api/flow/repeal/restore'].includes(path)) {
+    const record = req.body.id ? find(state.flowRepealRecords, req.body.id) : state.flowRepealRecords.find((row: any) => row.modelId === req.body.modelId && row.status === '已废止归档');
+    if (!record) throw new NotFoundException('废止申请不存在');
+    if (req.body.modelId && req.body.modelId !== record.modelId) throw new BadRequestException('废止申请与流程不匹配');
+    req.body.id = record.id;
+    if (path.endsWith('/approveStep')) {
+      if (!['approve','reject'].includes(req.body.action)) throw new BadRequestException('废止审批动作无效');
+      if (!['待部门审批','待合规复核'].includes(record.status)) throw new ConflictException('当前阶段不能审批');
+    } else if (path.endsWith('/confirmArchive')) {
+      if (record.status !== '待集团流程管理员确认归档') throw new ConflictException('完成部门审批和合规复核后才能归档');
+    } else {
+      const flow = find(state.flows, record.modelId);
+      if (record.status !== '已废止归档' || flow.status !== 'repealed') throw new ConflictException('只有已废止归档的流程可以还原');
+      if (req.body.restoreStatus !== undefined && !['draft','published'].includes(req.body.restoreStatus)) throw new BadRequestException('还原状态无效');
+      if (req.body.targetParentId) find(state.archTypes, req.body.targetParentId);
+    }
   }
   if(path.startsWith('/api/execute/tasks/')&&(/\/step$|\/submit$/.test(path))) {
     const task=find(state.flowProcessTasks,id);
@@ -83,7 +107,7 @@ export function prepare(method: string, path: string, req: DomainRequest, state:
     for(const target of req.body.ids??req.body.taskIds??[])find(state[key],target);
   }
   if(path==='/api/dict/item') {
-    if(!['sysDoc','risk'].includes(req.body.itemType)||!['create','update','delete','approve'].includes(req.body.action))throw new BadRequestException('字典操作无效');
+    if(!['sysDoc','risk'].includes(req.body.itemType)||!['create','update','delete','approve','reject','resubmit'].includes(req.body.action))throw new BadRequestException('字典操作无效');
     if(req.body.action!=='create')find(state.dictBundle[req.body.itemType],req.body.id??req.body.item?.id);
   }
   if(path.startsWith('/api/flowdoc/manuals/')&&req.body.itemIds) {
@@ -126,6 +150,7 @@ export function assertInvariants(state: State) {
     if (new Set(values).size !== values.length) throw new ConflictException(`${key} 必须唯一`);
   };
   unique(state.orgUsers, 'userName'); unique(state.orgDepts, 'deptCode');
+  unique(state.orgPositions, 'postCode'); unique(state.orgJobTitles, 'jobCode');
   unique(state.buildProcessRoles, 'roleCode'); unique(state.buildProcessRoles, 'roleName');
   unique(state.flowTermCategories, 'name'); unique(state.formEngineSchemas, 'formKey');
   const tree = (rows: any[], key: string, parent: string) => {
@@ -144,6 +169,7 @@ export function assertInvariants(state: State) {
   tree(state.roleCategoriesStore, 'id', 'parentId');
   for (const flow of state.flows) if (!state.archTypes.some((a: any) => a.id === flow.parentId)) throw new ConflictException('流程所属架构不存在');
   for (const user of state.orgUsers) if (user.deptId && !state.orgDepts.some((d: any) => d.id === user.deptId)) throw new ConflictException('用户所属部门不存在');
+  for (const position of state.orgPositions) if (position.deptId && !state.orgDepts.some((d: any) => d.id === position.deptId)) throw new ConflictException('仍有岗位引用该部门');
   for (const task of [...state.flowProcessTasks, ...state.flowAuditRecords, ...state.flowRepealRecords]) {
     if (task.modelId && !state.flows.some((f: any) => f.id === task.modelId)) throw new ConflictException('仍有任务或审批引用该流程');
   }
@@ -156,6 +182,6 @@ export function assertInvariants(state: State) {
 export function redact(value: any): any {
   if (Array.isArray(value)) return value.map(redact);
   if (value && typeof value === 'object' && !Buffer.isBuffer(value)) return Object.fromEntries(
-    Object.entries(value).filter(([k]) => !['password','passwordHash','password_hash','accessRoles'].includes(k)).map(([k,v]) => [k,redact(v)]));
+    Object.entries(value).filter(([k]) => !['password','passwordHash','password_hash','accessRoles','apiKey','encryptedApiKey'].includes(k)).map(([k,v]) => [k,redact(v)]));
   return value;
 }
