@@ -1,7 +1,10 @@
 const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
 const {readFileSync}=require('node:fs');
-const {randomUUID}=require('node:crypto');
+const {mkdtempSync,writeFileSync,rmSync}=require('node:fs');
+const {tmpdir}=require('node:os');
+const {join}=require('node:path');
+const {randomUUID,generateKeyPairSync,sign}=require('node:crypto');
 const {PGlite}=require('@electric-sql/pglite');
 const {Database}=require('../dist/database');
 const {DomainService,registry,match}=require('../dist/domain/domain.service');
@@ -104,6 +107,132 @@ test('idempotency replays safely and rejects key reuse with different body',asyn
   const b=await request('POST','/api/flow/model',body,{},admin,headers);assert.equal(a.body.data.id,b.body.data.id);
   await status(request('POST','/api/flow/model',{...body,label:'changed'},{},admin,headers),409);
 });
+test('positions and job titles support persisted manual creation and atomic validated CSV imports',async()=>{
+  const dept=(await request('POST','/api/org/depts',{deptName:'目录测试部门',deptCode:'CAT001',parentDeptCode:''})).body.data;
+  const position=(await request('POST','/api/org/positions',{postCode:'CAT_POST_1',postName:'岗位一',deptId:dept.id,sort:2,status:'0'})).body.data;
+  assert.equal(position.deptName,'目录测试部门');assert.ok(position.id);
+  await status(request('POST','/api/org/positions',{postCode:'cat_post_1',postName:'重复编号',deptId:dept.id}),409);
+  const csv='\uFEFF岗位编号,岗位名称,部门编号,排序号,状态,职责概述\r\nCAT_POST_2,"岗位,二",CAT001,1,正常,"职责含逗号,及引号"\r\nCAT_POST_3,岗位三,CAT001,3,停用,其他职责';
+  const before=(await request('GET','/api/org/positions')).body.data.length;
+  const preview=(await request('POST','/api/org/positions/import/preview',{rawData:csv})).body.data;
+  assert.equal(preview.length,2);assert.equal(preview[0].postName,'岗位,二');assert.equal(preview[1].status,'1');
+  assert.equal((await request('GET','/api/org/positions')).body.data.length,before);
+  await status(request('POST','/api/org/positions/import',{items:[...preview,{postCode:'CAT_BAD',postName:'无效部门',deptCode:'missing'}]}),400);
+  assert.equal((await request('GET','/api/org/positions')).body.data.length,before);
+  assert.equal((await request('POST','/api/org/positions/import',{items:preview})).body.data.imported,2);
+  await status(request('POST','/api/org/positions/import',{rawData:csv}),409);
+  const job=(await request('POST','/api/org/job-titles',{jobCode:'CAT_JOB_1',jobName:'职位一',rankLevel:'P3',jobSeries:'技术',status:'0'})).body.data;
+  assert.ok(job.id);assert.equal(job.rankLevel,'P3');
+  const jobCsv='职位编号,职位名称,职级等阶,所属职系,排序号,状态,职责概述\nCAT_JOB_2,职位二,P4,管理,1,正常,管理职责';
+  assert.equal((await request('POST','/api/org/job-titles/import',{rawData:jobCsv})).body.data.imported,1);
+  await status(request('POST','/api/org/job-titles/import',{items:[{jobCode:'CAT_DUP',jobName:'一'},{jobCode:'cat_dup',jobName:'二'}]}),409);
+  await status(request('POST','/api/org/job-titles',{jobCode:'BAD',jobName:'格式错误',sort:-1}),400);
+  await status(request('POST','/api/org/job-titles',{jobCode:'FORGED',jobName:'权限越界'}, {},{...admin,roles:['editor']}),403);
+  await status(request('POST','/api/org/positions/import',{rawData:csv}, {},{...admin,roles:['viewer']}),403);
+  const restarted=new DomainService(db,new NativeService());
+  const bundle=(await restarted.dispatch({method:'GET',path:'/api/org/bundle',body:{},query:{},headers:{}},admin)).body.data;
+  assert.ok(bundle.positions.some(p=>p.id===position.id));assert.ok(bundle.jobTitles.some(j=>j.id===job.id));
+  assert.equal((await db.pool.query('SELECT payload FROM positions WHERE id=$1',[position.id])).rows[0].payload.postName,'岗位一');
+  assert.equal((await db.pool.query('SELECT payload FROM job_titles WHERE id=$1',[job.id])).rows[0].payload.jobName,'职位一');
+});
+test('latest GitHub catalog CRUD and jobs alias preserve persisted references and atomic deletion',async()=>{
+  const dept=(await request('POST','/api/org/depts',{deptName:'GitHub目录部门',deptCode:'GH_CAT',parentDeptCode:''})).body.data;
+  const post=(await request('POST','/api/org/positions',{postCode:'GH_POST',postName:'原岗位',deptName:dept.deptName})).body.data;
+  const otherDept=(await request('POST','/api/org/depts',{deptName:'GitHub调入部门',deptCode:'GH_OTHER',parentDeptCode:''})).body.data;
+  const moved=(await request('PUT',`/api/org/positions/${post.id}`,{deptName:otherDept.deptName,deptCode:dept.deptCode})).body.data;
+  assert.equal(moved.deptId,otherDept.id);
+  await status(request('DELETE',`/api/org/depts/${otherDept.id}`),409);
+  const user=(await request('POST','/api/org/users',{userName:'catalog-user',nickName:'Catalog user',password,positionName:'原岗位'})).body.data;
+  await request('PUT',`/api/org/positions/${post.id}`,{postName:'新岗位',postCode:'GH_NEW'});
+  assert.equal((await db.pool.query('SELECT payload FROM users WHERE id=$1',[user.id])).rows[0].payload.positionName,'新岗位');
+  await status(request('DELETE',`/api/org/positions/${post.id}`),409);
+  const unused=(await request('POST','/api/org/positions',{postCode:'GH_UNUSED',postName:'可删除岗位',deptCode:'GH_CAT'})).body.data;
+  await status(request('POST','/api/org/positions/batch-delete',{ids:[unused.id,post.id]}),409);
+  assert.ok((await request('GET','/api/org/positions')).body.data.some(row=>row.id===unused.id));
+  await status(request('PUT',`/api/org/positions/${unused.id}`,{postCode:'gh_new'}),409);
+  await status(request('PUT',`/api/org/positions/${unused.id}`,{deptCode:'MISSING'}),400);
+  await request('DELETE',`/api/org/positions/${unused.id}`);
+  await status(request('DELETE',`/api/org/positions/${unused.id}`),404);
+  const job=(await request('POST','/api/org/jobs',{jobCode:'GH_JOB',jobName:'原职位',rankLevel:'P4',jobSeries:'研发'})).body.data;
+  await request('PUT',`/api/org/jobs/${job.id}`,{jobName:'新职位',sort:3});
+  assert.equal((await request('GET','/api/org/job-titles')).body.data.find(row=>row.id===job.id).jobName,'新职位');
+  await status(request('POST','/api/org/jobs/import',{items:[{jobCode:'GH_JOB_2',jobName:'二'},{jobCode:'gh_job',jobName:'重复'}]}),409);
+  assert.equal((await request('GET','/api/org/jobs')).body.data.some(row=>row.jobCode==='GH_JOB_2'),false);
+  await status(request('POST','/api/org/jobs/batch-delete',{ids:[job.id,job.id]}),400);
+  await request('POST','/api/org/jobs/batch-delete',{ids:[job.id]});
+  assert.equal((await db.pool.query('SELECT id FROM job_titles WHERE id=$1',[job.id])).rows.length,0);
+  await status(request('POST','/api/org/jobs',{jobCode:'DENIED',jobName:'越权'}, {},{...admin,roles:['editor']}),403);
+});
+test('repeal review enforces stages, permissions, rejection safety and archived-only restoration',async()=>{
+  const flow=(await request('POST','/api/flow/model',{label:'废止测试流程',parentId:'arch_root'})).body.data;
+  await status(request('POST','/api/flow/repeal/apply',{modelId:flow.id,reason:'测试'}),409);
+  await request('POST','/api/flow/model/publish',{id:flow.id});
+  const record=(await request('POST','/api/flow/repeal/apply',{modelId:flow.id,reason:'流程整合',applicant:'伪造发起人'})).body.data;
+  assert.equal(record.applicant,admin.userName);
+  assert.ok(record.approvalLogs.filter(log=>!log.time).every(log=>log.operator===''));
+  await status(request('POST','/api/flow/repeal/apply',{modelId:flow.id,reason:'重复'}),409);
+  await status(request('POST','/api/flow/repeal/confirmArchive',{id:record.id}),409);
+  await status(request('POST','/api/flow/repeal/approveStep',{id:record.id,action:'approve'}, {},{...admin,roles:['editor']}),403);
+  await status(request('POST','/api/flow/repeal/approveStep',{id:record.id,action:'invalid'}),400);
+  await request('POST','/api/flow/repeal/approveStep',{id:record.id,action:'reject'});
+  assert.equal((await db.pool.query('SELECT payload FROM flow_models WHERE id=$1',[flow.id])).rows[0].payload.status,'published');
+  await status(request('POST','/api/flow/repeal/approveStep',{id:record.id,action:'approve'}),409);
+  const second=(await request('POST','/api/flow/repeal/apply',{modelId:flow.id,reason:'再次评估'})).body.data;
+  await request('POST','/api/flow/repeal/approveStep',{id:second.id,action:'approve'});
+  await status(request('POST','/api/flow/repeal/confirmArchive',{id:second.id}),409);
+  await request('POST','/api/flow/repeal/approveStep',{id:second.id,action:'approve'});
+  await request('POST','/api/flow/repeal/confirmArchive',{id:second.id});
+  await status(request('POST','/api/flow/repeal/confirmArchive',{id:second.id}),409);
+  await status(request('POST','/api/flow/repeal/restore',{id:second.id,restoreStatus:'published'}, {},{...admin,roles:['editor']}),403);
+  await status(request('POST','/api/flow/repeal/restore',{id:second.id,restoreStatus:'invalid'}),400);
+  await request('POST','/api/flow/repeal/restore',{id:second.id,restoreStatus:'draft'});
+  assert.equal((await db.pool.query('SELECT payload FROM flow_models WHERE id=$1',[flow.id])).rows[0].payload.status,'draft');
+  await status(request('POST','/api/flow/repeal/restore',{id:second.id}),409);
+  // Historical single-step records must not unpublish a flow when rejected.
+  const legacy=(await request('POST','/api/flow/model',{label:'历史废止审批流程',parentId:'arch_root'})).body.data;
+  await request('POST','/api/flow/model/publish',{id:legacy.id});
+  await db.pool.query('INSERT INTO flow_repeals(id,payload) VALUES($1,$2)',['legacy_repeal',{id:'legacy_repeal',modelId:legacy.id,status:'待审核'}]);
+  await request('POST','/api/flow/repeal/action',{id:'legacy_repeal',action:'reject'});
+  assert.equal((await db.pool.query('SELECT payload FROM flow_models WHERE id=$1',[legacy.id])).rows[0].payload.status,'published');
+});
+test('asset panorama reads published snapshots while drafts remain editable and legacy architecture status is repaired',async()=>{
+  const arch=(await request('POST','/api/flow/type',{parentId:'arch_root',label:'正式架构'})).body.data;
+  await request('POST','/api/flow/type/publish',{id:arch.id});
+  assert.equal((await request('GET','/api/flow/fulltypes')).body.data.find(a=>a.id===arch.id).status,'published');
+  const flow=(await request('POST','/api/flow/model',{parentId:arch.id,label:'正式流程'})).body.data;
+  await request('POST','/api/flow/model/publish',{id:flow.id});
+  await request('PUT','/api/flow/model',{id:flow.id,label:'尚未发布的修改'});
+  const working=(await request('GET','/api/flow/fullSimpleModels')).body.data.find(f=>f.id===flow.id);
+  assert.equal(working.status,'draft');assert.equal(working.label,'尚未发布的修改');
+  const asset=(await request('GET','/api/flow/fullSimpleModels',{}, {view:'published'})).body.data.find(f=>f.id===flow.id);
+  assert.equal(asset.label,'正式流程');assert.equal(asset.status,'published');assert.ok(Number.isFinite(Date.parse(asset.publishTime)));
+  const never=(await request('POST','/api/flow/type',{parentId:'arch_root',label:'未发布架构'})).body.data;
+  await db.pool.query("UPDATE flow_architectures SET payload=payload-'status' WHERE id=$1",[arch.id]);
+  await pg.exec(readFileSync('migrations/004_architecture_publication_status.sql','utf8'));
+  const rows=(await request('GET','/api/flow/fulltypes')).body.data;
+  assert.equal(rows.find(a=>a.id===arch.id).status,'published');assert.notEqual(rows.find(a=>a.id===never.id).status,'published');
+  const panorama=(await request('GET','/api/flow/fulltypes',{}, {view:'published'})).body.data;
+  assert.ok(panorama.some(a=>a.id===arch.id));assert.ok(!panorama.some(a=>a.id===never.id));
+  const history=(await request('GET','/api/flow/model/publishVersionHistories',{}, {id:flow.id})).body.data;
+  assert.ok(Number.isFinite(Date.parse(history[0].publishTime)));
+  await db.pool.query("UPDATE flow_models SET payload=jsonb_set(payload,'{status}','\"repealed\"'::jsonb) WHERE id=$1",[flow.id]);
+  assert.ok(!(await request('GET','/api/flow/fullSimpleModels',{}, {view:'published'})).body.data.some(f=>f.id===flow.id));
+});
+test('published asset order follows numeric labels and published custom sorting instead of UUID order',async()=>{
+  const ids=[];
+  for(const label of ['4.0 IPD','2.0 MTL','10.0 Other','1.0 DSTE','3.0 LTC']) {
+    const arch=(await request('POST','/api/flow/type',{parentId:'arch_root',label})).body.data;
+    ids.push(arch.id);await request('POST','/api/flow/type/publish',{id:arch.id});
+  }
+  const rows=()=>request('GET','/api/flow/fulltypes',{}, {view:'published'}).then(r=>r.body.data.filter(a=>ids.includes(a.id)));
+  assert.deepEqual((await rows()).map(a=>a.label),['1.0 DSTE','2.0 MTL','3.0 LTC','4.0 IPD','10.0 Other']);
+  // Draft edits to ordering or names must not alter the published arrangement.
+  await request('PUT','/api/flow/type/full',{id:ids[0],label:'0.0 Draft IPD',sort:0});
+  assert.equal((await rows())[0].label,'1.0 DSTE');
+  await request('POST','/api/flow/type/publish',{id:ids[0]});
+  assert.equal((await rows())[0].sortOrder,0);
+  assert.equal((await rows())[0].label,'0.0 Draft IPD');
+});
 test('failed writes rollback fully; FK use and tree cycles are rejected',async()=>{
   const created=await request('POST','/api/flow/type',{parentId:'arch_root',label:'子架构'});
   await status(request('PUT','/api/flow/type/full',{id:'arch_root',parentId:created.body.data.id}),409);
@@ -152,6 +281,44 @@ test('missing connectors, AI keys, fake license and missing attachments never re
   await status(request('POST','/api/system/license/generate-code'),403);
   await status(request('GET','/api/dict/doc/download',{}, {id:'missing'}),404);
   await status(request('POST','/api/org/users/reset'),409);
+});
+test('signed certificates bind company, machine, quota and expiry and persist across restarts',async()=>{
+  const prior={publicKey:process.env.LICENSE_PUBLIC_KEY,machine:process.env.MACHINE_ID,file:process.env.LICENSE_PUBLIC_KEY_FILE};
+  const pair=generateKeyPairSync('rsa',{modulusLength:2048});
+  const claims={companyName:'苏州全元数字科技有限公司',machineCode:'test-deployment',edition:'Enterprise',authUsersCount:200,expireDate:'2099-12-31T15:59:59.000Z'};
+  const token=c=>{const payload=Buffer.from(JSON.stringify(c)).toString('base64url');return payload+'.'+sign('sha256',Buffer.from(payload),pair.privateKey).toString('base64url');};
+  try {
+    process.env.LICENSE_PUBLIC_KEY=pair.publicKey.export({format:'pem',type:'spki'});process.env.MACHINE_ID=claims.machineCode;
+    const config=(await request('GET','/api/system/company')).body.data.licenseConfiguration;
+    assert.equal(config.ready,true);assert.equal(config.machineCode,claims.machineCode);assert.ok(!JSON.stringify(config).includes('PUBLIC KEY'));
+    await status(request('POST','/api/system/license/activate',{companyName:claims.companyName,licenseKey:'DFLOW-ENTP-fake'}),400);
+    await status(request('POST','/api/system/license/activate',{companyName:claims.companyName,licenseKey:token({...claims,machineCode:'another-server'})}),400);
+    await status(request('POST','/api/system/license/activate',{companyName:claims.companyName,licenseKey:token({...claims,expireDate:'2000-01-01T00:00:00.000Z'})}),400);
+    const valid=token(claims),[payload,signature]=valid.split('.');
+    await status(request('POST','/api/system/license/activate',{companyName:claims.companyName,licenseKey:Buffer.from(JSON.stringify({...claims,authUsersCount:9999})).toString('base64url')+'.'+signature}),400);
+    await status(request('POST','/api/system/license/activate',{companyName:'其他公司',licenseKey:valid}),400);
+    const active=(await request('POST','/api/system/license/activate',{companyName:claims.companyName,licenseKey:valid,authUsersCount:9999})).body.data;
+    assert.equal(active.authUsersCount,200);assert.equal(active.license.status,'ACTIVE');assert.equal(active.license.licenseKey,valid);
+    const restarted=new DomainService(db,new NativeService());
+    const saved=(await restarted.dispatch({method:'GET',path:'/api/system/license',body:{},query:{},headers:{}},admin)).body.data;
+    assert.equal(saved.license.status,'ACTIVE');assert.equal(saved.companyName,claims.companyName);assert.equal(saved.license.auditLogs[0].operator,admin.userName);
+    await status(request('POST','/api/system/company',{companyName:'绕过签名更名'}),400);
+    await request('POST','/api/system/company',{systemDisplayName:'授权后的展示设置'});
+    assert.equal((await request('GET','/api/system/company')).body.data.license.status,'ACTIVE');
+    process.env.MACHINE_ID='another-server';assert.equal((await request('GET','/api/system/company')).body.data.license.status,'INVALID');
+    process.env.LICENSE_PUBLIC_KEY='invalid key';assert.equal((await request('GET','/api/system/company')).body.data.licenseConfiguration.ready,false);
+    const directory=mkdtempSync(join(tmpdir(),'dflow-license-'));
+    try {
+      delete process.env.LICENSE_PUBLIC_KEY;process.env.LICENSE_PUBLIC_KEY_FILE=join(directory,'public.pem');process.env.MACHINE_ID=claims.machineCode;
+      writeFileSync(process.env.LICENSE_PUBLIC_KEY_FILE,pair.publicKey.export({format:'pem',type:'spki'}));
+      assert.equal((await request('GET','/api/system/company')).body.data.license.status,'ACTIVE');
+      await db.transaction(true,async c=>{const before=await db.load(c),state=structuredClone(before);const expired={...claims,expireDate:'2000-01-01T00:00:00.000Z'};Object.assign(state.companyAuthData.license,expired,{licenseKey:token(expired)});await db.save(c,before,state);});
+      const expired=(await request('GET','/api/system/company')).body.data.license;
+      assert.equal(expired.status,'EXPIRED');assert.equal(expired.hardwareVerified,false);
+    } finally {rmSync(directory,{recursive:true,force:true});}
+  } finally {
+    for(const [env,value]of [['LICENSE_PUBLIC_KEY',prior.publicKey],['MACHINE_ID',prior.machine],['LICENSE_PUBLIC_KEY_FILE',prior.file]]) {if(value===undefined)delete process.env[env];else process.env[env]=value;}
+  }
 });
 test('passwords never appear in read responses; viewers cannot mutate',async()=>{
   const bundle=await request('GET','/api/org/bundle');assert.ok(!JSON.stringify(bundle.body).includes(password));assert.ok(!JSON.stringify(bundle.body).includes('password'));
@@ -217,5 +384,113 @@ test('real Nest HTTP routing, exception filter, cookies and OpenAPI',async()=>{
     const response=await fetch(base+'/api/flow/fulltypes',{headers:{Cookie:cookie}});assert.equal(response.status,200);assert.equal((await response.json()).status,1);
     const docs=await fetch(base+'/api/openapi.json',{headers:{Cookie:cookie}});assert.ok((await docs.json()).paths['/api/session']);
     const missing=await fetch(base+'/api/flow/model/full?id=missing',{headers:{Cookie:cookie}});assert.equal(missing.status,404);assert.equal((await missing.json()).status,0);
+    const headers={'Content-Type':'application/json',Origin:process.env.APP_ORIGIN,Cookie:cookie};
+    const user={userName:'new-user-http',nickName:'新增用户',deptId:'',deptName:'',deptCode:'',positionName:'知识运营专家',roleNames:[],phonenumber:'13800000001',email:'new-user@example.invalid',sex:'0',status:'0',remark:'新增用户回归测试'};
+    for(const password of ['111111','x'.repeat(257)]) {
+      const invalid=await fetch(base+'/api/org/users',{method:'POST',headers,body:JSON.stringify({...user,password})});
+      assert.equal(invalid.status,400);assert.equal((await invalid.json()).info,'密码长度必须为 12–256 个字符');
+    }
+    const initialPassword='Generated-test-16';
+    const created=await fetch(base+'/api/org/users',{method:'POST',headers,body:JSON.stringify({...user,password:initialPassword})});
+    assert.equal(created.status,200);const added=await created.json();assert.ok(added.data.id);assert.ok(!JSON.stringify(added).includes(initialPassword));
+    assert.equal((await fetch(base+'/api/session',{method:'POST',headers,body:JSON.stringify({userId:user.userName,password:initialPassword})})).status,200);
+    const invalidReset=await fetch(base+`/api/org/users/${added.data.id}/reset-password`,{method:'POST',headers,body:JSON.stringify({newPassword:'111111'})});
+    assert.equal(invalidReset.status,400);assert.equal((await invalidReset.json()).info,'密码长度必须为 12–256 个字符');
   } finally {await app.close();}
+});
+
+test('dictionary approval paths persist and enforce progressive review, rejection and resubmission',async()=>{
+  const chain=[{approverName:'管理员',levelName:'初审'},{approverName:'管理员',levelName:'终审'}];
+  await request('POST','/api/dict/approval-path',{sysDoc:chain,risk:chain});
+  const restarted=new DomainService(db,new NativeService());
+  assert.equal((await restarted.dispatch({method:'GET',path:'/api/dict/approval-path',body:{},query:{},headers:{}},admin)).body.data.risk.length,2);
+  const row=(await request('POST','/api/dict/item',{itemType:'sysDoc',action:'create',item:{label:'新增制度',status:'approved'}})).body.data;
+  assert.equal(row.status,'pending');assert.equal(row.approvalFlow.length,2);
+  const first=await request('POST','/api/dict/item',{itemType:'sysDoc',action:'approve',id:row.id,auditor:'伪造人'});
+  assert.equal(first.body.data.status,'pending');assert.equal(first.body.data.currentLevel,2);assert.equal(first.body.data.approvalFlow[0].auditor,'管理员');
+  const rejected=await request('POST','/api/dict/item',{itemType:'sysDoc',action:'reject',id:row.id,auditRemark:'补充材料'});
+  assert.equal(rejected.body.data.status,'rejected');
+  await status(request('POST','/api/dict/item',{itemType:'sysDoc',action:'approve',id:row.id}),409);
+  const resubmitted=await request('POST','/api/dict/item',{itemType:'sysDoc',action:'resubmit',id:row.id});
+  assert.equal(resubmitted.body.data.currentLevel,1);assert.equal(resubmitted.body.data.approvalHistory.length,1);
+  await request('POST','/api/dict/item',{itemType:'sysDoc',action:'approve',id:row.id});
+  const final=await request('POST','/api/dict/item',{itemType:'sysDoc',action:'approve',id:row.id});assert.equal(final.body.data.status,'approved');
+  const edited=await request('POST','/api/dict/item',{itemType:'sysDoc',action:'update',item:{id:row.id,label:'修订制度',status:'approved'}});assert.equal(edited.body.data.status,'pending');
+  await status(request('POST','/api/dict/approval-path',{sysDoc:[{approverName:'不存在'}]}),400);
+});
+test('approval history returns filters, metadata and chronological logs from persisted tasks',async()=>{
+  const manual=(await request('POST','/api/flowdoc/manuals',{manualName:'履历手册',manualNo:'HISTORY-01'})).body.data;
+  const item=(await request('POST',`/api/flowdoc/manuals/${manual.id}/items`,{dutyName:'履历事项',categoryId:manual.categoryTree[0].id})).body.data;
+  const submit=await request('POST','/api/flowdoc/audit/submit',{manualId:manual.id,itemIds:[item.id],levels:[{approverName:'管理员',roleName:'审核员',levelName:'初核'}]});
+  await request('POST',`/api/flowdoc/audit/tasks/${submit.body.createdTasks[0].id}/approve`,{opinion:'履历测试'});
+  const history=(await request('GET','/api/flowdoc/audit/history',{}, {manualId:manual.id,sort:'asc'})).body;
+  assert.ok(history.total>=2);assert.ok(history.data.every(r=>r.manualId===manual.id));assert.ok(history.meta.availableManuals.some(m=>m.id===manual.id));
+  const filtered=(await request('GET','/api/flowdoc/audit/history',{}, {manualId:manual.id,keyword:'履历测试'})).body;assert.equal(filtered.total,1);
+});
+test('frontend publish respects configured approval levels and durable scheduled publication',async()=>{
+  const flow=(await request('POST','/api/flow/model',{label:'逐级定时发布',parentId:'arch_root'})).body.data;
+  await request('POST','/api/flow/model/publish',{id:flow.id,audit:true,approvalLevels:[{approverName:'管理员'},{approverName:'管理员'}],publishPolicy:'scheduled',scheduledTime:new Date(Date.now()+60000).toISOString()});
+  const audit=(await request('GET','/api/flow/audits')).body.data.find(a=>a.modelId===flow.id);
+  const first=await request('POST','/api/flow/audits/action',{id:audit.id,action:'approve'});assert.equal(first.body.data.auditStatus,'待审核');assert.equal(first.body.data.currentLevel,2);
+  await request('POST','/api/flow/audits/action',{id:audit.id,action:'approve'});
+  assert.equal((await request('GET','/api/flow/model/full',{}, {id:flow.id})).body.data.status,'scheduled');
+  await db.transaction(true,async c=>{const before=await db.load(c),state=structuredClone(before);state.flows.find(f=>f.id===flow.id).scheduledTime=new Date(Date.now()-1000).toISOString();await db.save(c,before,state);});
+  await new DomainService(db,new NativeService()).publishScheduled();
+  assert.equal((await request('GET','/api/flow/model/full',{}, {id:flow.id})).body.data.status,'published');
+  assert.equal((await request('GET','/api/flow/model/publishVersionHistories',{}, {id:flow.id})).body.data.length,1);
+  await service.publishScheduled();assert.equal((await request('GET','/api/flow/model/publishVersionHistories',{}, {id:flow.id})).body.data.length,1);
+});
+test('architecture integration diagrams and organization role mutations persist',async()=>{
+  const arch=(await request('POST','/api/flow/type',{label:'集成测试架构',parentId:'arch_root'})).body.data;
+  const xml='<mxfile><diagram><mxGraphModel><root><mxCell id="0"/></root></mxGraphModel></diagram></mxfile>';
+  await request('POST',`/api/flow/arch/${arch.id}/integration-xml`,{xml,title:'集成图'});
+  assert.equal((await request('GET',`/api/flow/arch/${arch.id}/integration-xml`)).body.data.xml,xml);
+  const role=(await request('POST','/api/org/roles',{roleName:'测试业务角色',roleKey:'sync-test'})).body.data;
+  await request('POST',`/api/org/roles/${role.id}/permissions`,{menuPermissions:['property'],featurePermissions:{edit:true}});
+  const bundle=(await request('GET','/api/org/bundle')).body.data;assert.equal(bundle.roles.find(r=>r.id===role.id).featurePermissions.edit,true);
+  await request('DELETE',`/api/org/roles/${role.id}`);
+});
+
+test('model configurations encrypt secrets, survive reads and drive the selected provider contract',async()=>{
+  process.env.MODEL_CONFIG_KEY=Buffer.alloc(32,7).toString('base64');
+  const model=(await request('POST','/api/system/models',{name:'测试模型',modelId:'test-model',baseUrl:'https://api.openai.com/v1',apiKey:'secret-test-key',maxTokens:100})).body.data;
+  assert.equal(model.hasApiKey,true);assert.equal(model.apiKey,undefined);assert.equal(model.encryptedApiKey,undefined);
+  await request('POST',`/api/system/models/${model.id}/set-default`);
+  const stored=await db.transaction(false,async c=>(await db.load(c)).dictBundle.aiModels.find(m=>m.id===model.id));
+  assert.ok(!stored.encryptedApiKey.includes('secret-test-key'));
+  const {generateWithModel,modelEndpoint}=require('../dist/model-provider');
+  let called=false;
+  const result=await generateWithModel(stored,'生成JSON',true,async(url,options)=>{
+    called=true;assert.equal(String(url),'https://api.openai.com/v1/chat/completions');assert.equal(options.headers.Authorization,'Bearer secret-test-key');assert.equal(options.redirect,'error');
+    assert.equal(JSON.parse(options.body).model,'test-model');return new Response(JSON.stringify({choices:[{message:{content:'{"valid":true}'}}]}));
+  });
+  assert.equal(called,true);assert.equal(result.valid,true);
+  assert.throws(()=>modelEndpoint('http://127.0.0.1/v1'));assert.throws(()=>modelEndpoint('https://evil.invalid/v1'));
+  await status(request('DELETE',`/api/system/models/${model.id}`),409);
+  const bundle=await request('GET','/api/dict/bundle');assert.ok(!JSON.stringify(bundle.body).includes('secret-test-key'));assert.ok(!JSON.stringify(bundle.body).includes(stored.encryptedApiKey));
+});
+
+test('auditor-only users review their own step; editors cannot bypass approval or alter global paths',async()=>{
+  const reviewer=(await request('POST','/api/org/users',{userName:'review-sync',nickName:'同步审核员',password,accessRoles:['auditor'],status:'0'})).body.data;
+  const editor=(await request('POST','/api/org/users',{userName:'edit-sync',nickName:'同步编制员',password,accessRoles:['editor'],status:'0'})).body.data;
+  const asReviewer={id:reviewer.id,userId:'review-sync',userName:'同步审核员',nickName:'同步审核员',roles:['auditor']};
+  const asEditor={id:editor.id,userId:'edit-sync',userName:'同步编制员',nickName:'同步编制员',roles:['editor']};
+  const doc=(await request('POST','/api/dict/item',{itemType:'risk',action:'create',item:{label:'风控',approvalFlow:[{approverName:'同步审核员'}]}},{},asEditor)).body.data;
+  await status(request('POST','/api/dict/item',{itemType:'risk',action:'approve',id:doc.id},{},asEditor),403);
+  await status(request('POST','/api/dict/approval-path',{risk:[]},{},asEditor),403);
+  const result=await request('POST','/api/dict/item',{itemType:'risk',action:'approve',id:doc.id},{},asReviewer);
+  assert.equal(result.body.data.status,'approved');assert.equal(result.body.data.auditor,'同步审核员');
+  const flow=(await request('POST','/api/flow/model',{label:'编制送审',parentId:'arch_root'},{},asEditor)).body.data;
+  await request('POST','/api/flow/model/publish',{id:flow.id,audit:true,approvalLevels:[{approverName:'同步审核员'}]},{},asEditor);
+  const audit=(await request('GET','/api/flow/audits')).body.data.find(a=>a.modelId===flow.id);
+  await request('POST','/api/flow/audits/action',{id:audit.id,action:'withdraw'},{},asEditor);
+  assert.equal((await request('GET','/api/flow/model/full',{}, {id:flow.id})).body.data.status,'draft');
+  await status(request('POST','/api/flow/model/publish',{id:flow.id},{},asEditor),403);
+});
+test('editing a scheduled flow cancels the pending publication instead of publishing unreviewed changes',async()=>{
+  const flow=(await request('POST','/api/flow/model',{label:'待修改定时流程',parentId:'arch_root'})).body.data;
+  await request('POST','/api/flow/model/publish',{id:flow.id,publishPolicy:'scheduled',scheduledTime:new Date(Date.now()+60000).toISOString()});
+  await request('PUT','/api/flow/model',{id:flow.id,label:'已修改草稿'});
+  const result=(await request('GET','/api/flow/model/full',{}, {id:flow.id})).body.data;
+  assert.equal(result.status,'draft');assert.equal(result.scheduledTime,undefined);
 });

@@ -1,6 +1,6 @@
 # QingProcess NestJS + PostgreSQL 后端
 
-本工程从历史原型迁移了 **133 条 `/api/*` 路由**，对照前端请求保留接口地址及响应包装，并补齐前端已经调用但原型缺失的接口。历史原型位于 [legacy/prototype/server.ts](../legacy/prototype/server.ts)，生产进程不会导入它。完整清单见 [routes.json](docs/routes.json)、[frontend-requests.json](docs/frontend-requests.json) 和 [迁移说明](docs/MIGRATION.md)。
+本工程从历史原型迁移了 **133 条 `/api/*` 路由**，对照前端请求保留接口地址及响应包装，并补齐前端已经调用但原型缺失的接口。历史原型位于 [根目录原型 server.ts](../server.ts)，生产进程不会导入它。完整清单见 [routes.json](docs/routes.json)、[frontend-requests.json](docs/frontend-requests.json) 和 [迁移说明](docs/MIGRATION.md)。
 
 使用 NestJS 11、Node.js 22、PostgreSQL 16。生产进程不导入原型 `server.ts`，不依赖 Vite，也不使用进程全局数组保存业务数据。登录采用密码哈希与可撤销的 HttpOnly Cookie 会话。
 
@@ -131,3 +131,13 @@ npm audit --omit=dev --audit-level=high
 测试使用 PGlite 运行真实 PostgreSQL SQL 引擎，验证 DDL、约束、回滚、持久化、Cookie 登录、实际 Nest HTTP 路由、版本历史、幂等、逐级审批、执行步骤、字节级文件下载和 CSV 去重。PGlite 测试适配器串行化连接，不用于证明多进程锁行为。额外的真实 PostgreSQL 测试验证并发写入和竞争审批；GitHub Actions 已配置 PostgreSQL 16 服务运行它。
 
 本地已通过后端 TypeScript 编译、22 项测试及依赖审计（0 漏洞）。已构建并启动本地 Docker 环境，完成 PostgreSQL 16 迁移和管理员初始化；真实 PostgreSQL 多连接并发、竞争审批、迁移升级与回滚测试通过，无跳过。前端依赖冲突已修复，TypeScript 检查、生产构建及浏览器联调通过。生产负载、备份恢复与外部服务验收尚未执行。因此这是具备生产基础设施的可运行迁移工程，**不是已经通过生产上线验收的成品**。
+
+## 2026-11-10 前端更新同步
+
+已补齐最新前端的审批路径、审批履历、多级/定时发布、集成图、组织角色和模型配置实现，并同步部署前端组件。核验基线、检查命令及外部服务验收边界见 [前后端同步核验](docs/FRONTEND_PARITY.md)。`npm run check:frontend` 可持续检查两套前端的请求地址和方法；它不能替代业务和外部系统验收。
+
+## 2026-11-11 完整性核验
+
+GitHub 最新前端对照基线为 main/c80d5b914ae23b99bbf63e5e34aff3d18e3744bd。岗位/职位 CRUD、jobs 别名、批量删除、部门名称导入和引用保护已补齐；既有审批、模型、授权及发布快照实现已同步。36项测试全部通过（包含真实 PostgreSQL 多连接和迁移测试，无跳过），两套 GitHub 前端444个请求分支无缺失、无未解析项。新增CI会持续执行这些检查；CI远程运行状态需在对应提交查看。详细结论和未完成边界见 [完整性报告](docs/INTEGRITY_20261111.md)。
+
+backend/server.ts 仅作为 Nest 服务的兼容启动入口；根目录 npm start/dev 也转到 backend，避免误启动内存原型。正式运行前先完成依赖安装、迁移、初始化和 npm run build；环境变量设置方式见快速启动。

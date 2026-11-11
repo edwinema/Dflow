@@ -2,14 +2,17 @@
   "name": "qingprocess-backend",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
     "migrate": "tsx scripts/migrate.ts",
     "bootstrap": "tsx scripts/bootstrap.ts",
-    "test": "npm run build && node --test test/*.test.cjs"
+    "test": "npm run build && node --test test/*.test.cjs",
+    "check:frontend": "npm run build && node scripts/check-frontend.cjs ../src ../frontend/src"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.0",
@@ -25,7 +28,9 @@
     "rxjs": "^7.8.2",
     "zod": "^4.6.7"
   },
-  "overrides": { "multer": "^2.5.0" },
+  "overrides": {
+    "multer": "^2.5.0"
+  },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.3",

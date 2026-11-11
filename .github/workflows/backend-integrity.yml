@@ -1,0 +1,32 @@
+name: Backend integrity
+on:
+  push:
+  pull_request:
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    container: node:22-bookworm
+    services:
+      postgres:
+        image: postgres:16-bookworm
+        env:
+          POSTGRES_PASSWORD: integrity-test-only
+          POSTGRES_DB: dflow_integrity
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:integrity-test-only@postgres:5432/dflow_integrity
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install locked backend dependencies
+        working-directory: backend
+        run: npm ci --workspaces=false
+      - name: Test persistence, migrations, authorization and business transitions
+        working-directory: backend
+        run: npm test
+      - name: Check both frontend trees against executable backend routes
+        working-directory: backend
+        run: npm run check:frontend

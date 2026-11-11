@@ -19,6 +19,8 @@ services:
       DATABASE_URL: postgresql://qingprocess:${POSTGRES_PASSWORD}@db:5432/qingprocess
       APP_ORIGIN: ${APP_ORIGIN:?Set HTTPS APP_ORIGIN}
       NODE_ENV: production
+      MODEL_CONFIG_KEY: ${MODEL_CONFIG_KEY:-}
+      AI_ALLOWED_HOSTS: ${AI_ALLOWED_HOSTS:-api.openai.com,api.deepseek.com}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       MACHINE_ID: ${MACHINE_ID:-}
