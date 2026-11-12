@@ -555,6 +555,7 @@ test('training persists revisions, isolates progress, grades on server and requi
   const payload={title:'流程实操课程',flowId:'tr_flow',importance:'必修',targetDepts:['学习部'],deadlineDays:30,sections:[{id:'s1',title:'准入要求',content:'必须核对申请材料。',time:'5分钟'}],questions:[{id:'q1',type:'choice',question:'材料缺失怎么办？',options:['补齐','跳过'],correctIndex:0,explanation:'准入要求',relatedNode:'准入节点'}],passingScore:80,practicalTask:{taskName:'填写申请',requirement:'提交填写结果',reviewer:peer.id}};
   const course=(await request('POST','/api/training/courses',payload)).body.data,url=`/api/training/courses/${course.id}`;
   assert.equal(course.sections[0].content,payload.sections[0].content);assert.equal(course.approvedVersion.versionNo,'V1');
+  const bundle=(await request('GET','/api/dict/bundle',{}, {},outsider)).body.data;assert.equal(bundle.trainingCourses,undefined);assert.equal(bundle.trainingRecords,undefined);
   const list=async actor=>(await request('GET','/api/training/courses',{}, {},actor)).body.data.courses.find(c=>c.id===course.id);
   assert.equal(await list(outsider),undefined);await status(request('POST',url+'/exam',{answers:{q1:0},revision:1}, {},outsider),403);
   await status(request('POST','/api/training/courses',payload,{},learner),403);
@@ -568,6 +569,9 @@ test('training persists revisions, isolates progress, grades on server and requi
   await status(request('POST',url+`/records/${learner.id}/confirm`,{revision:1},{},learner),403);
   await request('POST',url+`/records/${learner.id}/confirm`,{revision:1},{},peer);assert.equal((await list(learner)).status,'completed');
   const updated=(await request('PUT',url,{...payload,revision:course.revision,title:'更新课程'})).body.data;assert.equal(updated.revision,2);assert.equal(updated.progress,0);
+  const weighted=(await request('PUT',url,{...payload,revision:2,kcpAllMustCorrect:true,timeLimitMinutes:25,maxAttempts:4,questions:[{...payload.questions[0],score:90},{...payload.questions[0],id:'q2',score:10,isKcpMandatory:true}]})).body.data;assert.equal(weighted.timeLimitMinutes,25);assert.equal(weighted.maxAttempts,4);
+  await request('POST',url+'/sections/s1/complete',{revision:3},{},learner);const redline=(await request('POST',url+'/exam',{revision:3,answers:{q1:0,q2:1}},{},learner)).body.data;assert.equal(redline.score,90);assert.equal(redline.passed,false);
+
   await status(request('PUT',url,{...payload,revision:1}),409);await request('DELETE',url);assert.equal(await list(learner),undefined);
   await db.transaction(false,async client=>assert.ok((await db.load(client)).dictBundle.trainingRecords.some(r=>r.courseId===course.id&&r.practiceConfirmed)));
 });

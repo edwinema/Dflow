@@ -184,7 +184,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null);
 
   // “练习与考核”页签中：管理配置模式 vs 学员做题体验模式 ('manage' | 'test')
-  const [assessmentMode, setAssessmentMode] = useState<'manage' | 'test'>('manage');
+  const [assessmentMode, setAssessmentMode] = useState<'manage' | 'test'>('test');
   // 题目类型筛选 ('all' | 'scenario' | 'choice' | 'multi' | 'judge')
   const [questionFilterType, setQuestionFilterType] = useState<string>('all');
 
@@ -229,546 +229,52 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
   // 岗位视角切换
   const [selectedRoleIdx, setSelectedRoleIdx] = useState<number>(0);
 
-  // 可选部门与岗位库
-  const availableDepts = ['研发管理中心', '质量控制部', '系统管理部', '市场营销部', '供应链管理部', '需求工程部', '集成电路设计院', '法律合规与内控部'];
-  const availablePositions = ['首席系统架构师', '系统工程师', '质量管理工程师', '研发总监', '测试验证专家', '敏捷需求工程师', '商务销售经理', '合规审计专员'];
-  const availableRoles = ['流程发起人 (申请人)', '同行交叉评审人 (审查人)', 'TRB决议审批人 (批准人)', 'KCP风险控制监督人'];
+  const [courses, setCourses] = useState<CourseItem[]>([]);
+  const [canManage, setCanManage] = useState(false);
+  const [options, setOptions] = useState<{depts:string[];positions:string[];roles:string[];users:{id:string;name:string}[];flows:{id:string;label:string;versionNo:string}[]}>({depts:[],positions:[],roles:[],users:[],flows:[]});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [reading, setReading] = useState<{courseId:string;sectionId:string}|null>(null);
+  const [evidence, setEvidence] = useState('');
+  const availableDepts=options.depts, availablePositions=options.positions, availableRoles=options.roles;
+  async function trainingRequest(path:string, method='GET', body?:any) {
+    const response=await fetch(path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    const result=await response.json();
+    if(!response.ok||result.status!==1)throw new Error(result.info||'操作失败');
+    return result.data;
+  }
+  async function loadCourses() {
+    try {const data=await trainingRequest('/api/training/courses');setCourses(data.courses.map(normalizeCourse));setCanManage(data.canManage);setOptions(data.options);setLoadError('');}
+    catch(e:any){setLoadError(e.message);showToast(e.message,'error');}finally{setLoading(false);}
+  }
+  useEffect(()=>{void loadCourses();},[currentUser?.id]);
+  function acceptCourse(raw:CourseItem) {const course=normalizeCourse(raw);setCourses(prev=>prev.map(c=>c.id===course.id?course:c));setSelectedCourse(prev=>prev?.id===course.id?course:prev);}
+  async function saveCourse(course:CourseItem) {
+    if(saving)return;
+    setSaving(true);
+    try {const saved=await trainingRequest(`/api/training/courses/${course.id}`,'PUT',course);acceptCourse(saved);return saved;}
+    catch(e:any){showToast(e.message,'error');}finally{setSaving(false);}
+  }
+  async function removeCourse(course:CourseItem) {
+    try {await trainingRequest(`/api/training/courses/${course.id}`,'DELETE');setCourses(prev=>prev.filter(c=>c.id!==course.id));if(selectedCourse?.id===course.id)setSelectedCourse(null);showToast('课程已归档，学习记录保留','success');}catch(e:any){showToast(e.message,'error');}
+  }
+  async function confirmRecord(course:CourseItem,userId:string) {
+    try {const saved=await trainingRequest(`/api/training/courses/${course.id}/records/${userId}/confirm`,'POST',{revision:course.revision});acceptCourse(saved);showToast('实操复核已记录','success');}catch(e:any){showToast(e.message,'error');}
+  }
+  async function completeSection(course:CourseItem,sectionId:string) {
+    try {acceptCourse(await trainingRequest(`/api/training/courses/${course.id}/sections/${sectionId}/complete`,'POST',{revision:course.revision}));setReading(null);showToast('章节学习记录已保存','success');}catch(e:any){showToast(e.message,'error');}
+  }
 
-  // 初始化核心课程数据
-  const [courses, setCourses] = useState<CourseItem[]>([
-    {
-      id: 'course_101',
-      flowId: 'flow_101',
-      flowCode: 'IPD-TR-001',
-      title: '1.1.2.1 技术评审主流程 (V2版) 业务标准实操',
-      category: '研发管理与技术规范',
-      deptName: '研发管理部 / 质量控制部',
-      duration: '45 分钟',
-      progress: 75,
-      status: 'in_progress',
-      kcpPoints: 2,
-      importance: '必修',
-      targetAudience: '研发管理中心、质量控制部、系统工程师、质量工程师 (必修)',
-      targetDepts: ['研发管理中心', '质量控制部'],
-      targetPositions: ['系统工程师', '质量管理工程师', '首席系统架构师'],
-      targetRoles: ['流程发起人 (申请人)', '同行交叉评审人 (审查人)', 'TRB决议审批人 (批准人)'],
-      deadlineDays: 30,
-      summary: '面向研发、质控与TRB委员会，系统讲解技术评审发起门槛、KCP-01同行审查及TRB决议裁决规范。',
-      lastStudyTime: '2026-03-22 14:30',
-
-      approvedVersion: {
-        versionNo: 'V2.0 (已批准正式生效)',
-        approvedAt: '2026-03-20 16:30',
-        approver: '李四 (质量管理总监)',
-        changeSummary: '新增TRB决议质量红线裁决节点，完善KCP风险合规检查项与交付物自查清单。',
-        docRef: '《IPD技术评审与质量门禁管理条例 (2026修订版)》第3.2条',
-      },
-
-      learningObjectives: [
-        '1. 掌握技术评审发起准入门槛与自查清单，能够独立完成提请材料齐套性校验（自查达标率 100%）。',
-        '2. 掌握同行交叉审查中 KCP-01 缺陷判定标准（A/B/C 类缺陷界定），并出具规范性审查意见表。',
-        '3. 明确 TRB 裁决会签红线与 DOA 权责，严格执行“关键验证报告不齐备绝不放行”的质量铁律。',
-        '4. 掌握缺陷收敛闭环跟踪机制，确保从问题提出到上线验收的全生命周期归口清零。',
-      ],
-
-      sections: [
-        { title: '一、流程背景与适用边界', time: '10分钟', completed: true, type: '流程原文' },
-        { title: '二、系统工程师提请材料规范与自查清单', time: '12分钟', completed: true, type: '岗位指引' },
-        { title: '三、同行交叉审查与KCP-01把关标准', time: '13分钟', completed: true, type: '关键控制' },
-        { title: '四、TRB决议裁决会签与缺陷闭环终审', time: '10分钟', completed: false, type: '案例考核' },
-      ],
-
-      rolePlaybooks: [
-        {
-          roleName: '系统工程师',
-          roleBadge: '流程发起人 / 申请人',
-          roleDesc: '负责技术评审发起申报、架构与验证材料准备、会前自查及缺陷收敛闭环。',
-          nodes: ['01 发起技术评审', '03 问题收敛整改'],
-          inputs: ['《系统架构规格书》', '《接口定义字典》', '《验证测试报告》', '《前置自查清单》'],
-          actions: [
-            '1. 对照《技术评审前置核查表》逐项自检，确认无逻辑硬伤与缺项；',
-            '2. 在系统中准确关联需求编号与基线版本，上传齐套材料发起评审流转；',
-            '3. 会后 48 小时内完成评审意见逐条响应，组织开发团队完成缺陷整改并提交回归证据。',
-          ],
-          outputs: ['《技术评审申报包》', '《问题缺陷整改闭环跟踪表》'],
-          handoverTo: '同行专家评审组 (审查人)',
-          goodSample: {
-            title: '合格样例：TRB-01 评审材料齐备规范',
-            desc: '包含完整的软硬件接口拓扑、高低温压力实测曲线、关键时序容限分析，自查签署完备，无任何缺项。',
-            preview: '【符合规范】各模块责任人均签字确认，架构图具备可追溯性，符合进门标准。',
-          },
-          badSample: {
-            title: '不合格典型样例：材料缺失且存在逻辑断层',
-            desc: '未提供极端工况压力测试数据，仅以“待上线后测试补齐”为由强行提请，自查表存在空项。',
-            warning: '【红线警告】触发 KCP-01 门禁拦截，一律直接驳回退单，不予安排评审会议！',
-          },
-          kcpCheckpoints: [
-            '材料齐套率必须达到 100%，自查清单必须有主架构师手签确认。',
-            '所有遗留缺陷必须具备明确责任人与闭环承诺时间（不超过5个工作日）。',
-          ],
-        },
-        {
-          roleName: '同行专家 / 质量工程师',
-          roleBadge: '同行审查人 / KCP把关',
-          roleDesc: '负责对技术设计进行客观交叉评审，识别潜在风险并界定缺陷严重级别。',
-          nodes: ['02 同行交叉审查 (KCP-01)'],
-          inputs: ['系统工程师申报材料包', '历史故障知识库', '质量度量指标要求'],
-          actions: [
-            '1. 独立研读提请材料，比对行业基线与质量红线，出具书面预审意见；',
-            '2. 重点审查故障树分析（FTA）与容灾降级策略，界定缺陷等级（A/B/C）；',
-            '3. 签署同行交叉审查决议，明确指出是否满足进入 TRB 终审的准入条件。',
-          ],
-          outputs: ['《同行交叉审查评审意见表》', '《A/B类缺陷清单》'],
-          handoverTo: 'TRB决议委员会 (批准人)',
-          goodSample: {
-            title: '合格样例：穿透式缺陷定位与整改建议',
-            desc: '明确指出接口超时重试机制在极端网络抖动下的死锁风险，并附带改进伪代码与验证标准。',
-            preview: '【优秀示范】缺陷定级准确（A类），整改验收标准清晰量化。',
-          },
-          badSample: {
-            title: '不合格典型样例：泛泛而谈“原则同意”',
-            desc: '未深入核实测试用例覆盖率，仅简述“方案基本可行”，未识别出已知的内存泄漏隐患。',
-            warning: '【违规警示】审查不实造成漏测逃逸的，审查人承担连带质量考核责任。',
-          },
-          kcpCheckpoints: [
-            '存在 1 项未整改完成的 A 类致命缺陷时，必须一票否决，不得出具“同意”决议。',
-            '审查意见必须在 3 个工作日内正式反馈。',
-          ],
-        },
-        {
-          roleName: 'TRB 评审委员会',
-          roleBadge: '终审裁决人 / 决策批准',
-          roleDesc: '负责根据评审报告与质量风险评估，做出通过、附条件通过或否决驳回的最高裁决。',
-          nodes: ['04 TRB 决议裁决 (KCP-02)'],
-          inputs: ['同行审查汇总报告', '整改闭环证据', '交付工期与质量风险评估'],
-          actions: [
-            '1. 听取研发团队整改汇报，质询关键遗留问题与技术负债；',
-            '2. 综合评估商业交付要求与产品质量风险，严禁因进度压力放行红线缺陷；',
-            '3. 签署正式《TRB技术决议书》，发布至流程资产中心。',
-          ],
-          outputs: ['《TRB决议裁决书 (正式版)》', '《技术基线固化批准单》'],
-          handoverTo: '项目经理与全员流程资产看板',
-          goodSample: {
-            title: '合格样例：严谨裁决与附条件闭环督办',
-            desc: '裁决书不仅明确结论，且对附带条件限定在次日18:00前由质量总监单签验收，责任清晰。',
-            preview: '【规范决策】满足 DOA 授权矩阵要求，签章齐备，法律合规。',
-          },
-          badSample: {
-            title: '不合格典型样例：因赶工期而对严重缺项妥协放行',
-            desc: '在未见芯片抗干扰测试报告的情况下，仅凭口头承诺即签署“完全通过”。',
-            warning: '【严重事故】直接违反公司一级质量红线，触发合规内控通报与降级问责！',
-          },
-          kcpCheckpoints: [
-            '严格执行 DOA 最高裁决权限，委员会参会法定人数须达到 80% 以上。',
-            '严禁非委员会正式授权人员越权代签。',
-          ],
-        },
-      ],
-
-      // 通过标准
-      passingScore: 80,
-      timeLimitMinutes: 30,
-      maxAttempts: 3,
-      kcpAllMustCorrect: true,
-      requirePracticalConfirmation: true,
-
-      questions: [
-        {
-          id: 'q_101_1',
-          type: 'scenario',
-          score: 25,
-          isKcpMandatory: true,
-          question: '【情景判断】项目当前临近交付节点，时间极其紧迫。系统工程师提交的评审材料中，关键高低温可靠性验证报告尚在进行中未能出具。请问：同行评审专家与 TRB 委员会能否基于“交付紧急”给予评审通过？',
-          scenarioContext: '某新能源电控系统研发项目已进入 TR4 节点，客户要求下周必须样件交货，但第三方环境可靠性实验室的测试报告预计还需 3 天出具。',
-          options: [
-            'A. 可以通过，但需系统工程师在上线交付后 1 个月内补齐报告并归档',
-            'B. 绝不能通过。属于 KCP-01 核心质量门禁红线，关键验证报告缺失必须判定为不通过或延期评审',
-            'C. 由业务线项目总监出具口头担保承诺，即可默认直接放行通过',
-            'D. 降低评审等级为常规内部交流，免去正式 TRB 裁决并直接投产',
-          ],
-          correctIndex: 1,
-          explanation: '技术评审的核心价值在于防止技术缺陷与质量隐患逃逸至客户现场。根据《IPD技术评审主流程规范》第4.2条，关键可靠性验证报告属于不可裁剪的 KCP-01 红线输入，任何因工期压力的放行均属严重流程违规。正确做法为立即亮黄灯预警，待验证闭环后发起快速复评。',
-          relatedNode: '02 同行交叉审查 (KCP-01)',
-          relatedDocClause: '《IPD技术质量红线管理规范》第4.2款',
-        },
-        {
-          id: 'q_101_2',
-          type: 'choice',
-          score: 15,
-          isKcpMandatory: false,
-          question: '【岗位执行】作为系统工程师，在执行节点 01“发起技术评审”时，首要必做的核心前置动作是什么？',
-          options: [
-            'A. 直接在企业微信联系评审专家要求立即会签',
-            'B. 对照《技术评审前置核查表》逐项核对材料齐套性，确保自查无硬伤后在系统规范提请',
-            'C. 仅在即时通讯群发送代码库链接，由评审专家自行下载提取文档',
-            'D. 跳过内部自查，直接邀请项目总监召集裁决会',
-          ],
-          correctIndex: 1,
-          explanation: '根据流程岗位操作指引，发起人的核心准则是“不向下游流转不合格半成品”，必须完成前置自查清单签署，保障输入材料齐备规范。',
-          relatedNode: '01 发起技术评审',
-          relatedDocClause: '《技术评审发起前置门禁准则》第2.1条',
-        },
-        {
-          id: 'q_101_3',
-          type: 'scenario',
-          score: 25,
-          isKcpMandatory: true,
-          question: '【控制点把关】同行交叉审查中发现 1 项 A 类致命技术缺陷（可能导致系统崩溃）。系统工程师提出方案已在本地验证但未提交回归测试用例。TRB 委员会的合规决策是？',
-          scenarioContext: '在系统内核驱动评审过程中，审查人发现多线程并发读写存在死锁风险，定位为 A 类缺陷。工程师主张加锁即可，未出具自动化回归用例。',
-          options: [
-            'A. 判定为“驳回”，要求必须具备完整的自动化回归用例并通过测试后重新提报',
-            'B. 判定为“完全通过”，相信工程师的个人技术经验与口头承诺',
-            'C. 忽略该缺陷，先发布上线再根据后续客户报障处理',
-            'D. 将 A 类缺陷降级为 C 类建议项后直接签署通过',
-          ],
-          correctIndex: 0,
-          explanation: 'A类致命缺陷在未通过正式回归验证前绝不允许降级或豁免。TRB委员会必须严守 KCP-02 决议底线，给出驳回或要求限期出具用例验证。',
-          relatedNode: '04 TRB 决议裁决 (KCP-02)',
-          relatedDocClause: '《缺陷分类分级与会签终审守则》第5.1条',
-        },
-        {
-          id: 'q_101_4',
-          type: 'judge',
-          score: 15,
-          isKcpMandatory: false,
-          question: '【流程流转】技术评审结束后，生成的《TRB决议裁决书》是后续“受控基线发布”与“投产立项”的前置必备输入，未经裁决批准不得擅自进入下一阶段。',
-          options: [
-            'A. 正确',
-            'B. 错误',
-          ],
-          correctIndex: 0,
-          explanation: '技术评审是产品研发各阶段（TR1-TR6）的阶段门禁（Stage-Gate），TRB决议书是进入下一工程阶段的法定通行证。',
-          relatedNode: '04 TRB 决议裁决',
-          relatedDocClause: '《集成产品开发IPD阶段门禁治理条例》第3.4款',
-        },
-      ],
-
-      practicalTask: {
-        taskName: '《技术评审缺陷整改与闭环自查表》填报实操',
-        requirement: '结合当前在研项目实际，对照自查清单填写1份完整的缺陷收敛跟踪表，明确缺陷定级、整改方案、验证人与回归结果。',
-        reviewer: '张三 (首席架构师) / 李四 (质量总监)',
-      },
-
-      records: [
-        {
-          id: 'rec_01',
-          name: '王强',
-          empNo: 'E0102',
-          deptName: '研发管理中心',
-          positionName: '系统工程师',
-          readStatus: 'read',
-          examStatus: 'passed',
-          score: 95,
-          practiceConfirmed: true,
-          confirmedBy: '李四 (质量总监)',
-          weakPoints: ['无明显薄弱点'],
-          lastStudyTime: '2026-03-22 10:15',
-        },
-        {
-          id: 'rec_02',
-          name: '李明',
-          empNo: 'E0145',
-          deptName: '研发管理中心',
-          positionName: '高级研发工程师',
-          readStatus: 'read',
-          examStatus: 'passed',
-          score: 85,
-          practiceConfirmed: false,
-          confirmedBy: '待主管复核',
-          weakPoints: ['缺陷等级划分标准'],
-          lastStudyTime: '2026-03-21 16:30',
-        },
-        {
-          id: 'rec_03',
-          name: '张婷',
-          empNo: 'E0211',
-          deptName: '质量控制部',
-          positionName: '质量管理工程师',
-          readStatus: 'read',
-          examStatus: 'failed',
-          score: 65,
-          practiceConfirmed: false,
-          confirmedBy: '-',
-          weakPoints: ['KCP-01门禁红线判定', 'A类缺陷闭环规则'],
-          lastStudyTime: '2026-03-20 11:20',
-        },
-        {
-          id: 'rec_04',
-          name: '陈建国',
-          empNo: 'E0088',
-          deptName: '研发管理中心',
-          positionName: '研发总监',
-          readStatus: 'read',
-          examStatus: 'passed',
-          score: 100,
-          practiceConfirmed: true,
-          confirmedBy: '李四 (质量总监)',
-          weakPoints: ['无明显薄弱点'],
-          lastStudyTime: '2026-03-19 09:40',
-        },
-        {
-          id: 'rec_05',
-          name: '赵子豪',
-          empNo: 'E0301',
-          deptName: '研发管理中心',
-          positionName: '初级系统工程师',
-          readStatus: 'unread',
-          examStatus: 'untested',
-          score: 0,
-          practiceConfirmed: false,
-          confirmedBy: '-',
-          weakPoints: ['尚未开始学习'],
-          lastStudyTime: '未打卡',
-        },
-      ],
-    },
-    {
-      id: 'course_102',
-      flowId: 'flow_leads_002',
-      flowCode: 'leads-crm-002',
-      title: '3.1.1.1 线索管理流程标准化培育与验真规范',
-      category: '市场营销与客户成功',
-      deptName: '市场营销部',
-      duration: '35 分钟',
-      progress: 100,
-      status: 'completed',
-      kcpPoints: 2,
-      importance: '必修',
-      targetAudience: '市场营销部、商务部、销售客户经理 (必修)',
-      targetDepts: ['市场营销部'],
-      targetPositions: ['商务销售经理'],
-      targetRoles: ['流程发起人 (申请人)', '同行交叉评审人 (审查人)'],
-      deadlineDays: 15,
-      summary: '面向营销专员与销售主管，讲解全渠道线索录入、清洗验真以及商机立项评估的BANT实操模型。',
-      lastStudyTime: '2026-03-18 09:15',
-      approvedVersion: {
-        versionNo: 'V1.3 (已批准生效)',
-        approvedAt: '2026-02-15 14:00',
-        approver: '张华 (市场营销VP)',
-        changeSummary: '优化BANT验真关键控制点，规范跨部门商机撞单仲裁细则。',
-        docRef: '《营销线索全生命周期流转管理办法》第2.4条',
-      },
-      learningObjectives: [
-        '1. 掌握全渠道线索统一录入与查重规则，避免客户信息冲突。',
-        '2. 熟练运用 BANT 模型进行线索验真（预算/决策人/需求/时间）。',
-        '3. 明确商机流转交接节点与 CRM 自动化流转时限要求。',
-      ],
-      sections: [
-        { title: '一、全渠道线索收集与建档规范', time: '8分钟', completed: true },
-        { title: '二、线索清洗防刷与真实性复核 (KCP)', time: '12分钟', completed: true },
-        { title: '三、商机分派与CRM系统衔接流转', time: '15分钟', completed: true },
-      ],
-      rolePlaybooks: [
-        {
-          roleName: '市场营销专员',
-          roleBadge: '线索采集团队',
-          roleDesc: '负责多渠道线索导入、首轮验真并核准关键信息。',
-          nodes: ['01 线索采集录入', '02 BANT初筛'],
-          inputs: ['展会/线上表单原始数据'],
-          actions: ['对照 CRM 查重规则进行清洗，剔除无效垃圾信息，48小时内完成电话初筛。'],
-          outputs: ['合格意向线索包'],
-          handoverTo: '销售主管 / 客户经理',
-          goodSample: {
-            title: '合格样例：信息要素全且通过初筛',
-            desc: '企业名称、统一社会信用代码、核心联系人职位与明确采购诉求完备。',
-            preview: '【合规】已通过 CRM 自动查重认证。',
-          },
-          badSample: {
-            title: '不合格典型样例：虚假/空号线索未清洗',
-            desc: '联系人姓名含糊，电话无效，无具体业务场景。',
-            warning: '【违规】直接扣减渠道有效线索系数。',
-          },
-          kcpCheckpoints: ['录入前强制查重，查重率 100%。'],
-        },
-      ],
-      passingScore: 80,
-      timeLimitMinutes: 25,
-      maxAttempts: 3,
-      kcpAllMustCorrect: true,
-      requirePracticalConfirmation: false,
-      questions: [
-        {
-          id: 'q_102_1',
-          type: 'choice',
-          score: 50,
-          isKcpMandatory: true,
-          question: '在 BANT 模型中，决定该线索能否正式转为销售机会 (Opportunity) 的核心必要条件是？',
-          options: [
-            'A. 必须同时具备预算 (Budget)、决策权 (Authority)、明确需求 (Need) 和时间表 (Timeline)',
-            'B. 只要客户留下了电话即可直接转立项',
-            'C. 只要公司名称高大上就可以直接签合同',
-            'D. 仅凭销售人员主观直觉即可免除审批',
-          ],
-          correctIndex: 0,
-          explanation: '根据《营销线索全生命周期流转管理办法》，转商机的 KCP 门禁必须满足 BANT 真实性验证。',
-          relatedNode: '02 BANT初筛与验真 (KCP)',
-          relatedDocClause: '《营销线索流转办法》第2.4条',
-        },
-        {
-          id: 'q_102_2',
-          type: 'judge',
-          score: 50,
-          isKcpMandatory: false,
-          question: '全渠道采集到的线索，如果系统查重发现已有销售在跟进且在保护期内，营销专员可直接私下分配给其他销售。',
-          options: [
-            'A. 正确',
-            'B. 错误，必须触发商机撞单仲裁或关联至原客户经理',
-          ],
-          correctIndex: 1,
-          explanation: '严格遵守客户归属与保护期制度，避免重复公关或恶性竞争。',
-          relatedNode: '01 线索采集录入',
-          relatedDocClause: '《客户数据保护条例》第1.2条',
-        },
-      ],
-      records: [
-        {
-          id: 'rec_201',
-          name: '刘芳',
-          empNo: 'E0412',
-          deptName: '市场营销部',
-          positionName: '商务销售经理',
-          readStatus: 'read',
-          examStatus: 'passed',
-          score: 100,
-          practiceConfirmed: true,
-          confirmedBy: '张华 (市场营销VP)',
-          weakPoints: ['无'],
-          lastStudyTime: '2026-03-18 09:15',
-        },
-      ],
-    },
-    {
-      id: 'course_103',
-      flowId: 'flow_cr_009',
-      flowCode: 'CR-009',
-      title: '6.3.5.1 需求变更申请 (CCB红线审批) 规范培训',
-      category: '工程变更与技术合规',
-      deptName: '需求工程部',
-      duration: '50 分钟',
-      progress: 0,
-      status: 'not_started',
-      kcpPoints: 2,
-      importance: '必修',
-      targetAudience: '需求工程部、研发管理中心全员 (全员必修)',
-      targetDepts: ['需求工程部', '研发管理中心'],
-      targetPositions: ['敏捷需求工程师', '系统工程师'],
-      targetRoles: ['流程发起人 (申请人)', 'TRB决议审批人 (批准人)'],
-      deadlineDays: 45,
-      summary: '掌握研发过程中工程变更与商业诉求变更的评估准则，避免技术债务与无序返工。',
-      approvedVersion: {
-        versionNo: 'V2.1',
-        approvedAt: '2026-01-20',
-        approver: '王总 (工程总监)',
-        changeSummary: '明确CCB重大变更一票否决红线。',
-        docRef: '《需求工程基线变更管控条例》',
-      },
-      learningObjectives: [
-        '1. 掌握变更分级标准（I级重大变更、II级重要变更、III级微调）。',
-        '2. 能够对变更导致的架构影响面与交付延期进行定量测算。',
-        '3. 严格遵循 CCB 决策流转，严禁未批先改。',
-      ],
-      sections: [
-        { title: '一、需求变更的分级分类与发起门槛', time: '10分钟', completed: false },
-        { title: '二、影响面架构评估与交付工期预算核算', time: '20分钟', completed: false },
-        { title: '三、变更控制委员会 (CCB) 终审批件签署', time: '20分钟', completed: false },
-      ],
-      rolePlaybooks: [],
-      passingScore: 80,
-      timeLimitMinutes: 30,
-      maxAttempts: 3,
-      kcpAllMustCorrect: true,
-      requirePracticalConfirmation: false,
-      questions: [],
-      records: [],
-    },
-    {
-      id: 'course_104',
-      flowId: 'flow_zs_001',
-      flowCode: 'RD-REQ-008',
-      title: '6.2.1.3 产品架构规格评审流程实操指南',
-      category: '系统架构与工程规范',
-      deptName: '研发管理中心',
-      duration: '30 分钟',
-      progress: 100,
-      status: 'completed',
-      kcpPoints: 2,
-      importance: '选修',
-      targetAudience: '初中级研发工程师、实习架构师 (自主选修)',
-      targetDepts: ['研发管理中心'],
-      targetPositions: ['系统工程师'],
-      targetRoles: ['流程发起人 (申请人)'],
-      deadlineDays: 60,
-      summary: '明确软硬件架构边界，建立跨模块接口依赖与可测试性核查标准。',
-      approvedVersion: {
-        versionNo: 'V1.0',
-        approvedAt: '2025-11-10',
-        approver: '架构委员会',
-        changeSummary: '首版发布',
-        docRef: '《产品架构评审细则》',
-      },
-      learningObjectives: [
-        '1. 掌握微服务模块划分边界。',
-        '2. 掌握接口防抖与幂等性设计标准。',
-      ],
-      sections: [
-        { title: '一、架构基线说明书编制要点', time: '12分钟', completed: true },
-        { title: '二、同行专家评审与争议项裁决', time: '18分钟', completed: true },
-      ],
-      rolePlaybooks: [],
-      passingScore: 80,
-      timeLimitMinutes: 20,
-      maxAttempts: 5,
-      kcpAllMustCorrect: false,
-      requirePracticalConfirmation: false,
-      questions: [],
-      records: [],
-    },
-    {
-      id: 'course_105',
-      flowId: 'flow_105',
-      flowCode: 'IC-DEV-001',
-      title: '6.4.1.1 芯片物理实现与流片投产红线培训',
-      category: '集成电路制造合规',
-      deptName: '集成电路设计院',
-      duration: '60 分钟',
-      progress: 20,
-      status: 'in_progress',
-      kcpPoints: 3,
-      importance: '进阶',
-      targetAudience: '芯片物理设计团队、Tape-out流片责任人 (进阶选修)',
-      targetDepts: ['集成电路设计院'],
-      targetPositions: ['首席系统架构师'],
-      targetRoles: ['TRB决议审批人 (批准人)'],
-      deadlineDays: 60,
-      summary: '学习流片一次成功率控制要点，深入掌握DRC/LVS/STA验证与Sign-off签署流程。',
-      approvedVersion: {
-        versionNo: 'V3.0',
-        approvedAt: '2026-03-01',
-        approver: '流片总监',
-        changeSummary: '更新7nm工艺库DRC合规标准',
-        docRef: '《流片投产红线规范》',
-      },
-      learningObjectives: [
-        '1. 掌握 DRC/LVS 零错误门禁规则。',
-        '2. 掌握 STA 时序 Sign-off 签署流程。',
-      ],
-      sections: [
-        { title: '一、布局布线与门级网表核查', time: '15分钟', completed: true },
-        { title: '二、物理规则检查 (DRC/LVS) 零违规合规', time: '25分钟', completed: false },
-        { title: '三、流片投产包 Tape-out 签署下发', time: '20分钟', completed: false },
-      ],
-      rolePlaybooks: [],
-      passingScore: 90,
-      timeLimitMinutes: 45,
-      maxAttempts: 2,
-      kcpAllMustCorrect: true,
-      requirePracticalConfirmation: true,
-      questions: [],
-      records: [],
-    },
-  ]);
-
-  // 当前正在查看或配置的课程（默认为 course_101）
+  function normalizeCourse(c:CourseItem):CourseItem {return {...c,timeLimitMinutes:c.timeLimitMinutes??30,maxAttempts:c.maxAttempts??3,kcpAllMustCorrect:c.kcpAllMustCorrect??false,requirePracticalConfirmation:!!c.practicalTask,questions:(c.questions||[]).map(q=>({...q,score:q.score??10}))};}
+  const [newTitle,setNewTitle]=useState('');
+  const [newFlow,setNewFlow]=useState('');
+  async function createCourse(){
+    if(!newTitle.trim()||!newFlow){showToast('请输入课程名称并选择已发布流程','warning');return;}
+    try {const saved=normalizeCourse(await trainingRequest('/api/training/courses','POST',{title:newTitle,flowId:newFlow,importance:'必修',deadlineDays:30,passingScore:80,sections:[{id:crypto.randomUUID(),title:'学习内容',content:'',time:''}],questions:[]}));setCourses(prev=>[saved,...prev]);setSelectedCourse(saved);setViewMode('detail');setDetailActiveTab('content');setManageModalOpen(false);setNewTitle('');}
+    catch(e:any){showToast(e.message,'error');}
+  }
+  // 当前正在查看或配置的课程
   const currentCourse = selectedCourse || courses[0];
 
   // 快捷统计指标
@@ -806,50 +312,11 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
   };
 
   // 快速切换重要性
-  const handleChangeImportance = (courseId: string, newType: '必修' | '选修' | '进阶') => {
-    setCourses((prev) =>
-      prev.map((c) => (c.id === courseId ? { ...c, importance: newType } : c))
-    );
-    if (currentCourse?.id === courseId) {
-      setSelectedCourse((prev) => (prev ? { ...prev, importance: newType } : null));
-    }
-    showToast(`已成功将课程调整为【${newType}】属性`, 'success');
+  const handleChangeImportance = (courseId:string,importance:'必修'|'选修'|'进阶') => {
+    const c=courses.find(c=>c.id===courseId);if(c)void saveCourse({...c,importance});
   };
-
-  // 小节打卡学习
-  const handleStudySection = (courseId: string, sectionIdx: number) => {
-    setCourses((prev) =>
-      prev.map((c) => {
-        if (c.id !== courseId) return c;
-        const newSections = [...c.sections];
-        newSections[sectionIdx] = { ...newSections[sectionIdx], completed: true };
-        const completedCount = newSections.filter((s) => s.completed).length;
-        const newProgress = Math.round((completedCount / newSections.length) * 100);
-        const newStatus = newProgress === 100 ? 'completed' : 'in_progress';
-        return {
-          ...c,
-          sections: newSections,
-          progress: newProgress,
-          status: newStatus,
-          lastStudyTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        };
-      })
-    );
-    if (selectedCourse?.id === courseId) {
-      setSelectedCourse((prev) => {
-        if (!prev) return null;
-        const newSections = [...prev.sections];
-        newSections[sectionIdx] = { ...newSections[sectionIdx], completed: true };
-        const completedCount = newSections.filter((s) => s.completed).length;
-        return {
-          ...prev,
-          sections: newSections,
-          progress: Math.round((completedCount / newSections.length) * 100),
-          status: completedCount === newSections.length ? 'completed' : 'in_progress',
-        };
-      });
-    }
-    showToast('该小节学习已完成打卡，进度已更新！', 'success');
+  const handleStudySection = (courseId:string,sectionIdx:number) => {
+    const c=courses.find(c=>c.id===courseId);if(c)setReading({courseId,sectionId:c.sections[sectionIdx].id});
   };
 
   // 保存通过标准
@@ -868,7 +335,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
       kcpAllMustCorrect: newKcpMustCorrect,
       requirePracticalConfirmation: newRequirePractical,
     }));
-    showToast('已成功保存考核通过标准与达标规则！', 'success');
+    showToast('规则已修改，请点击顶部保存课程配置', 'info');
   };
 
   // 题目操作：删除试题
@@ -907,7 +374,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
         ...prev,
         questions: prev.questions.map((q) => (q.id === qData.id ? qData : q)),
       }));
-      showToast('题目修改已保存', 'success');
+      showToast('题目已修改，请点击顶部保存课程配置', 'info');
     }
     setQuestionEditModal({ ...questionEditModal, open: false });
   };
@@ -1139,58 +606,19 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
   };
 
   // 考试测验交卷
-  const handleSubmitExamTest = () => {
-    const qList = currentCourse.questions || [];
-    if (qList.length === 0) {
-      showToast('当前题库无试题', 'warning');
-      return;
-    }
-    let totalScore = 0;
-    let earnedScore = 0;
-    let kcpFailed = false;
-
-    qList.forEach((q) => {
-      const qScore = q.score || 10;
-      totalScore += qScore;
-      if (examAnswers[q.id] === q.correctIndex) {
-        earnedScore += qScore;
-      } else {
-        if (q.isKcpMandatory) {
-          kcpFailed = true;
-        }
-      }
-    });
-
-    const scaledScore = Math.round((earnedScore / (totalScore || 1)) * 100);
-    setExamScore(scaledScore);
-    setExamSubmitted(true);
-
-    const isScorePassed = scaledScore >= (currentCourse.passingScore || 80);
-    const finalPassed = isScorePassed && (!currentCourse.kcpAllMustCorrect || !kcpFailed);
-
-    if (finalPassed) {
-      showToast(`考核达标！得分 ${scaledScore} 分（合格线 ${currentCourse.passingScore} 分），已达成通过标准！`, 'success');
-      handleUpdateCurrentCourse((prev) => ({
-        ...prev,
-        status: 'completed',
-        progress: 100,
-      }));
-    } else {
-      if (kcpFailed && isScorePassed) {
-        showToast(`得分 ${scaledScore} 分虽达及格线，但因触发核心KCP红线题错误，判定为未通过，请仔细查看解析！`, 'error');
-      } else {
-        showToast(`考核得分 ${scaledScore} 分，未达合格线 (${currentCourse.passingScore}分)，请回顾错题解析后补考！`, 'warning');
-      }
-    }
+  const handleSubmitExamTest = async () => {
+    if(!currentCourse)return;
+    try {const data=await trainingRequest(`/api/training/courses/${currentCourse.id}/exam`,'POST',{revision:currentCourse.revision,answers:examAnswers});acceptCourse(data.course);setExamScore(data.score);setExamSubmitted(true);showToast(data.passed?'考核通过，成绩已保存':'未通过，请查看错题并重新学习',data.passed?'success':'warning');}
+    catch(e:any){showToast(e.message,'error');}
   };
 
   // 过滤当前题库试题
   const filteredQuestions = useMemo(() => {
-    if (!currentCourse.questions) return [];
+    if (!currentCourse?.questions) return [];
     if (questionFilterType === 'all') return currentCourse.questions;
     if (questionFilterType === 'kcp') return currentCourse.questions.filter((q) => q.isKcpMandatory);
     return currentCourse.questions.filter((q) => q.type === questionFilterType);
-  }, [currentCourse.questions, questionFilterType]);
+  }, [currentCourse?.questions, questionFilterType]);
 
   return (
     <div className="h-full flex flex-col bg-[#f8fafc] text-xs">{loading&&<p className="p-4">正在加载课程…</p>}{loadError&&<div className="p-4 text-red-600">{loadError}<button onClick={()=>void loadCourses()}>重新加载</button></div>}{reading&&(()=>{const c=courses.find(c=>c.id===reading.courseId),sec=c?.sections.find(s=>s.id===reading.sectionId);return c&&sec?<div role="dialog" aria-label="章节阅读" className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-8"><div className="bg-white rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-auto space-y-4"><h2 className="text-lg font-bold">{sec.title}</h2><div className="whitespace-pre-wrap text-sm leading-8">{sec.content||'本章节尚未编写内容，请联系课程负责人。'}</div><div className="flex gap-3 justify-end"><button onClick={()=>setReading(null)}>关闭</button><button disabled={!sec.content?.trim()} onClick={()=>void completeSection(c,sec.id)} className="bg-blue-600 disabled:opacity-40 text-white px-4 py-2 rounded">已阅读，记录学习完成</button></div></div></div>:null;})()}
@@ -1238,6 +666,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
               </div>
             </div>
 
+            {canManage&&<button disabled={saving} onClick={()=>void saveCourse(currentCourse).then(saved=>{if(saved)showToast('课程配置已保存','success');})} className="bg-[#2f54eb] text-white rounded-lg px-4 h-8 disabled:opacity-40">{saving?'保存中…':'保存课程配置'}</button>}
             {/* 4 Tabs on Course Details */}
             <div className="flex items-center gap-1 bg-[#f4f4f5] p-1 rounded-xl border border-[#e4e7ed]">
               {[
@@ -1252,7 +681,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                   <button
                     key={tab.key}
                     type="button"
-                    onClick={() => setDetailActiveTab(tab.key as any)}
+                    onClick={() => {if(tab.key!=="basic"||canManage)setDetailActiveTab(tab.key as any);}}
                     className={`h-8 px-3.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                       isActive
                         ? 'bg-white text-[#2f54eb] shadow-xs'
@@ -1278,7 +707,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
               {/* ========================================================================= */}
               {/* TAB 1: 基本设置 (Basic Settings) */}
               {/* ========================================================================= */}
-              {detailActiveTab === 'basic' && (
+              {canManage&&detailActiveTab === 'basic' && (
                 <div className="p-6 rounded-xl border border-[#ebeef5] bg-white shadow-2xs space-y-6">
                   <div>
                     <div className="font-bold text-sm text-[#1f2733] flex items-center gap-2">
@@ -1302,12 +731,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#606266] block mb-1">关联业务流程编码</label>
-                      <input
-                        type="text"
-                        value={currentCourse.flowCode}
-                        onChange={(e) => handleUpdateCurrentCourse((prev) => ({ ...prev, flowCode: e.target.value }))}
-                        className="w-full h-8 px-2.5 border border-[#dcdfe6] rounded-lg text-xs font-mono focus:border-[#2f54eb] focus:outline-hidden"
-                      />
+                      <select aria-label="关联已发布流程" value={currentCourse.flowId} onChange={e=>handleUpdateCurrentCourse(prev=>({...prev,flowId:e.target.value}))} className="w-full h-8 border rounded-lg px-2"><option value="">选择已发布流程</option>{options.flows.map(f=><option key={f.id} value={f.id}>{f.label}（{f.versionNo}）</option>)}</select>
                     </div>
                   </div>
 
@@ -1482,6 +906,16 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
               {/* ========================================================================= */}
               {detailActiveTab === 'content' && (
                 <div className="space-y-6">
+                  {currentCourse.practicalTask&&<div className="p-5 bg-white border rounded-xl space-y-2"><h3>实操任务：{currentCourse.practicalTask.taskName}</h3><p>{currentCourse.practicalTask.requirement}</p><textarea aria-label="实操完成说明" value={evidence} onChange={e=>setEvidence(e.target.value)} placeholder="填写完成情况和成果位置，提交给复核人" className="border rounded p-2 w-full"/><button onClick={async()=>{try{acceptCourse(await trainingRequest(`/api/training/courses/${currentCourse.id}/practical`,'POST',{revision:currentCourse.revision,evidence}));showToast('实操已提交，等待复核','success');}catch(e:any){showToast(e.message,'error');}}} className="text-blue-600">提交实操成果</button></div>}
+                  <div className="p-5 rounded-xl border border-[#ebeef5] bg-white space-y-3">
+                    <div className="flex justify-between"><h3 className="font-bold text-sm">学习章节与正文</h3>{canManage&&<button onClick={()=>handleUpdateCurrentCourse(c=>({...c,sections:[...c.sections,{id:crypto.randomUUID(),title:'新章节',content:'',time:'',completed:false}]}))} className="text-blue-600">＋添加章节</button>}</div>
+                    {currentCourse.sections.map((sec,i)=><div key={sec.id} className="border rounded-lg p-3 space-y-2">
+                      {canManage?<><input aria-label={`章节${i+1}标题`} value={sec.title} onChange={e=>handleUpdateCurrentCourse(c=>({...c,sections:c.sections.map(x=>x.id===sec.id?{...x,title:e.target.value}:x)}))} className="w-full border rounded p-2"/><textarea aria-label={`章节${i+1}正文`} value={sec.content||''} onChange={e=>handleUpdateCurrentCourse(c=>({...c,sections:c.sections.map(x=>x.id===sec.id?{...x,content:e.target.value}:x)}))} className="w-full border rounded p-2 min-h-32"/><button onClick={()=>handleUpdateCurrentCourse(c=>({...c,sections:c.sections.filter(x=>x.id!==sec.id)}))}>删除章节</button></>:<h4>{sec.title}</h4>}
+                      <button onClick={()=>handleStudySection(currentCourse.id,i)} className="text-blue-600">{sec.completed?'已完成，重新阅读':'阅读章节'}</button>
+                    </div>)}
+                    {currentCourse.approvedVersion?.xml&&<FrozenTrainingFlow xml={currentCourse.approvedVersion.xml}/>}
+                  </div>
+                  {canManage&&<div className="p-5 bg-white border rounded-xl space-y-2"><label className="flex gap-2"><input type="checkbox" checked={!!currentCourse.practicalTask} onChange={e=>handleUpdateCurrentCourse(c=>({...c,requirePracticalConfirmation:e.target.checked,practicalTask:e.target.checked?{taskName:'实操验证',requirement:'',reviewer:''}:undefined}))}/>要求实操复核</label>{currentCourse.practicalTask&&<><input aria-label="实操任务名称" value={currentCourse.practicalTask.taskName} onChange={e=>handleUpdateCurrentCourse(c=>({...c,practicalTask:{...c.practicalTask!,taskName:e.target.value}}))} className="border p-2 rounded w-full"/><textarea aria-label="实操要求" value={currentCourse.practicalTask.requirement} onChange={e=>handleUpdateCurrentCourse(c=>({...c,practicalTask:{...c.practicalTask!,requirement:e.target.value}}))} className="border p-2 rounded w-full"/><select aria-label="实操复核人" value={currentCourse.practicalTask.reviewer} onChange={e=>handleUpdateCurrentCourse(c=>({...c,practicalTask:{...c.practicalTask!,reviewer:e.target.value}}))} className="border p-2 rounded"><option value="">选择复核人</option>{options.users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></>}</div>}
                   {/* 核心学习目标 */}
                   <div className="p-5 rounded-xl border border-[#ebeef5] bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
@@ -1879,7 +1313,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                           type="button"
                           onClick={() => setAssessmentMode('manage')}
                           className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
-                            assessmentMode === 'manage' ? 'bg-white text-[#1f2733] shadow-xs' : 'text-[#606266]'
+                            canManage && assessmentMode === 'manage' ? 'bg-white text-[#1f2733] shadow-xs' : 'text-[#606266]'
                           }`}
                         >
                           题目配置模式
@@ -1903,7 +1337,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                   </div>
 
                   {/* 3. 试题列表展示 (题目配置模式 vs 答题测试模式) */}
-                  {assessmentMode === 'manage' ? (
+                  {canManage && assessmentMode === 'manage' ? (
                     <div className="space-y-4">
                       {filteredQuestions.length === 0 ? (
                         <div className="p-12 text-center text-[#909399] bg-white rounded-xl border border-[#ebeef5]">
@@ -2214,7 +1648,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                                   已由 {rec.confirmedBy?.split(' ')?.[0] || '主管'} 确认
                                 </span>
                               ) : (
-                                <span className="text-[#909399] text-[11px]">待复核</span>
+                                <span className="text-[#909399] text-[11px]">待复核{currentCourse.canReview&&rec.evidence&&rec.userId&&rec.userId!==currentUser?.id&&<button onClick={()=>void confirmRecord(currentCourse,rec.userId!)} className="ml-2 text-blue-600">确认实操</button>}</span>
                               )}
                             </td>
                             <td className="py-2 px-3 text-[#595959] text-[11px]">
@@ -2362,7 +1796,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                     <div
                       key={c.id}
                       onClick={() => {
-                        setSelectedCourse(c);
+                        setSelectedCourse(c);setExamSubmitted(false);setExamScore(null);setExamAnswers({});
                         setViewMode('detail');
                         setDetailActiveTab('assessment');
                       }}
@@ -2416,7 +1850,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedCourse(c);
+                              setSelectedCourse(c);setExamSubmitted(false);setExamScore(null);setExamAnswers({});
                               setViewMode('detail');
                               setDetailActiveTab('assessment');
                             }}
@@ -2946,6 +2380,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
             </div>
 
             <div className="p-6 flex-1 overflow-y-auto space-y-4 text-xs">
+              {canManage&&<div className="flex flex-wrap gap-2 border rounded-lg p-3"><input aria-label="新课程名称" placeholder="新课程名称" value={newTitle} onChange={e=>setNewTitle(e.target.value)} className="border rounded p-2"/><select aria-label="新课程关联流程" value={newFlow} onChange={e=>setNewFlow(e.target.value)} className="border rounded p-2"><option value="">选择已发布流程</option>{options.flows.map(f=><option key={f.id} value={f.id}>{f.label}</option>)}</select><button onClick={()=>void createCourse()} className="bg-blue-600 text-white rounded px-3">新增课程</button>{!options.flows.length&&<p>暂无已批准发布的流程，请先完成流程模型发布。</p>}</div>}
               <div className="border border-[#ebeef5] rounded-lg overflow-hidden">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="bg-[#fafafa] text-[#606266] border-b border-[#ebeef5]">
@@ -2991,7 +2426,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedCourse(c);
+                              setSelectedCourse(c);setExamSubmitted(false);setExamScore(null);setExamAnswers({});
                               setViewMode('detail');
                               setDetailActiveTab('assessment');
                               setManageModalOpen(false);
@@ -2999,7 +2434,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                             className="h-6 px-2.5 rounded bg-[#f0f5ff] hover:bg-[#2f54eb] text-[#2f54eb] hover:text-white text-[11px] font-semibold cursor-pointer transition-colors"
                           >
                             配置4页签
-                          </button>
+                          </button>{canManage&&<button onClick={()=>void removeCourse(c)} className="text-red-600 ml-2">归档</button>}
                         </td>
                       </tr>
                     ))}

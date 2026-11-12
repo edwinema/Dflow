@@ -183,6 +183,6 @@ export function assertInvariants(state: State) {
 export function redact(value: any): any {
   if (Array.isArray(value)) return value.map(redact);
   if (value && typeof value === 'object' && !Buffer.isBuffer(value)) return Object.fromEntries(
-    Object.entries(value).filter(([k]) => !['password','passwordHash','password_hash','accessRoles','apiKey','encryptedApiKey'].includes(k)).map(([k,v]) => [k,redact(v)]));
+    Object.entries(value).filter(([k]) => !['password','passwordHash','password_hash','accessRoles','apiKey','encryptedApiKey','trainingCourses','trainingRecords'].includes(k)).map(([k,v]) => [k,redact(v)]));
   return value;
 }

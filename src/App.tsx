@@ -42,12 +42,17 @@ import { ProcessLearningView } from './components/ProcessLearningView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
-  const [token, setToken] = useState<string | null>(() => {
-    const saved = localStorage.getItem('dflow-token');
-    if (saved) return saved;
-    localStorage.setItem('dflow-token', 'dflow-jwt-token-2026');
-    return 'dflow-jwt-token-2026';
-  });
+  const [token, setToken] = useState<string | null>(null);
+  useEffect(() => {
+    localStorage.removeItem('dflow-token');
+    const expire=()=>{setToken(null);setCurrentUser({});};
+    window.addEventListener('session-expired',expire);
+    fetch('/api/session').then(async r=>{
+      const body=await r.json();
+      if(r.ok&&body.status===1&&body.data){setCurrentUser(body.data);setToken('cookie-session');}
+    }).catch(()=>{});
+    return ()=>window.removeEventListener('session-expired',expire);
+  }, []);
 
   const [currentPath, setCurrentPath] = useState<string>('/dashboard/index');
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>('arch_root');
@@ -81,7 +86,7 @@ export default function App() {
   };
 
   const [loginUser, setLoginUser] = useState('admin');
-  const [loginPass, setLoginPass] = useState('123456');
+  const [loginPass, setLoginPass] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -245,10 +250,10 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: loginUser, password: loginPass }),
       });
-      const authHeader = res.headers.get('Authorization') || 'dflow-jwt-token-2026';
+      const authHeader = 'cookie-session';
       const body = await res.json();
       if (body.status === 1) {
-        localStorage.setItem('dflow-token', authHeader);
+        setLoginPass('');
         if (body.data) {
           setCurrentUser(body.data);
         }
@@ -263,11 +268,7 @@ export default function App() {
         showToast(body.info || '登录失败', 'error');
       }
     } catch {
-      localStorage.setItem('dflow-token', 'dflow-jwt-token-2026');
-      setToken('dflow-jwt-token-2026');
-      setCurrentPath('/dashboard/index');
-      setExpandedMenuId('workspace');
-      showToast('登录成功', 'success');
+      showToast('登录失败，请检查网络连接后重试', 'error');
     } finally {
       setLoginLoading(false);
     }
@@ -401,7 +402,7 @@ export default function App() {
                   type="password"
                   value={loginPass}
                   onChange={(e) => setLoginPass(e.target.value)}
-                  placeholder="123456"
+                  placeholder="请输入密码"
                   className="w-full h-9 px-3 rounded border border-[#dcdfe6] focus:border-[#409eff] outline-none"
                 />
               </div>
@@ -412,22 +413,9 @@ export default function App() {
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <span>记住密码</span>
+                  <span>记住账号</span>
                 </label>
-                <span className="text-[#909399]">初始化参考账号: admin / 123456</span>
-              </div>
-              <div className="text-[10px] text-[#909399] bg-[#f8fafc] p-2 rounded border border-[#e2e8f0] leading-relaxed">
-                <span className="font-medium text-[#606266]">可复制使用的8大基准角色（密码统一 123456）：</span>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1 text-[9.5px]">
-                  <span>• 超级管理: admin</span>
-                  <span>• 流程总监: flow_admin</span>
-                  <span>• 流程架构: zhangsan</span>
-                  <span>• 合规风控: risk_officer</span>
-                  <span>• 权责管理: duty_lead</span>
-                  <span>• 业务总监: rd_director</span>
-                  <span>• 业务执行: operator</span>
-                  <span>• 内审监督: auditor</span>
-                </div>
+                <span className="text-[#909399]">请使用管理员分配的账号</span>
               </div>
               <button
                 type="submit"
@@ -704,61 +692,6 @@ export default function App() {
                     <div className="text-[10.5px] text-[#2F7BFE] mt-0.5 truncate font-medium">
                       {currentUser.companyName || '苏州全元数字科技有限公司'}
                     </div>
-                  </div>
-                </div>
-                <div className="px-3 py-2 border-b border-[#F0F2F5] bg-[#f9fafc]">
-                  <div className="text-[10.5px] text-[#909399] font-medium mb-1.5 flex items-center justify-between">
-                    <span>标准角色初始化参考账号：</span>
-                    <span className="text-[9.5px] text-[#409eff]">责任人联动识别</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {[
-                      { name: '系统管理员', account: 'admin', role: '超级管理员', dept: '系统管理部' },
-                      { name: '流程管理员', account: 'flow_admin', role: '流程管理总监', dept: '流程管理部' },
-                      { name: '张三', account: 'zhangsan', role: '高级流程架构师', dept: '研发管理中心' },
-                      { name: '王合规', account: 'risk_officer', role: '合规风控总监', dept: '法律合规与内控部' },
-                      { name: '李权责', account: 'duty_lead', role: '权责核准主管', dept: '权责管理部' },
-                      { name: '赵业务', account: 'rd_director', role: '业务中心总监', dept: '市场营销中心' },
-                      { name: '孙执行', account: 'operator', role: '研发工程师', dept: '结构开发部' },
-                      { name: '钱审计', account: 'auditor', role: '高级内审专家', dept: '集团审计监察部' },
-                    ].map((acc) => (
-                      <button
-                        key={acc.account}
-                        onClick={async () => {
-                          try {
-                            const res = await fetch('/api/session', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ userId: acc.account }),
-                            });
-                            const body = await res.json();
-                            if (body.data) {
-                              setCurrentUser(body.data);
-                            }
-                          } catch {
-                            setCurrentUser((prev: any) => ({
-                              ...prev,
-                              userName: acc.name,
-                              nickName: acc.name,
-                              userId: acc.account,
-                              jobTitle: acc.role,
-                              deptName: acc.dept,
-                            }));
-                          }
-                          setUserDropdownOpen(false);
-                          showToast(`当前账号已切换为【${acc.name}】(${acc.role})`, 'info');
-                        }}
-                        className={`px-2 py-1 rounded text-[10px] border transition-colors cursor-pointer flex items-center justify-between w-[calc(50%-2px)] ${
-                          currentUser.userName === acc.name || currentUser.userId === acc.account
-                            ? 'bg-[#409eff] text-white border-[#409eff] font-medium'
-                            : 'bg-white text-[#606266] border-[#dcdfe6] hover:border-[#409eff] hover:text-[#409eff]'
-                        }`}
-                        title={`${acc.name} · ${acc.role} (${acc.dept})`}
-                      >
-                        <span className="truncate">{acc.name}</span>
-                        <span className="text-[9px] opacity-75">{acc.role.slice(0, 4)}</span>
-                      </button>
-                    ))}
                   </div>
                 </div>
                 <button
