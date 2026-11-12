@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Info,
   Lock,
+  User,
 } from 'lucide-react';
 import { MENU_ROUTES } from './config/menuRoutes';
 import { DashboardView } from './components/DashboardView';
@@ -93,6 +94,25 @@ export default function App() {
     deptName: '流程管理部',
     companyName: '苏州全元数字科技有限公司',
   });
+
+  const [userAvatar, setUserAvatar] = useState<string>(() => {
+    return localStorage.getItem('dflow_avatar_流程管理员') || localStorage.getItem('dflow_user_avatar') || '';
+  });
+
+  useEffect(() => {
+    const handleAvatarChange = (e: any) => {
+      if (e.detail?.avatar !== undefined) {
+        setUserAvatar(e.detail.avatar);
+      }
+    };
+    window.addEventListener('dflow_avatar_changed', handleAvatarChange);
+    return () => window.removeEventListener('dflow_avatar_changed', handleAvatarChange);
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`dflow_avatar_${currentUser.userName}`) || localStorage.getItem('dflow_user_avatar') || '';
+    setUserAvatar(saved);
+  }, [currentUser.userName]);
 
   useEffect(() => {
     if (token) {
@@ -325,7 +345,9 @@ export default function App() {
     if (currentPath === '/flowdoc/duty') return { parentTitle: '权责管控', childTitle: '权责建设' };
     if (currentPath === '/flowdoc/verify') return { parentTitle: '权责管控', childTitle: '权责审核' };
     if (currentPath.startsWith('/flowdoc/')) return { parentTitle: '权责管控', childTitle: '权责建设' };
+    if (currentPath === '/sysdoc/indexview') return { parentTitle: '风控合规', childTitle: '制度查阅' };
     if (currentPath.startsWith('/sysdoc/')) return { parentTitle: '风控合规', childTitle: '制度文件库' };
+    if (currentPath === '/risk/riskview') return { parentTitle: '风控合规', childTitle: '风险查阅' };
     if (currentPath.startsWith('/risk/')) return { parentTitle: '风控合规', childTitle: '风险合规库' };
     if (currentPath.startsWith('/task/')) return { parentTitle: '协同工作', childTitle: currentPath === '/task/learning' ? '流程培训' : '待办任务' };
     if (currentPath.startsWith('/org/')) return { parentTitle: '组织系统', childTitle: '部门组织' };
@@ -342,7 +364,7 @@ export default function App() {
             <div className="w-9 h-9 rounded bg-[#409eff] flex items-center justify-center font-bold text-lg">
               df
             </div>
-            <span className="text-lg font-semibold tracking-tight">全源流程管理平台 dflow</span>
+            <span className="text-lg font-semibold tracking-tight">全元流程管理平台 dflow</span>
           </div>
           <div className="space-y-4 max-w-md">
             <h1 className="text-3xl font-bold leading-tight">企业数字化流程架构设计与资产运营中心</h1>
@@ -354,7 +376,7 @@ export default function App() {
             </p>
           </div>
           <div className="text-xs text-[#909399]">
-            Copyright © 2026 全源数字科技版权所有
+            Copyright © 2026 全元数字科技版权所有
           </div>
         </div>
 
@@ -527,7 +549,7 @@ export default function App() {
                 <img src={systemLogo} alt="Logo" className="h-5 max-w-[50px] object-contain shrink-0" />
               ) : null}
               <span className="text-white font-bold text-[15px] tracking-wide truncate">
-                {systemDisplayName || '全源流程管理平台'}
+                {systemDisplayName || '全元流程管理平台'}
               </span>
             </div>
           )}
@@ -648,23 +670,40 @@ export default function App() {
               onClick={() => setUserDropdownOpen(!userDropdownOpen)}
               className="flex items-center gap-1.5 text-xs text-[#303133] hover:text-[#409eff] cursor-pointer py-1"
             >
-              <div className="w-6 h-6 rounded-full bg-[#2F7BFE] text-white flex items-center justify-center font-bold text-[11px]">
-                {(currentUser.userName || '流').slice(0, 1)}
-              </div>
+              {userAvatar ? (
+                <img
+                  src={userAvatar}
+                  alt={currentUser.userName}
+                  className="w-6 h-6 rounded-full object-cover border border-[#DCDFE6]"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-[#2F7BFE] text-white flex items-center justify-center font-bold text-[11px]">
+                  {(currentUser.userName || '流').slice(0, 1)}
+                </div>
+              )}
               <span className="font-medium">{currentUser.userName || '流程管理员'}</span>
               <ChevronDown className="w-3.5 h-3.5 text-[#909399]" />
             </button>
             {userDropdownOpen && (
               <div className="absolute right-0 top-10 w-72 bg-white rounded-lg border border-[#ebeef5] shadow-xl py-2 z-50 text-xs">
-                <div className="px-3 pb-2 mb-1 border-b border-[#F0F2F5]">
-                  <div className="font-bold text-sm text-[#303133]">
-                    {currentUser.userName || '流程管理员'}
+                <div className="px-3 pb-2 mb-1 border-b border-[#F0F2F5] flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-[#B3D8FF] flex items-center justify-center overflow-hidden shrink-0 text-white shadow-2xs">
+                    {userAvatar ? (
+                      <img src={userAvatar} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-5 h-5 fill-current text-white" />
+                    )}
                   </div>
-                  <div className="text-[11px] text-[#909399] mt-0.5">
-                    {currentUser.jobTitle || '经理'} · {currentUser.deptName || '流程管理部'}
-                  </div>
-                  <div className="text-[10.5px] text-[#2F7BFE] mt-0.5 truncate font-medium">
-                    {currentUser.companyName || '苏州全元数字科技有限公司'}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-sm text-[#303133] truncate">
+                      {currentUser.userName || '流程管理员'}
+                    </div>
+                    <div className="text-[11px] text-[#909399] mt-0.5 truncate">
+                      {currentUser.jobTitle || '经理'} · {currentUser.deptName || '流程管理部'}
+                    </div>
+                    <div className="text-[10.5px] text-[#2F7BFE] mt-0.5 truncate font-medium">
+                      {currentUser.companyName || '苏州全元数字科技有限公司'}
+                    </div>
                   </div>
                 </div>
                 <div className="px-3 py-2 border-b border-[#F0F2F5] bg-[#f9fafc]">
