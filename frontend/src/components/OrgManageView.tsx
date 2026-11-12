@@ -1402,8 +1402,8 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
       showToast('请输入用户昵称/真实姓名', 'warning');
       return;
     }
-    if (isCreate && (!data.password || data.password.length < 6)) {
-      showToast('初始密码长度至少需6位', 'warning');
+    if (isCreate && (!data.password || data.password.length < 6 || data.password.length > 32)) {
+      showToast('初始密码长度必须为6–32个字符', 'warning');
       return;
     }
 
@@ -1446,8 +1446,8 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
   const handleConfirmResetPwd = async () => {
     const { user, newPassword } = resetPwdModal;
     if (!user) return;
-    if (!newPassword || newPassword.trim().length < 6) {
-      showToast('重置密码长度不能少于6位', 'warning');
+    if (!newPassword || newPassword.length < 6 || newPassword.length > 32) {
+      showToast('重置密码长度必须为6–32个字符', 'warning');
       return;
     }
 
@@ -4497,7 +4497,9 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                           data: { ...prev.data, password: e.target.value },
                         }))
                       }
-                      placeholder="初始登录密码"
+                      placeholder="初始登录密码（6–32个字符）"
+                      minLength={6}
+                      maxLength={32}
                       className="w-full h-8 px-3 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none font-mono"
                     />
                   </div>
@@ -4767,7 +4769,9 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                     onChange={(e) =>
                       setResetPwdModal((prev) => ({ ...prev, newPassword: e.target.value }))
                     }
-                    placeholder="请输入新密码（至少6位）"
+                    placeholder="请输入新密码（6–32个字符）"
+                    minLength={6}
+                    maxLength={32}
                     className="w-full h-8 pl-3 pr-8 rounded border border-[#DCDFE6] focus:border-[#2F7BFE] focus:outline-none font-mono"
                   />
                   <button
