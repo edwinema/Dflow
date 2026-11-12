@@ -2,8 +2,8 @@
 import ts from 'typescript';
 import fs from 'node:fs';
 import path from 'node:path';
-const source = fs.readFileSync('../legacy/prototype/server.ts', 'utf8');
-const ast = ts.createSourceFile('../legacy/prototype/server.ts', source, ts.ScriptTarget.Latest, true);
+const source = fs.readFileSync('../server.ts', 'utf8');
+const ast = ts.createSourceFile('../server.ts', source, ts.ScriptTarget.Latest, true);
 const states = ['archTypes','flows','flowAuditRecords','flowRepealRecords','flowProcessTasks','dutyTables','dutyCategories','orgDepts','orgUsers','orgPositions','orgJobTitles','orgRoles','buildProcessRoles','roleCategoriesStore','flowTerms','flowTermCategories','formEngineSchemas','dutyManuals','dutyAuditTasks','systemApis','dictBundle','archRefsStore','flowRefsStore','companyAuthData'];
 const helpers = new Set(['buildDefaultFlowXml','recalculateManualCounts','findDutyItem','getCategoryRoleCount','syncCategoryCounts']);
 const excluded = p => p === '/api/session' || p.includes('/logout') || p.includes('/license/') || p.startsWith('/api/mining/') || (p.startsWith('/api/ai/') && p !== '/api/ai/flow-audit') || p === '/api/dict/doc/download' || p.endsWith('/publishVersionHistories') || p.endsWith('/reset');

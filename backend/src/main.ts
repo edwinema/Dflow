@@ -25,7 +25,8 @@ export class Errors implements ExceptionFilter {
     const status=error instanceof HttpException?error.getStatus():error.type==='entity.parse.failed'?400:error.type==='entity.too.large'?413:error instanceof ZodError||error instanceof TypeError?400:
       ['23505','23503','23514'].includes(error.code)?409:['55P03','57014'].includes(error.code)?503:500;
     if(status===500) Logger.error({requestId:req.headers['x-request-id'],message:error.message},undefined,'API');
-    const info=error instanceof HttpException?error.message:error instanceof ZodError?'请求参数格式错误':
+    const info=error instanceof HttpException?error.message:error instanceof ZodError?
+      (error.issues.some(issue=>issue.message==='密码长度必须为 12–256 个字符')?'密码长度必须为 12–256 个字符':'请求参数格式错误'):
       status===400?'请求参数类型错误':status===413?'请求体过大':status===409?'数据冲突或关联约束不满足':status===503?'数据库繁忙，请重试':'服务暂不可用';
     res.status(status).json({status:0,data:null,info,requestId:req.headers['x-request-id']});
   }
@@ -64,7 +65,7 @@ export class ApiController {
 export function openApi() {
   const original=JSON.parse(readFileSync('docs/routes.json','utf8'));
   const actor={id:'',userId:'',userName:'',nickName:'',roles:[]};
-  const all=[...original,...registry(emptyState(),actor).routes,{method:'POST',path:'/api/files'},{method:'POST',path:'/api/system/apis/debug'}];
+  const all=[...original,...registry(emptyState(),actor).routes,{method:'POST',path:'/api/files'},{method:'POST',path:'/api/system/apis/debug'},{method:'POST',path:'/api/system/models/test'}];
   return buildOpenApi(all);
 }
 

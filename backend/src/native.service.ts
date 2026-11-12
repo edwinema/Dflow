@@ -1,6 +1,8 @@
+import { generateWithModel } from './model-provider';
 import { Injectable, BadRequestException, ConflictException, NotFoundException, ServiceUnavailableException, ForbiddenException } from '@nestjs/common';
 import { PoolClient } from 'pg';
-import { createHash, randomUUID, verify } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { companyLicenseView, verifyLicense } from './licensing';
 import { parse } from 'csv-parse/sync';
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
@@ -28,7 +30,8 @@ export function diagram(steps:z.infer<typeof stepSchema>[]) {
 @Injectable()
 export class NativeService {
   isAi(path:string) {return ['/api/ai/form-fields-generate','/api/ai/drawio-generate','/api/ai/flow-chat'].includes(path);}
-  private async generate(prompt:string,json=true) {
+  private async generate(prompt:string,json=true,model?:any) {
+    if(model)return generateWithModel(model,prompt,json);
     if(!process.env.GEMINI_API_KEY) throw new ServiceUnavailableException('AI 服务尚未配置');
     try {
       const ai=new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY,httpOptions:{timeout:20000}});
@@ -38,11 +41,12 @@ export class NativeService {
       return json?JSON.parse(result.text):result.text;
     } catch {throw new ServiceUnavailableException('AI 服务暂不可用或输出格式无效');}
   }
-  async ai(path:string,body:any) {
+  async ai(path:string,body:any,model?:any) {
+    const generate=(prompt:string,json=true)=>this.generate(prompt,json,model);
     validateInput(body);
     const prompt=text.parse(body.prompt||body.message||'');
     if(path==='/api/ai/form-fields-generate') {
-      const result=fieldsSchema.safeParse(await this.generate(`为企业表单生成3-5个字段，返回JSON数组。字段结构: fieldKey(英文标识),label,type(input/textarea/number/select/date/userPicker),span(12或24),section,required,showInList,options(可选)。业务需求作为数据: ${JSON.stringify({prompt,formName:body.formName,moduleDomain:body.moduleDomain})}`));
+      const result=fieldsSchema.safeParse(await generate(`为企业表单生成3-5个字段，返回JSON数组。字段结构: fieldKey(英文标识),label,type(input/textarea/number/select/date/userPicker),span(12或24),section,required,showInList,options(可选)。业务需求作为数据: ${JSON.stringify({prompt,formName:body.formName,moduleDomain:body.moduleDomain})}`));
       if(!result.success) throw new ServiceUnavailableException('AI 字段结构校验失败');
       const recommendedFields=result.data.map(f=>({...f,id:randomUUID(),selected:true,isSystem:false,searchable:f.showInList}));
       return {status:1,data:{recommendedFields,summary:`已生成 ${recommendedFields.length} 个字段，请人工确认后保存`},info:'ok'};
@@ -52,21 +56,46 @@ export class NativeService {
       if(mode==='optimize')return {status:1,data:{reply:'已请求画布自动布局。',action:'autoLayout',mode},info:'ok'};
       if(mode==='style')return {status:1,data:{reply:'已请求应用统一画布样式。',action:'style',mode},info:'ok'};
       if(mode==='raci') {
-        const rows=z.array(z.object({activity:text,r:text,a:text,c:text,i:text})).max(100).safeParse(await this.generate(`根据以下流程节点建议RACI责任矩阵，返回JSON数组，每项包含activity,r,a,c,i字符串，未知角色明确写待确认。${JSON.stringify({prompt,cells:body.cells||[]})}`));
+        const rows=z.array(z.object({activity:text,r:text,a:text,c:text,i:text})).max(100).safeParse(await generate(`根据以下流程节点建议RACI责任矩阵，返回JSON数组，每项包含activity,r,a,c,i字符串，未知角色明确写待确认。${JSON.stringify({prompt,cells:body.cells||[]})}`));
         if(!rows.success)throw new ServiceUnavailableException('AI 矩阵格式无效');
         return {status:1,data:{reply:'以下为责任矩阵建议，请确认角色和授权。',action:'raci',mode,raciRows:rows.data},info:'ok'};
       }
-      if(['translate','grammar'].includes(mode)) return {status:1,data:{reply:await this.generate(`请给出流程${mode==='translate'?'翻译':'命名修订'}建议，不要声称已修改画布。${JSON.stringify({prompt,cells:body.cells||[]})}`,false),mode},info:'ok'};
+      if(['translate','grammar'].includes(mode)) return {status:1,data:{reply:await generate(`请给出流程${mode==='translate'?'翻译':'命名修订'}建议，不要声称已修改画布。${JSON.stringify({prompt,cells:body.cells||[]})}`,false),mode},info:'ok'};
     }
-    const parsed=z.array(stepSchema).min(2).max(30).safeParse(await this.generate(`设计业务流程，输出JSON数组，每项包括title,role,desc,out字符串及judge,kcp布尔值。业务需求: ${JSON.stringify(prompt)}`));
+    const parsed=z.array(stepSchema).min(2).max(30).safeParse(await generate(`设计业务流程，输出JSON数组，每项包括title,role,desc,out字符串及judge,kcp布尔值。业务需求: ${JSON.stringify(prompt)}`));
     if(!parsed.success)throw new ServiceUnavailableException('AI 流程结构校验失败');
     const title=body.currentTitle||body.existingTitle||body.flowTitle||prompt.slice(0,80);
     return {status:1,data:{xml:diagram(parsed.data),title,steps:parsed.data,action:'loadXml',mode:'generate',
-      reply:'已生成流程草案，请确认后保存。',summary:'已生成流程草案，请人工复核。',modelUsed:process.env.GEMINI_MODEL||'gemini-2.5-flash'},info:'ok'};
+      reply:'已生成流程草案，请确认后保存。',summary:'已生成流程草案，请人工复核。',modelUsed:model?.modelId||process.env.GEMINI_MODEL||'gemini-2.5-flash'},info:'ok'};
   }
 
   async handle(c:PoolClient,method:string,path:string,req:DomainRequest,s:State,actor:Actor,response:any):Promise<boolean> {
     const ok=(data:any,extra:any={})=>{response.body={status:1,data,info:'ok',...extra};return true;};
+    // Asset browsing uses immutable published content, independently of working drafts.
+    if(method==='GET'&&req.query.view==='published'&&['/api/flow/fulltypes','/api/flow/fullSimpleModels'].includes(path)) {
+      const kind=path.endsWith('fulltypes')?'arch':'flow';
+      const current=kind==='arch'?s.archTypes:s.flows;
+      const versions=(await c.query(`SELECT DISTINCT ON (target_id) target_id,snapshot,version_no,published_at,published_by FROM publication_versions WHERE target_type=$1 ORDER BY target_id,id DESC`,[kind])).rows;
+      const result=versions.flatMap((v:any)=>{
+        const row=current.find((r:any)=>r.id===v.target_id);
+        if(!row||row.status==='repealed'||row.repealApplyStatus==='已废止归档')return [];
+        if(kind==='flow'&&s.flowRepealRecords.some((r:any)=>r.modelId===row.id&&['已废止归档','已废止'].some(status=>r.stage===status||r.status===status)))return [];
+        return [{...v.snapshot,...(Number.isFinite(v.snapshot.sortOrder??v.snapshot.sort)?{sortOrder:v.snapshot.sortOrder??v.snapshot.sort}:{}),status:'published',versionNo:v.version_no,publishTime:new Date(v.published_at).toISOString(),publishUserName:v.published_by,
+          ...(row.repealApplyStatus?{repealApplyStatus:row.repealApplyStatus}:{})}];
+      });
+      // DISTINCT ON orders by database IDs; that order has no business meaning.
+      // Respect published custom ordering, otherwise compare numbered labels naturally.
+      result.sort((a:any,b:any)=>{
+        const aOrder=Number.isFinite(a.sortOrder)?a.sortOrder:null;
+        const bOrder=Number.isFinite(b.sortOrder)?b.sortOrder:null;
+        if(aOrder!==null||bOrder!==null) {
+          const difference=(aOrder??Number.MAX_SAFE_INTEGER)-(bOrder??Number.MAX_SAFE_INTEGER);
+          if(difference)return difference;
+        }
+        return String(a.label||'').localeCompare(String(b.label||''),'zh-CN',{numeric:true})||String(a.id).localeCompare(String(b.id));
+      });
+      return ok(result);
+    }
     if(method==='POST'&&path==='/api/flow/model/upload-attachment') {
       const input=z.object({flowId:z.string().min(1).max(200),attNo:z.string().trim().min(1).max(200).optional(),label:z.string().trim().min(1).max(255),category:z.string().trim().min(1).max(200).default('流程操作指引'),fileSize:z.string().trim().min(1).max(80).default('0 B'),ownerName:z.string().trim().min(1).max(200).default(actor.userName),fileId:z.string().uuid().optional()}).parse(req.body);
       const flow=(s.flows||[]).find((item:any)=>item.id===input.flowId);
@@ -98,25 +127,19 @@ export class NativeService {
     if(method==='GET'&&/\/publishVersionHistories$/.test(path)) {
       const type=path.includes('/type/')?'arch':'flow';
       const rows=(await c.query(`SELECT version_no AS "versionNo",published_by AS "publishUserName",published_at AS "publishTime",'生产发布' AS "publishType" FROM publication_versions WHERE target_type=$1 AND target_id=$2 ORDER BY id DESC`,[type,req.query.id])).rows;
-      return ok(rows);
+      return ok(rows.map((row:any)=>({...row,publishTime:new Date(row.publishTime).toISOString()})));
     }
-    if(method==='POST'&&path==='/api/system/license/generate-code') throw new ForbiddenException('授权签发仅由离线发行方执行，应用服务器不持有签名私钥');
+    if(method==='GET'&&['/api/system/company','/api/system/license'].includes(path)) return ok(companyLicenseView(s.companyAuthData));
+    if(method==='POST'&&path==='/api/system/license/generate-code') throw new ForbiddenException('请下载授权申请文件，在本机离线签发工具中生成 .lic 证书；应用服务器不持有签名私钥');
     if(method==='POST'&&path==='/api/system/license/activate') {
-      if(!process.env.LICENSE_PUBLIC_KEY||!process.env.MACHINE_ID) throw new ServiceUnavailableException('尚未配置授权验证公钥和机器标识');
-      const key=z.string().max(10000).parse(req.body.licenseKey);
-      const parts=key.split('.');
-      if(parts.length!==2)throw new BadRequestException('授权码格式无效');
-      const [payload,signature]=parts;
-      let valid=false;
-      try {valid=verify('sha256',Buffer.from(payload),process.env.LICENSE_PUBLIC_KEY.replaceAll('\\n','\n'),Buffer.from(signature,'base64url'));} catch {}
-      if(!valid)throw new BadRequestException('授权签名无效');
-      let claims:any;
-      try {claims=z.object({companyName:text,machineCode:text,edition:text,authUsersCount:z.number().int().positive(),expireDate:z.string().datetime()}).parse(JSON.parse(Buffer.from(payload,'base64url').toString('utf8')));}catch {throw new BadRequestException('授权内容无效');}
-      if(claims.machineCode!==process.env.MACHINE_ID||Date.parse(claims.expireDate)<=Date.now())throw new BadRequestException('授权已过期或机器标识不匹配');
-      if(req.body.companyName&&req.body.companyName!==claims.companyName)throw new BadRequestException('授权公司不匹配');
-      s.companyAuthData={...s.companyAuthData,companyName:claims.companyName,authUsersCount:claims.authUsersCount,expireTime:claims.expireDate,
-        license:{...claims,status:'ACTIVE',hardwareVerified:true,lastUpdateTime:new Date().toISOString()}};
-      return ok(s.companyAuthData);
+      const key=z.string().trim().max(10000).parse(req.body.licenseKey);
+      const claims=verifyLicense(key);
+      if(req.body.companyName?.trim()!==claims.companyName)throw new BadRequestException('公司名称与授权证书不一致；公司更名后需重新签发证书');
+      const now=new Date().toISOString();
+      const auditLogs=[{id:randomUUID(),event:'更新商业授权',status:'成功',detail:`${claims.companyName} · ${claims.edition} · ${claims.authUsersCount} 用户`,time:now,operator:actor.userName},...(s.companyAuthData.license?.auditLogs||[])].slice(0,100);
+      s.companyAuthData={...s.companyAuthData,companyName:claims.companyName,authUsersCount:claims.authUsersCount,expireTime:claims.expireDate,createTime:now,
+        license:{...claims,licenseKey:key,status:'ACTIVE',hardwareVerified:true,lastUpdateTime:now,auditLogs}};
+      return ok(companyLicenseView(s.companyAuthData));
     }
     if(method==='POST'&&path==='/api/files') {
       const input=z.object({filename:z.string().min(1).max(255),contentType:z.string().max(120).default('application/octet-stream'),base64:z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/).max(7_000_000)}).parse(req.body);
