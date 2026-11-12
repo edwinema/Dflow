@@ -543,3 +543,31 @@ test('editing a scheduled flow cancels the pending publication instead of publis
   const result=(await request('GET','/api/flow/model/full',{}, {id:flow.id})).body.data;
   assert.equal(result.status,'draft');assert.equal(result.scheduledTime,undefined);
 });
+
+test('training persists revisions, isolates progress, grades on server and requires independent review',async()=>{
+  const learner={id:'tr_learn',userId:'tr_learn',userName:'学员',nickName:'学员',roles:['viewer']};
+  const peer={id:'tr_peer',userId:'tr_peer',userName:'复核人',nickName:'复核人',roles:['viewer']};
+  const outsider={id:'tr_out',userId:'tr_out',userName:'其他人',nickName:'其他人',roles:['viewer']};
+  await db.transaction(true,async client=>{const before=await db.load(client),s=structuredClone(before);
+    s.orgUsers.push(...[learner,peer,outsider].map(a=>({id:a.id,userName:a.userId,nickName:a.nickName,status:'0',deptName:a===outsider?'其他部':'学习部',accessRoles:['viewer']})));
+    s.flows.push({id:'tr_flow',parentId:'arch_root',label:'培训依据',status:'published',versionNo:'V1',xml:'<mxfile/>',flowNo:'TRAIN-01',publishTime:'2026-11-12',publishUserName:'管理员'});await db.save(client,before,s);
+  });
+  const payload={title:'流程实操课程',flowId:'tr_flow',importance:'必修',targetDepts:['学习部'],deadlineDays:30,sections:[{id:'s1',title:'准入要求',content:'必须核对申请材料。',time:'5分钟'}],questions:[{id:'q1',type:'choice',question:'材料缺失怎么办？',options:['补齐','跳过'],correctIndex:0,explanation:'准入要求',relatedNode:'准入节点'}],passingScore:80,practicalTask:{taskName:'填写申请',requirement:'提交填写结果',reviewer:peer.id}};
+  const course=(await request('POST','/api/training/courses',payload)).body.data,url=`/api/training/courses/${course.id}`;
+  assert.equal(course.sections[0].content,payload.sections[0].content);assert.equal(course.approvedVersion.versionNo,'V1');
+  const list=async actor=>(await request('GET','/api/training/courses',{}, {},actor)).body.data.courses.find(c=>c.id===course.id);
+  assert.equal(await list(outsider),undefined);await status(request('POST',url+'/exam',{answers:{q1:0},revision:1}, {},outsider),403);
+  await status(request('POST','/api/training/courses',payload,{},learner),403);
+  await status(request('POST',url+'/exam',{answers:{q1:0},score:100,revision:1},{},learner),400);
+  await request('POST',url+'/sections/s1/complete',{revision:1}, {},learner);
+  assert.equal((await list(learner)).myRecord.readStatus,'read');assert.notEqual((await list(learner)).status,'completed');assert.equal((await list(peer)).progress,0);
+  await status(request('POST',url+'/exam',{answers:{},revision:1},{},learner),400);
+  const failed=(await request('POST',url+'/exam',{answers:{q1:1},score:100,revision:1},{},learner)).body.data;assert.equal(failed.score,0);assert.equal(failed.passed,false);
+  await request('POST',url+'/exam',{answers:{q1:0},revision:1},{},learner);
+  await request('POST',url+'/practical',{evidence:'申请单 TEST-1，字段齐全',revision:1},{},learner);
+  await status(request('POST',url+`/records/${learner.id}/confirm`,{revision:1},{},learner),403);
+  await request('POST',url+`/records/${learner.id}/confirm`,{revision:1},{},peer);assert.equal((await list(learner)).status,'completed');
+  const updated=(await request('PUT',url,{...payload,revision:course.revision,title:'更新课程'})).body.data;assert.equal(updated.revision,2);assert.equal(updated.progress,0);
+  await status(request('PUT',url,{...payload,revision:1}),409);await request('DELETE',url);assert.equal(await list(learner),undefined);
+  await db.transaction(false,async client=>assert.ok((await db.load(client)).dictBundle.trainingRecords.some(r=>r.courseId===course.id&&r.practiceConfirmed)));
+});
