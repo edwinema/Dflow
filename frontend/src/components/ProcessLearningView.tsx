@@ -967,7 +967,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                       <CheckCircle2 className="w-10 h-10 text-[#52c41a] mx-auto" />
                       <div className="font-bold text-base text-[#135200]">恭喜！您已全面达成【{currentStudioCourse.title}】掌握要求！</div>
                       <p className="text-xs text-[#237804]">
-                        已完成流程原文研读、掌握岗位操作指引、情景案例练习及考核达标验证，已纳入个人岗位胜任力履历。
+                        已完成本课程配置的阅读、考核及实操要求，学习记录已保存。
                       </p>
                     </div>
                   )}
@@ -996,14 +996,14 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                     </span>
                   </div>
                   <p className="text-[#909399] text-xs mt-0.5">
-                    当前学员：{currentUser?.userName || '系统员工'} · 归属：{currentUser?.deptName || '研发管理中心'} · 三态掌握标准：已阅读 ＋ 考核通过 ＋ 实操确认
+                    当前学员：{currentUser?.userName || '系统员工'} · 归属：{currentUser?.deptName || '未设置部门'} · 三态掌握标准：已阅读 ＋ 考核通过 ＋ 实操确认
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <div className="text-[11px] text-[#909399]">全员掌握达标率</div>
+                  <div className="text-[11px] text-[#909399]">个人课程完成率</div>
                   <div className="text-lg font-bold font-mono text-[#2f54eb]">
                     {Math.round((stats.completed / (stats.total || 1)) * 100)}%
                   </div>
@@ -1724,7 +1724,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
                         <CheckCircle2 className="w-3.5 h-3.5 text-[#52c41a]" />
                         <span>挂接正式批准的流程基线版本</span>
                       </span>
-                      <span className="text-[11px] text-[#2f54eb]">流程更新后可一键同步通知受众补学</span>
+                      <span className="text-[11px] text-[#2f54eb]">课程保存绑定时的发布版本，更新内容后需重新学习</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
