@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   GraduationCap,
   BookOpen,
@@ -48,6 +48,14 @@ import {
   Info,
 } from 'lucide-react';
 
+import { DrawioBridge } from '../utils/drawioBridge';
+
+function FrozenTrainingFlow({xml}:{xml:string}) {
+  const frame=useRef<HTMLIFrameElement>(null);
+  useEffect(()=>{const bridge=new DrawioBridge({onReady:()=>bridge.loadXml(xml,'课程绑定流程版本')});bridge.attachIframe(frame.current);return ()=>bridge.destroy();},[xml]);
+  return <iframe ref={frame} title="课程绑定版本流程图" src="/drawio/index.html?embed=1&proto=json&ui=min&lang=zh&dflowReadOnly=1&modified=0" className="w-full h-[440px] border rounded"/>;
+}
+
 interface ProcessLearningViewProps {
   currentUser?: any;
   onNavigate?: (path: string, flowId?: string) => void;
@@ -87,6 +95,8 @@ export interface PracticeQuestion {
 // 学员学情与掌握记录
 export interface StudentRecord {
   id: string;
+  userId?: string;
+  evidence?: string;
   name: string;
   empNo: string;
   deptName: string;
@@ -102,6 +112,9 @@ export interface StudentRecord {
 
 export interface CourseItem {
   id: string;
+  revision?: number;
+  canReview?: boolean;
+  myRecord?: any;
   flowId: string;
   flowCode: string;
   title: string;
@@ -127,13 +140,14 @@ export interface CourseItem {
     approver: string;
     changeSummary: string;
     docRef: string;
+    xml?: string;
   };
 
   // 2. 学习目标 (3-5条能力要求)
   learningObjectives: string[];
 
   // 3. 章节大纲
-  sections: { title: string; time: string; completed: boolean; type?: string }[];
+  sections: { id: string; title: string; time: string; completed: boolean; type?: string; content?: string }[];
 
   // 4. “我的岗位怎么做”岗位操作指引矩阵
   rolePlaybooks: RolePlaybook[];
@@ -1179,7 +1193,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
   }, [currentCourse.questions, questionFilterType]);
 
   return (
-    <div className="h-full flex flex-col bg-[#f8fafc] text-xs">
+    <div className="h-full flex flex-col bg-[#f8fafc] text-xs">{loading&&<p className="p-4">正在加载课程…</p>}{loadError&&<div className="p-4 text-red-600">{loadError}<button onClick={()=>void loadCourses()}>重新加载</button></div>}{reading&&(()=>{const c=courses.find(c=>c.id===reading.courseId),sec=c?.sections.find(s=>s.id===reading.sectionId);return c&&sec?<div role="dialog" aria-label="章节阅读" className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-8"><div className="bg-white rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-auto space-y-4"><h2 className="text-lg font-bold">{sec.title}</h2><div className="whitespace-pre-wrap text-sm leading-8">{sec.content||'本章节尚未编写内容，请联系课程负责人。'}</div><div className="flex gap-3 justify-end"><button onClick={()=>setReading(null)}>关闭</button><button disabled={!sec.content?.trim()} onClick={()=>void completeSection(c,sec.id)} className="bg-blue-600 disabled:opacity-40 text-white px-4 py-2 rounded">已阅读，记录学习完成</button></div></div></div>:null;})()}
       {/* ========================================================================= */}
       {/* 模式 A：课程详情页 (4个页签：基本设置、课程内容、练习与考核、学习记录) */}
       {/* ========================================================================= */}
@@ -2246,7 +2260,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
 
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <div className="text-[11px] text-[#909399]">全员掌握达标率</div>
+                  <div className="text-[11px] text-[#909399]">个人课程完成率</div>
                   <div className="text-lg font-bold font-mono text-[#2f54eb]">
                     {Math.round((stats.completed / (stats.total || 1)) * 100)}%
                   </div>
@@ -2269,7 +2283,7 @@ export const ProcessLearningView: React.FC<ProcessLearningViewProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setManageModalOpen(true)}
+                  disabled={!canManage} hidden={!canManage} onClick={() => setManageModalOpen(true)}
                   className="h-8 px-3.5 rounded-lg border border-[#adc6ff] bg-[#f0f5ff] hover:bg-[#2f54eb] text-[#2f54eb] hover:text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                   title="管理课程大纲、编辑必修/选修属性与时限"
                 >
