@@ -17,7 +17,7 @@ export const settings = ['dictBundle', 'archRefsStore', 'flowRefsStore', 'compan
 export function emptyState(): State {
   return {
     ...Object.fromEntries(Object.keys(collections).map(k => [k, []])),
-    dictBundle: { sysDoc: [], risk: [], sysDocTree: [], riskTree: [], flowRole: [], system: [], flowType: [], user: [], dept: [], execSystem: [], position: [], attachments: [], terms: [] },
+    dictBundle: { sysDoc: [], risk: [], sysDocTree: [{id:'doc_dir_root',parentId:'',label:'制度文件库',code:'ZD-ROOT'}], riskTree: [{id:'risk_dir_root',parentId:'',label:'风险合规库',code:'RSK-ROOT'}], flowRole: [], system: [], flowType: [], user: [], dept: [], execSystem: [], position: [], attachments: [], terms: [] },
     archRefsStore: {}, flowRefsStore: {}, companyAuthData: { companyName: '', license: { status: 'INACTIVE' } },
   };
 }

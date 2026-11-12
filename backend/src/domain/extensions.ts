@@ -23,17 +23,25 @@ export function registerExtensions(app: Registry, s: State, actor: Actor) {
     const {treeType,action,id,parentId,label}=req.body;
     if(!['sysDoc','risk'].includes(treeType))throw new BadRequestException('目录类型无效');
     const list=s.dictBundle[treeType==='risk'?'riskTree':'sysDocTree'];
+    if (!Array.isArray(list)) throw new ConflictException('目录数据格式无效，请联系管理员');
+    if (['create','rename','update'].includes(action) && (typeof label!=='string'||!label.trim()||label.trim().length>255)) throw new BadRequestException('目录名称须为1–255个字符');
     const target=list.find((r:any)=>r.id===id);
     let row:any;
     if(action==='create') {
       if(typeof label!=='string'||!label.trim())throw new BadRequestException('目录名称不能为空');
       if(parentId&&!list.some((r:any)=>r.id===parentId))throw new NotFoundException('父目录不存在');
-      row={id:randomUUID(),parentId:parentId||'',label:label.trim()};list.push(row);
+      const parent=parentId||list.find((r:any)=>!r.parentId)?.id||'';
+      if(list.some((r:any)=>r.parentId===parent&&r.label.toLowerCase()===label.trim().toLowerCase())) throw new ConflictException('同级目录名称已存在');
+      row={id:randomUUID(),parentId:parent,label:label.trim()};list.push(row);
     } else {
       if(!target)throw new NotFoundException('目录不存在');
-      if(action==='rename'||action==='update') {if(typeof label!=='string'||!label.trim())throw new BadRequestException('目录名称不能为空');target.label=label.trim();row=target;}
+      if(action==='rename'||action==='update') {
+        if(list.some((r:any)=>r.id!==id&&r.parentId===target.parentId&&r.label.toLowerCase()===label.trim().toLowerCase())) throw new ConflictException('同级目录名称已存在');
+        target.label=label.trim();row=target;
+      }
       else if(action==='delete') {
-        if(list.some((r:any)=>r.parentId===id)||s.dictBundle[treeType].some((r:any)=>r.classId===id||r.categoryId===id))throw new ConflictException('目录非空');
+        if(!target.parentId)throw new ConflictException('根目录不能删除，可通过重命名修改名称');
+        if(list.some((r:any)=>r.parentId===id)||s.dictBundle[treeType].some((r:any)=>r.folderId===id||r.classId===id||r.categoryId===id))throw new ConflictException('目录非空');
         list.splice(list.indexOf(target),1);row=target;
       } else throw new BadRequestException('目录动作无效');
     }
