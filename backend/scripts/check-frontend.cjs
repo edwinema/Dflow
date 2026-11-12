@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),ts=require('typescript');
 const {registry,match}=require('../dist/domain/domain.service');
 const {emptyState}=require('../dist/domain/state');
 const routes=registry(emptyState(),{id:'',userId:'',userName:'',nickName:'',roles:[]}).routes;
-const native=new Set(["POST /api/session", "GET /api/session", "POST /api/app/site/logout", "GET /api/openapi.json", "GET /api/dict/doc/download", "POST /api/system/license/generate-code", "POST /api/system/license/activate", "GET /api/flow/type/publishVersionHistories", "GET /api/flow/model/publishVersionHistories", "POST /api/ai/form-fields-generate", "POST /api/ai/drawio-generate", "POST /api/ai/flow-chat", "GET /api/mining/overview", "POST /api/mining/switch-dataset", "POST /api/mining/extract", "POST /api/mining/import-logs", "POST /api/mining/ai-diagnose", "POST /api/system/models/test", "POST /api/system/apis/debug", "POST /api/files"]);
+const native=new Set(["POST /api/session", "GET /api/session", "POST /api/app/site/logout", "GET /api/openapi.json", "GET /api/dict/doc/download", "GET /api/dict/doc/preview", "POST /api/system/license/generate-code", "POST /api/system/license/activate", "GET /api/flow/type/publishVersionHistories", "GET /api/flow/model/publishVersionHistories", "POST /api/ai/form-fields-generate", "POST /api/ai/drawio-generate", "POST /api/ai/flow-chat", "GET /api/mining/overview", "POST /api/mining/switch-dataset", "POST /api/mining/extract", "POST /api/mining/import-logs", "POST /api/mining/ai-diagnose", "POST /api/system/models/test", "POST /api/system/apis/debug", "POST /api/files"]);
 const result={checked:[],unresolved:[],missing:[]};
 function scan(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true})){
  const file=path.join(dir,item.name);if(item.isDirectory()){scan(file);continue;}if(!/\.tsx?$/.test(file))continue;
@@ -25,10 +25,10 @@ function scan(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true})){
   }
   return ['PARAM'];
  }
- function walk(n){if(ts.isCallExpression(n)&&['fetch','safeFetchJson'].includes(n.expression.getText(tree))){
+ function walk(n){if(ts.isCallExpression(n)&&['fetch','safeFetchJson','templateRequest'].includes(n.expression.getText(tree))){
   // Resolve wrapper call sites, rather than counting its generic fetch(url, options).
-  if(n.expression.getText(tree)==='fetch'&&path.basename(file)==='safeFetch.ts')return;
-  let methods=['GET'];const options=n.arguments[1];
+  if(n.expression.getText(tree)==='fetch'&&(path.basename(file)==='safeFetch.ts'||path.basename(file)==='DocumentTemplateTools.tsx'))return;
+  let methods=n.expression.getText(tree)==='templateRequest'&&n.arguments[1]?resolve(n.arguments[1]):['GET'];const options=n.arguments[1];
   if(options&&ts.isObjectLiteralExpression(options)){
    const prop=options.properties.find(p=>p.name?.getText(tree)==='method');
    if(prop)methods=resolve(prop.initializer||prop.name);

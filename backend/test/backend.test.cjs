@@ -109,6 +109,25 @@ test('idempotency replays safely and rejects key reuse with different body',asyn
   const b=await request('POST','/api/flow/model',body,{},admin,headers);assert.equal(a.body.data.id,b.body.data.id);
   await status(request('POST','/api/flow/model',{...body,label:'changed'},{},admin,headers),409);
 });
+test('editable document templates persist, render company fields and snapshot independently of later revisions',async()=>{
+  const builtin=(await request('GET','/api/dict/document-templates')).body.data[0];
+  const created=(await request('POST','/api/dict/document-templates',{name:'公司制度模板',content:{...builtin.content,headerTitle:'{{companyName}}文件',body:'第一章\n真实自定义正文 <script>alert(1)</script>',signatory:'签发部门'}})).body.data;
+  await db.transaction(true,async c=>{const before=await db.load(c),state=structuredClone(before);state.companyAuthData.companyName='模板测试公司';await db.save(c,before,state);});
+  const snapshot=(await request('POST',`/api/dict/document-templates/${created.id}/apply`,{docNo:'ZD-CUSTOM',title:'模板制度'})).body.data;
+  assert.equal(snapshot.documentContent.headerTitle,'模板测试公司文件');assert.equal(snapshot.documentContent.officialNo,'ZD-CUSTOM');
+  assert.equal(snapshot.documentContent.title,'模板制度');assert.ok(snapshot.documentContent.body.includes('<script>'));
+  const item=(await request('POST','/api/dict/item',{itemType:'sysDoc',action:'create',item:{label:'模板制度',...snapshot}})).body.data;
+  const updated=(await request('PUT',`/api/dict/document-templates/${created.id}`,{name:created.name,revision:created.revision,content:{...created.content,body:'第二版模板正文'}})).body.data;
+  assert.equal(updated.revision,2);
+  await status(request('PUT',`/api/dict/document-templates/${created.id}`,{name:created.name,revision:1,content:created.content}),409);
+  const restarted=new DomainService(db,new NativeService());
+  const result=await restarted.dispatch({method:'GET',path:'/api/dict/bundle',body:{},query:{},headers:{}},admin);
+  assert.equal(result.body.data.sysDoc.find(row=>row.id===item.id).documentContent.body,snapshot.documentContent.body);
+  await request('POST','/api/dict/item',{itemType:'sysDoc',action:'update',item:{...item,documentContent:{...snapshot.documentContent,body:'该文件单独修改后的正文'}}});
+  assert.equal((await request('GET','/api/dict/bundle')).body.data.sysDoc.find(row=>row.id===item.id).documentContent.body,'该文件单独修改后的正文');
+  await status(request('POST','/api/dict/document-templates',{name:'越权模板',content:builtin.content},{},{...admin,roles:['viewer']}),403);
+  await status(request('POST','/api/dict/document-templates',{name:'坏样式',content:{...builtin.content,headerColor:'url(javascript:alert(1))'}}),400);
+});
 test('document catalog roots support persisted child creation and rename with safe deletion',async()=>{
   for(const treeType of ['sysDoc','risk']) {
     const treeKey=treeType+'Tree';

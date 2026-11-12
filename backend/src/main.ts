@@ -65,7 +65,7 @@ export class ApiController {
 export function openApi() {
   const original=JSON.parse(readFileSync('docs/routes.json','utf8'));
   const actor={id:'',userId:'',userName:'',nickName:'',roles:[]};
-  const all=[...original,...registry(emptyState(),actor).routes,{method:'POST',path:'/api/files'},{method:'POST',path:'/api/system/apis/debug'},{method:'POST',path:'/api/system/models/test'}];
+  const all=[...original,...registry(emptyState(),actor).routes,{method:'POST',path:'/api/files'},{method:'GET',path:'/api/dict/doc/preview'},{method:'POST',path:'/api/system/apis/debug'},{method:'POST',path:'/api/system/models/test'}];
   return buildOpenApi(all);
 }
 

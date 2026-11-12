@@ -1,3 +1,4 @@
+import {DocumentTemplateManager,DocumentContentEditor,emptyDocumentContent,templateRequest} from './DocumentTemplateTools';
 import { uploadFile } from '../utils/uploadFile';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PersonSelectField } from './PersonSelectField';
@@ -787,6 +788,16 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
     onRefreshDict();
   };
 
+  const [templateManagerOpen,setTemplateManagerOpen]=useState(false);
+  const [documentTemplates,setDocumentTemplates]=useState<any[]>([]);
+  const [applyingTemplate,setApplyingTemplate]=useState(false);
+  useEffect(()=>{if(!isRisk)templateRequest('/api/dict/document-templates').then(setDocumentTemplates).catch(error=>showToast(error.message,'error'));},[isRisk,templateManagerOpen]);
+  const applyDocumentTemplate=async(id:string)=>{
+    if(!id||applyingTemplate)return;
+    setApplyingTemplate(true);
+    try {const snapshot=await templateRequest(`/api/dict/document-templates/${id}/apply`,'POST',{docNo:itemModal.form.docNo,referenceNo:itemModal.form.referenceNo||itemModal.form.docOfficialNo,title:itemModal.form.label,versionNo:itemModal.form.versionNo,ownerName:itemModal.form.ownerName});setItemModal(prev=>({...prev,form:{...prev.form,...snapshot}}));showToast('模板已应用，可修改红头和正文后保存','success');}
+    catch(error){showToast(error instanceof Error?error.message:'模板应用失败','error');}finally{setApplyingTemplate(false);}
+  };
   const [previewItem, setPreviewItem] = useState<any | null>(null);
   const [previewDetailMaximized, setPreviewDetailMaximized] = useState(false);
   const [onlinePreviewDoc, setOnlinePreviewDoc] = useState<any | null>(null);
@@ -1061,6 +1072,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
         f.validityPeriod = autoPeriod;
       }
     }
+    if(f.documentContent&&!f.fileId)f.fileSize=`${new TextEncoder().encode(JSON.stringify(f.documentContent)).length} B`;
     const categoryPath = buildFolderPath(tree, f.folderId || '');
     try {
     const response=await fetch('/api/dict/item', {
@@ -2051,6 +2063,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
                 </div>
               ) : (
                 <>
+                  {!isRisk&&!isReadOnly&&<button type="button" onClick={()=>setTemplateManagerOpen(true)} className="h-8 px-3 rounded border border-[#B3D8FF] bg-[#ECF5FF] text-[#409EFF] text-xs font-medium">自定义模板</button>}
                   <button
                     type="button"
                     onClick={() => onNavigate?.('/system/column', isRisk ? 'form_flowdoc' : 'form_sysdoc')}
@@ -2716,6 +2729,12 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
               </button>
             </div>
             <div className="p-5 space-y-3.5 text-xs overflow-y-auto flex-1 min-h-0">
+              {!isRisk&&<section className="p-4 border border-blue-200 rounded bg-blue-50/40 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-sm">制度模板与正文</h3><button type="button" className="text-blue-600" onClick={()=>setTemplateManagerOpen(true)}>管理自定义模板</button></div>
+                <p className="text-gray-500">填写文件名称后选用模板，可修改红头和全部正文。重新应用模板会替换当前正文。</p>
+                <div className="flex flex-wrap gap-2"><select aria-label="选用制度模板" disabled={applyingTemplate} className="border rounded bg-white p-2 flex-1" value="" onChange={e=>applyDocumentTemplate(e.target.value)}><option value="">{applyingTemplate?'正在应用…':'选择并应用模板'}</option>{documentTemplates.map(template=><option key={template.id} value={template.id}>{template.name}</option>)}</select><button type="button" className="text-blue-600 border rounded px-3 bg-white" onClick={()=>setItemModal(prev=>({...prev,form:{...prev.form,documentContent:{...emptyDocumentContent,title:prev.form.label||''}}}))}>空白正文</button></div>
+                {itemModal.form.documentContent&&<><DocumentContentEditor value={itemModal.form.documentContent} onChange={documentContent=>setItemModal(prev=>({...prev,form:{...prev.form,documentContent}}))}/><button type="button" className="border rounded px-3 py-2 bg-white text-blue-600" onClick={()=>setOnlinePreviewDoc({...itemModal.form})}>预览当前正文</button></>}
+              </section>}
               {!isRisk&&<label className="block text-[#606266]">制度原文件（最多5MB）
                 <input type="file" className="block mt-2" onChange={async e=>{
                   const file=e.target.files?.[0];if(!file)return;
@@ -3187,6 +3206,8 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
           </div>
         </div>
       )}
+
+      {templateManagerOpen && <DocumentTemplateManager onClose={()=>setTemplateManagerOpen(false)} showToast={showToast}/>}
 
       {onlinePreviewDoc && (
         <OnlineDocumentPreviewModal
