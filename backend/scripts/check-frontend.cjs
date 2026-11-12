@@ -25,10 +25,10 @@ function scan(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true})){
   }
   return ['PARAM'];
  }
- function walk(n){if(ts.isCallExpression(n)&&['fetch','safeFetchJson','templateRequest'].includes(n.expression.getText(tree))){
+ function walk(n){if(ts.isCallExpression(n)&&['fetch','safeFetchJson','templateRequest','trainingRequest'].includes(n.expression.getText(tree))){
   // Resolve wrapper call sites, rather than counting its generic fetch(url, options).
-  if(n.expression.getText(tree)==='fetch'&&(path.basename(file)==='safeFetch.ts'||path.basename(file)==='DocumentTemplateTools.tsx'))return;
-  let methods=n.expression.getText(tree)==='templateRequest'&&n.arguments[1]?resolve(n.arguments[1]):['GET'];const options=n.arguments[1];
+  if(n.expression.getText(tree)==='fetch'&&(path.basename(file)==='safeFetch.ts'||path.basename(file)==='DocumentTemplateTools.tsx'||(path.basename(file)==='ProcessLearningView.tsx'&&n.arguments[0]?.getText(tree)==='path')))return;
+  let methods=['templateRequest','trainingRequest'].includes(n.expression.getText(tree))&&n.arguments[1]?resolve(n.arguments[1]):['GET'];const options=n.arguments[1];
   if(options&&ts.isObjectLiteralExpression(options)){
    const prop=options.properties.find(p=>p.name?.getText(tree)==='method');
    if(prop)methods=resolve(prop.initializer||prop.name);

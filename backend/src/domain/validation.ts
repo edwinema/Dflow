@@ -22,6 +22,7 @@ const required: Record<string, string[]> = {
 export function authorize(method: string, path: string, actor: Actor, body: any = {}) {
   if (actor.roles.includes('admin')) return;
   if (method === 'GET') return;
+  if(method==='POST'&&/^\/api\/training\/courses\/[^/]+\/(exam|practical|sections\/[^/]+\/complete|records\/[^/]+\/confirm)$/.test(path))return;
   if (path.startsWith('/api/org/') || path.startsWith('/api/system/')) throw new ForbiddenException('需要管理员权限');
   const approval = (path==='/api/dict/item'&&['approve','reject'].includes(body?.action)) || /\/audits\/(action|batch-action)|\/audit\/tasks\/|\/repeal\/(action|approveStep|confirmArchive|restore)$|\/publish$|\/batch-publish$/.test(path);
   const editorAction=(path==='/api/flow/model/publish'&&body?.audit===true)||(path.startsWith('/api/flow/audits/')&&body?.action==='withdraw');
