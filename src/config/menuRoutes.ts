@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Settings,
   Users,
+  ClipboardCheck,
 } from 'lucide-react';
 
 export interface SubMenuItem {
@@ -30,11 +31,22 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     icon: LayoutDashboard,
     children: [
       { path: '/dashboard/index', title: '综合首页' },
-      { path: '/task/todolist', title: '待办任务' },
-      { path: '/task/finishlist', title: '已办任务' },
+      { path: '/task/todolist', title: '任务协作' },
+      { path: '/task/finishlist', title: '已完成任务' },
       { path: '/task/learning', title: '流程培训' },
-      { path: '/property/verify', title: '我的负责' },
-      { path: '/property/partake', title: '我的参与' },
+      { path: '/property/verify', title: '负责流程' },
+      { path: '/property/partake', title: '参与流程' },
+    ],
+  },
+  {
+    id: 'approval',
+    title: '审批中心',
+    icon: ClipboardCheck,
+    children: [
+      { path: '/build/verify', title: '流程审批' },
+      { path: '/flowdoc/verify', title: '权责审批' },
+      { path: '/sysdoc/audit', title: '制度审批' },
+      { path: '/risk/audit', title: '风险审批' },
     ],
   },
   {
@@ -44,7 +56,7 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     children: [
       { path: '/property/overview', title: '架构全景' },
       { path: '/property/integrate', title: '业务集成' },
-      { path: '/property/catalog', title: '目录清单' },
+      { path: '/property/catalog', title: '流程目录' },
     ],
   },
   {
@@ -52,8 +64,8 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     title: '流程设计',
     icon: Send,
     children: [
-      { path: '/build/design', title: '流程设计' },
-      { path: '/build/verify', title: '流程审核' },
+      { path: '/build/design', title: '流程建模' },
+      { path: '/build/repeal', title: '废止归档' },
       { path: '/build/roles', title: '流程角色' },
       { path: '/build/terms', title: '流程术语' },
     ],
@@ -81,7 +93,6 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     children: [
       { path: '/flowdoc/duty', title: '权责建设' },
       { path: '/flowdoc/manual', title: '权责手册' },
-      { path: '/flowdoc/verify', title: '权责审核' },
     ],
   },
   {
@@ -89,11 +100,10 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     title: '风控合规',
     icon: ShieldCheck,
     children: [
-      { path: '/sysdoc/index2', title: '制度文件库' },
+      { path: '/sysdoc/index2', title: '制度管理' },
       { path: '/sysdoc/indexview', title: '制度查阅' },
-      { path: '/risk/index', title: '风险合规库' },
+      { path: '/risk/index', title: '风险管理' },
       { path: '/risk/riskview', title: '风险查阅' },
-      { path: '/build/repeal', title: '流程废止归档' },
     ],
   },
   {
@@ -101,9 +111,9 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     title: '组织权限',
     icon: Users,
     children: [
-      { path: '/org/dept', title: '部门组织' },
+      { path: '/org/dept', title: '组织架构' },
       { path: '/org/user', title: '用户管理' },
-      { path: '/org/role', title: '权限管理' },
+      { path: '/org/role', title: '角色权限' },
     ],
   },
   {
@@ -111,9 +121,9 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     title: '系统设置',
     icon: Settings,
     children: [
-      { path: '/system/column', title: '表单引擎' },
+      { path: '/system/column', title: '表单模板' },
       { path: '/system/company', title: '公司授权' },
-      { path: '/system/api', title: 'API管理' },
+      { path: '/system/api', title: '接口管理' },
       { path: '/system/models', title: '模型配置' },
     ],
   },

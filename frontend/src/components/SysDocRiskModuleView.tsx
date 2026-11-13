@@ -573,8 +573,9 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>(
-    isPublishedViewOnly ? 'approved' : 'all'
+    isPublishedViewOnly ? 'approved' : subPath.endsWith('/audit') ? 'pending' : 'all'
   );
+  useEffect(() => { setStatusFilter(isPublishedViewOnly ? 'approved' : subPath.endsWith('/audit') ? 'pending' : 'all'); }, [subPath, isPublishedViewOnly]);
   const [riskLevelFilter, setRiskLevelFilter] = useState<string>('all');
   const [codeSearch, setCodeSearch] = useState('');
   const [keyword, setKeyword] = useState('');

@@ -207,6 +207,8 @@ export default function App() {
       '/system/column': ['settings', '系统设置', '表单引擎'],
       '/system/company': ['settings', '系统设置', '公司授权'],
       '/system/api': ['settings', '系统设置', 'API管理'],
+      '/sysdoc/audit': ['governance', '风控合规', 'sysdoc_lib', '制度文件库', '制度审批'],
+      '/risk/audit': ['governance', '风控合规', 'risk_lib', '风险合规库', '风险审批'],
       '/system/models': ['settings', '系统设置', '模型配置'],
     };
 
@@ -352,7 +354,7 @@ export default function App() {
     if (currentPath.startsWith('/sysdoc/')) return { parentTitle: '风控合规', childTitle: '制度文件库' };
     if (currentPath === '/risk/riskview') return { parentTitle: '风控合规', childTitle: '风险查阅' };
     if (currentPath.startsWith('/risk/')) return { parentTitle: '风控合规', childTitle: '风险合规库' };
-    if (currentPath.startsWith('/task/')) return { parentTitle: '协同工作', childTitle: currentPath === '/task/learning' ? '流程培训' : '待办任务' };
+    if (currentPath.startsWith('/task/')) return { parentTitle: '协同工作', childTitle: currentPath === '/task/learning' ? '流程培训' : currentPath === '/task/finishlist' ? '已完成任务' : '任务协作' };
     if (currentPath.startsWith('/org/')) return { parentTitle: '组织权限', childTitle: '部门组织' };
     if (currentPath.startsWith('/system/')) return { parentTitle: '系统设置', childTitle: currentPath === '/system/form' ? '表单引擎' : '系统设置' };
     if (currentPath.startsWith('/mining/')) return { parentTitle: '流程挖掘', childTitle: '流程挖掘诊断' };
