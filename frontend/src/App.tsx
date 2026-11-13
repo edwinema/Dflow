@@ -17,6 +17,7 @@ import {
   User,
 } from 'lucide-react';
 import { MENU_ROUTES } from './config/menuRoutes';
+import { normalizeMenuPermissions } from './utils/menuPermissions';
 import { DashboardView } from './components/DashboardView';
 import { FlowDesignView } from './components/FlowDesignView';
 import { FlowVerifyView } from './components/FlowVerifyView';
@@ -164,7 +165,7 @@ export default function App() {
 
   const isPathAllowed = (path: string, user: any): boolean => {
     if (!user) return true;
-    const perms: string[] = user.menuPermissions || [];
+    const perms = normalizeMenuPermissions(user.menuPermissions);
     if (
       perms.includes('all') ||
       perms.includes('全部菜单') ||
@@ -200,12 +201,13 @@ export default function App() {
       '/risk/index': ['governance', '风控合规', 'risk_lib', '风险合规库'],
       '/risk/riskview': ['governance', '风控合规', 'risk_query', '风险查阅', '/risk/riskview'],
       '/build/repeal': ['governance', '风控合规', 'flow_obsolete', '流程废止归档'],
-      '/org/dept': ['system', '组织系统', '部门组织'],
-      '/org/user': ['system', '组织系统', '用户管理'],
-      '/org/role': ['system', '组织系统', '权限管理'],
-      '/system/column': ['system', '组织系统', '表单引擎'],
-      '/system/company': ['system', '组织系统', '公司授权'],
-      '/system/api': ['system', '组织系统', 'API管理'],
+      '/org/dept': ['organization', '组织权限', '部门组织'],
+      '/org/user': ['organization', '组织权限', '用户管理'],
+      '/org/role': ['organization', '组织权限', '权限管理'],
+      '/system/column': ['settings', '系统设置', '表单引擎'],
+      '/system/company': ['settings', '系统设置', '公司授权'],
+      '/system/api': ['settings', '系统设置', 'API管理'],
+      '/system/models': ['settings', '系统设置', '模型配置'],
     };
 
     const keys = pathKeyMap[path] || [];
@@ -315,8 +317,8 @@ export default function App() {
         if (targetPath.startsWith('/flowdoc/') && (g.id === 'duty' || g.id === 'governance')) return true;
         if (targetPath.startsWith('/sysdoc/') && g.id === 'governance') return true;
         if (targetPath.startsWith('/risk/') && g.id === 'governance') return true;
-        if (targetPath.startsWith('/org/') && g.id === 'system') return true;
-        if (targetPath.startsWith('/system/') && g.id === 'system') return true;
+        if (targetPath.startsWith('/org/') && g.id === 'organization') return true;
+        if (targetPath.startsWith('/system/') && g.id === 'settings') return true;
         if (targetPath.startsWith('/mining/') && g.id === 'mining') return true;
         return false;
       });
@@ -351,8 +353,8 @@ export default function App() {
     if (currentPath === '/risk/riskview') return { parentTitle: '风控合规', childTitle: '风险查阅' };
     if (currentPath.startsWith('/risk/')) return { parentTitle: '风控合规', childTitle: '风险合规库' };
     if (currentPath.startsWith('/task/')) return { parentTitle: '协同工作', childTitle: currentPath === '/task/learning' ? '流程培训' : '待办任务' };
-    if (currentPath.startsWith('/org/')) return { parentTitle: '组织系统', childTitle: '部门组织' };
-    if (currentPath.startsWith('/system/')) return { parentTitle: '组织系统', childTitle: '系统设置' };
+    if (currentPath.startsWith('/org/')) return { parentTitle: '组织权限', childTitle: '部门组织' };
+    if (currentPath.startsWith('/system/')) return { parentTitle: '系统设置', childTitle: currentPath === '/system/form' ? '表单引擎' : '系统设置' };
     if (currentPath.startsWith('/mining/')) return { parentTitle: '流程挖掘', childTitle: '流程挖掘诊断' };
     return { parentTitle: '协同工作', childTitle: '综合首页' };
   };

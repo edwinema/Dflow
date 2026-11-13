@@ -8,6 +8,7 @@ import {
   Scale,
   ShieldCheck,
   Settings,
+  Users,
 } from 'lucide-react';
 
 export interface SubMenuItem {
@@ -96,13 +97,20 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     ],
   },
   {
-    id: 'system',
-    title: '组织系统',
-    icon: Settings,
+    id: 'organization',
+    title: '组织权限',
+    icon: Users,
     children: [
       { path: '/org/dept', title: '部门组织' },
       { path: '/org/user', title: '用户管理' },
       { path: '/org/role', title: '权限管理' },
+    ],
+  },
+  {
+    id: 'settings',
+    title: '系统设置',
+    icon: Settings,
+    children: [
       { path: '/system/column', title: '表单引擎' },
       { path: '/system/company', title: '公司授权' },
       { path: '/system/api', title: 'API管理' },

@@ -1,3 +1,4 @@
+import { normalizeMenuPermissions, toggleMenuPermission } from '../utils/menuPermissions';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search,
@@ -273,11 +274,11 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
   const [selectedRoleId, setSelectedRoleId] = useState<string>('orole_1');
   const [activePermissionTab, setActivePermissionTab] = useState<'menu' | 'field'>('menu');
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({
-    orole_1: ['all', 'collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk', 'system'],
+    orole_1: ['all', 'collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk', 'organization', 'settings'],
     orole_2: ['collab', 'property', 'design', 'execute', 'mining', 'duty', 'risk'],
     orole_3: ['collab', 'property', 'design', 'execute', 'mining'],
     orole_4: ['collab', 'property', 'risk', 'duty'],
-    orole_5: ['collab', 'property', 'duty', 'risk', 'system'],
+    orole_5: ['collab', 'property', 'duty', 'risk', 'organization', 'settings'],
     orole_6: ['collab', 'property', 'design', 'execute', 'duty'],
     orole_7: ['sysdoc_query', 'risk_query', '/sysdoc/indexview', '/risk/riskview', '制度查阅', '风险查阅'],
     orole_8: ['collab', 'property', 'execute', 'mining', 'duty', 'risk'],
@@ -494,7 +495,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
           const fMap: Record<string, any> = {};
           const fieldMap: Record<string, any> = {};
           json.data.roles.forEach((r: any) => {
-            if (r.menuPermissions) pMap[r.id] = r.menuPermissions;
+            if (r.menuPermissions) pMap[r.id] = normalizeMenuPermissions(r.menuPermissions);
             if (r.featurePermissions) fMap[r.id] = r.featurePermissions;
             if (r.fieldPermissions) fieldMap[r.id] = r.fieldPermissions;
           });
@@ -3672,7 +3673,8 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                       'mining',
                       'duty',
                       'risk',
-                      'system',
+                      'organization',
+                      'settings',
                       'all',
                       '全部菜单',
                     ];
@@ -3703,7 +3705,7 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                 <button
                   type="button"
                   onClick={async () => {
-                    const currentPerms = rolePermissions[selectedRoleId] || [];
+                    const currentPerms = normalizeMenuPermissions(rolePermissions[selectedRoleId]);
                     const currentFeatures = roleFeaturePermissions[selectedRoleId] || {
                       sysDoc: { readOnly: true, canDownload: false, previewOnly: true },
                       risk: { readOnly: true, canDownload: false, previewOnly: true },
@@ -3793,13 +3795,19 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                     isRiskModule: true,
                   },
                   {
-                    id: 'system',
-                    title: '组织系统 (部门组织、用户管理、权限管理、表单引擎、公司信息、接口管理)',
-                    desc: '组织架构与岗位编制、用户账号与角色权限矩阵、低代码表单引擎、商业授权与OpenAPI网关',
-                    actions: ['部门用户维护', '角色授权分派', '表单字段设计', '商业授权更新', 'API接口调试'],
+                    id: 'organization',
+                    title: '组织权限 (部门组织、用户管理、权限管理)',
+                    desc: '组织架构、岗位职位、用户账号与角色权限配置',
+                    actions: ['部门组织维护', '岗位职位维护', '用户账号管理', '角色权限配置'],
                   },
-                ].map((module) => {
-                  const currentPerms = rolePermissions[selectedRoleId] || [];
+                  {
+                    id: 'settings',
+                    title: '系统设置 (表单引擎、公司授权、API管理、模型配置)',
+                    desc: '公共表单、平台展示与商业授权、集成接口及 AI 模型配置',
+                    actions: ['表单字段设计', '平台展示设置', '商业授权更新', 'API接口调试', 'AI模型配置'],
+                  },
+                ].map((module, _index, modules) => {
+                  const currentPerms = normalizeMenuPermissions(rolePermissions[selectedRoleId]);
                   const isChecked = currentPerms.includes('all') || currentPerms.includes('全部菜单') || currentPerms.includes(module.id);
                   const isSysDocQueryPermitted = currentPerms.includes('sysdoc_query') || currentPerms.includes('/sysdoc/indexview') || currentPerms.includes('制度查阅') || isChecked;
                   const isRiskQueryPermitted = currentPerms.includes('risk_query') || currentPerms.includes('/risk/riskview') || currentPerms.includes('风险查阅') || isChecked;
@@ -3826,9 +3834,8 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                             type="checkbox"
                             checked={isChecked || (module.isRiskModule && (isSysDocQueryPermitted || isRiskQueryPermitted))}
                             onChange={(e) => {
-                              const nextPerms = e.target.checked
-                                ? [...currentPerms.filter((p) => p !== 'all'), module.id]
-                                : currentPerms.filter((p) => p !== module.id && p !== 'all' && !['sysdoc_query', 'risk_query', 'sysdoc_lib', 'risk_lib', '/sysdoc/indexview', '/risk/riskview', '制度查阅', '风险查阅'].includes(p));
+                              let nextPerms = toggleMenuPermission(currentPerms, module.id, e.target.checked, modules.map(item => item.id));
+                              if (!e.target.checked && module.isRiskModule) nextPerms = nextPerms.filter(p => !['sysdoc_query', 'risk_query', 'sysdoc_lib', 'risk_lib', '/sysdoc/indexview', '/risk/riskview', '制度查阅', '风险查阅'].includes(p));
                               setRolePermissions((prev) => ({
                                 ...prev,
                                 [selectedRoleId]: nextPerms,
