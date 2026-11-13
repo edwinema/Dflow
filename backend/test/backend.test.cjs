@@ -575,3 +575,39 @@ test('training persists revisions, isolates progress, grades on server and requi
   await status(request('PUT',url,{...payload,revision:1}),409);await request('DELETE',url);assert.equal(await list(learner),undefined);
   await db.transaction(false,async client=>assert.ok((await db.load(client)).dictBundle.trainingRecords.some(r=>r.courseId===course.id&&r.practiceConfirmed)));
 });
+
+test('unified approvals isolate views, delegate four business actions and reject stale or unauthorized decisions',async()=>{
+  const make=(id,name,roles)=>({id,userId:id,userName:name,nickName:name,roles});
+  const applicant=make('ac_owner','审批申请人',['editor']),reviewer=make('ac_reviewer','审批处理人',['auditor']),next=make('ac_next','后续审批人',['auditor']),outsider=make('ac_out','其他审批人',['auditor']),cc=make('ac_cc','抄送用户',['viewer']);
+  const step=name=>({level:1,levelName:'部门审批',approverName:name,status:'pending'});
+  await db.transaction(true,async c=>{const before=await db.load(c),s=structuredClone(before);
+    s.orgUsers.push(...[applicant,reviewer,next,outsider,cc].map(a=>({id:a.id,userName:a.userId,nickName:a.userName,status:'0',accessRoles:a.roles})));
+    s.flows.push({id:'ac_model',parentId:'arch_root',label:'统一审批流程',versionNo:'V1',status:'verified',xml:'<mxfile><diagram><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>'});
+    s.flowAuditRecords.push({id:'ac_flow',modelId:'ac_model',flowName:'统一审批流程',submitUserId:applicant.id,submitUser:applicant.userName,submitTime:new Date().toISOString(),auditStatus:'待审核',currentLevel:1,versionNo:'V2',approvalLevels:[step(reviewer.userName),{...step(next.userName),level:2,status:'waiting'}],ccUserIds:[cc.id]});
+    s.dutyManuals.push({id:'ac_manual',manualName:'测试手册',items:[{id:'ac_item',status:'待审核'}]});
+    s.dutyAuditTasks.push({id:'ac_duty',manualId:'ac_manual',dutyItemId:'ac_item',dutyName:'统一权责审批',submitterId:applicant.id,submitter:applicant.userName,status:'待审核',levels:[step(reviewer.userName)],currentLevelIndex:0,currentApprover:reviewer.userName,history:[]});
+    for(const type of ['sysDoc','risk'])s.dictBundle[type].push({id:'ac_'+type,name:'统一'+type+'审批',applicantId:applicant.id,status:'pending',approvalFlow:[step(reviewer.userName)],currentLevel:1,approvalHistory:[]});
+    await db.save(c,before,s);
+  });
+  const list=async(actor,view='pending')=>(await request('GET','/api/approvals',{}, {view},actor)).body.data;
+  assert.equal((await list(reviewer)).items.filter(r=>r.id.startsWith('ac_')).length,4);
+  assert.equal((await list(applicant,'mine')).items.filter(r=>r.id.startsWith('ac_')).length,4);
+  assert.equal((await list(outsider,'query')).items.length,0);assert.equal((await list(next)).items.length,0);
+  assert.equal((await list(cc,'cc')).items.length,1);
+  await status(request('GET','/api/approvals/flow/ac_flow',{}, {},outsider),403);
+  const detail=async(type,id,actor=reviewer)=>(await request('GET',`/api/approvals/${type}/${id}`,{}, {},actor)).body.data;
+  const act=(type,id,row,action='approve',actor=reviewer)=>request('POST',`/api/approvals/${type}/${id}/action`,{action,revision:row.revision,opinion:'审批意见'}, {},actor);
+  const first=await detail('flow','ac_flow');assert.equal(first.canAct,true);
+  await status(act('flow','ac_flow',{revision:'stale'}),409);await status(act('flow','ac_flow',first,'approve',cc),403);
+  await act('flow','ac_flow',first);assert.equal((await list(next)).items.length,1);assert.equal((await list(reviewer,'processed')).items.some(r=>r.id==='ac_flow'),true);
+  await status(act('flow','ac_flow',first),403);
+  await act('flow','ac_flow',await detail('flow','ac_flow',next),'approve',next);
+  for(const type of ['duty','sysDoc','risk']){const row=await detail(type,'ac_'+type);await act(type,'ac_'+type,row,type==='risk'?'reject':'approve');}
+  const own=await list(applicant,'mine');assert.equal(own.items.find(r=>r.id==='ac_flow').status,'approved');assert.equal(own.items.find(r=>r.id==='ac_risk').status,'rejected');assert.equal((await list(reviewer)).items.filter(r=>r.id.startsWith('ac_')).length,0);
+  await db.transaction(false,async c=>{const s=await db.load(c);assert.equal(s.flows.find(r=>r.id==='ac_model').status,'published');assert.equal(s.dutyAuditTasks.find(r=>r.id==='ac_duty').status,'已通过');assert.equal(s.dictBundle.sysDoc.find(r=>r.id==='ac_sysDoc').status,'approved');});
+  const created=(await request('POST','/api/flow/audits/apply',{modelId:'ac_model',approvalLevels:[{approverName:reviewer.userName}]},{},applicant)).body.data;
+  const withdrawing=await detail('flow',created.id,applicant);assert.equal(withdrawing.canWithdraw,true);
+  await act('flow',created.id,withdrawing,'withdraw',applicant);
+  assert.equal((await detail('flow',created.id,applicant)).status,'withdrawn');
+
+});

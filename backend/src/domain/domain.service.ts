@@ -7,6 +7,7 @@ import { Actor, DomainRequest, DomainResponse, Handler, Registry, State } from '
 import { registerFrontendSync } from './frontend-sync';
 import { registerOrgCatalog } from './org-catalog';
 import { registerDocumentTemplates } from './document-templates';
+import { registerApprovals } from './approvals';
 import { registerTraining } from './training';
 import { registerOperations } from './operations';
 import { registerExtensions, modelActivities } from './extensions';
@@ -32,6 +33,7 @@ export function registry(state: State, actor: Actor) {
   registerDocumentTemplates(app,state,actor);
   registerTraining(app,state,actor);
   registerModels(app,state,actor);
+  registerApprovals(app,state,actor,routes,flush);
   const assign=routes.find(r=>r.path==='/api/build/roles/:id/assign-users')!;
   routes.push({...assign,method:'POST',handler:(req,res)=>assign.handler({...req,body:{...req.body,users:req.body.assignedUsers??req.body.users}},res)});
   routes.push({...routes.find(r=>r.path==='/api/build/roles/import')!,path:'/api/build/roles/batch-import'});

@@ -98,12 +98,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [propUser]);
 
   const [todoCounts, setTodoCounts] = useState({
-    verify: 3,  // 流程审核待办：来自 /api/flow/audits 中 auditStatus === '待审核'
+    verify: 0,  // 流程审核待办：来自 /api/flow/audits 中 auditStatus === '待审核'
     design: 0,  // 流程设计待办：待完善草稿/驳回重设计项
     execute: 3, // 流程执行待办：来自 /api/execute/tasks 中状态为进行中/待处理的任务
-    duty: 1,    // 权责审核待办：来自 /api/flowdoc/duties 中待审核权责项
-    sysDoc: 1,  // 制度文件多级待审数
-    risk: 1,    // 风险合规多级待审数
+    duty: 0,    // 权责审核待办：来自 /api/flowdoc/duties 中待审核权责项
+    sysDoc: 0,  // 制度文件多级待审数
+    risk: 0,    // 风险合规多级待审数
   });
 
   // 头像与问候语个性化自定义状态
@@ -214,16 +214,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       })
       .catch(() => {});
 
-    // 1. 流程审核待办数 (取数逻辑: status === '待审核')
-    fetch('/api/flow/audits')
-      .then((r) => r.json())
-      .then((res) => {
-        if (Array.isArray(res.data)) {
-          const pending = res.data.filter((item: any) => item.auditStatus === '待审核').length;
-          setTodoCounts((prev) => ({ ...prev, verify: pending }));
-        }
-      })
-      .catch(() => {});
+    // Approval counts are scoped to the current actor, using the same source as the center.
+    fetch('/api/approvals?view=pending').then(async r=>{if(!r.ok)throw new Error('审批计数读取失败');return r.json();}).then(res=>{
+      if(res.status===1){const counts=res.data.typeCounts;setTodoCounts(prev=>({...prev,verify:counts.flow||0,duty:counts.duty||0,sysDoc:counts.sysDoc||0,risk:counts.risk||0}));}
+    }).catch(()=>{});
 
     // 2. 流程执行工单待办数 (取数逻辑: status !== '已办结')
     fetch('/api/execute/tasks')
@@ -235,29 +229,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         }
       })
       .catch(() => {});
-
-    // 3. 权责待办数 (取数逻辑: 权责审核待审核任务)
-    fetch('/api/flowdoc/audit/tasks')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.stats && typeof res.stats.pending === 'number') {
-          setTodoCounts((prev) => ({ ...prev, duty: res.stats.pending }));
-        } else if (Array.isArray(res.data)) {
-          const pendingDuties = res.data.filter((d: any) => d.status === '待审核' || d.status === '待核准').length;
-          setTodoCounts((prev) => ({ ...prev, duty: pendingDuties }));
-        }
-      })
-      .catch(() => {
-        fetch('/api/flowdoc/duties')
-          .then((r) => r.json())
-          .then((res) => {
-            if (Array.isArray(res.data)) {
-              const pendingDuties = res.data.filter((d: any) => d.auditStatus === '待审核' || d.status === '待核准').length;
-              setTodoCounts((prev) => ({ ...prev, duty: pendingDuties || 1 }));
-            }
-          })
-          .catch(() => {});
-      });
 
     // 4. 全量流程数据
     fetch('/api/flow/fullSimpleModels')
@@ -272,12 +243,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .then((res) => {
         if (res.data?.sysDoc) {
           setSysDocs(res.data.sysDoc);
-          const pendingSysDocs = res.data.sysDoc.filter((d: any) => d.status === 'pending').length;
-          setTodoCounts((prev) => ({ ...prev, sysDoc: pendingSysDocs }));
-        }
-        if (res.data?.risk) {
-          const pendingRisks = res.data.risk.filter((r: any) => r.status === 'pending').length;
-          setTodoCounts((prev) => ({ ...prev, risk: pendingRisks }));
         }
       })
       .catch(() => {});
@@ -529,13 +494,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               权责审核（{todoCounts.duty}）
             </button>
             <button
-              onClick={() => onNavigate('/sysdoc/index2')}
+              onClick={() => onNavigate('/approval/pending?type=sysDoc')}
               className="px-2.5 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
             >
               制度审核（{todoCounts.sysDoc || 0}）
             </button>
             <button
-              onClick={() => onNavigate('/risk/index')}
+              onClick={() => onNavigate('/approval/pending?type=risk')}
               className="px-2.5 py-1 rounded border border-[#E4E7ED] bg-[#F8FAFC] hover:border-[#2F7BFE] hover:bg-[#ECF5FF] text-xs text-[#2F7BFE] transition-colors cursor-pointer"
             >
               风险审核（{todoCounts.risk || 0}）

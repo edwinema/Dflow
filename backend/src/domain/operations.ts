@@ -1234,6 +1234,7 @@ app.post('/api/flowdoc/audit/submit', (req, res) => {
       scope: item.scope || '全集团及下属子公司',
       scenarioText: item.scenarioText || '',
       submitter,
+      submitterId:currentActiveUser.id,
       submitTime: now,
       urgency,
       remark,

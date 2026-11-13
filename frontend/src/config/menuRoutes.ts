@@ -43,10 +43,11 @@ export const MENU_ROUTES: MenuRouteItem[] = [
     title: '审批中心',
     icon: ClipboardCheck,
     children: [
-      { path: '/build/verify', title: '流程审批' },
-      { path: '/flowdoc/verify', title: '权责审批' },
-      { path: '/sysdoc/audit', title: '制度审批' },
-      { path: '/risk/audit', title: '风险审批' },
+      { path: '/approval/pending', title: '待我审批' },
+      { path: '/approval/processed', title: '我已审批' },
+      { path: '/approval/mine', title: '我的申请' },
+      { path: '/approval/cc', title: '抄送我的' },
+      { path: '/approval/query', title: '审批查询' },
     ],
   },
   {

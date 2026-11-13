@@ -20,6 +20,7 @@ import { MENU_ROUTES } from './config/menuRoutes';
 import { normalizeMenuPermissions } from './utils/menuPermissions';
 import { DashboardView } from './components/DashboardView';
 import { FlowDesignView } from './components/FlowDesignView';
+import { ApprovalCenterView } from './components/ApprovalCenterView';
 import { FlowVerifyView } from './components/FlowVerifyView';
 import { PropertyOverviewView } from './components/PropertyOverviewView';
 import { FlowRepealArchiveView } from './components/FlowRepealArchiveView';
@@ -165,6 +166,7 @@ export default function App() {
 
   const isPathAllowed = (path: string, user: any): boolean => {
     if (!user) return true;
+    if (path.startsWith('/approval/')) return Boolean(user.id);
     const perms = normalizeMenuPermissions(user.menuPermissions);
     if (
       perms.includes('all') ||
@@ -230,11 +232,11 @@ export default function App() {
   useEffect(() => {
     if (filteredMenuRoutes.length > 0) {
       const allAllowedPaths = filteredMenuRoutes.flatMap((g) => g.children.map((c) => c.path));
-      if (!allAllowedPaths.includes(currentPath)) {
+      if (!allAllowedPaths.some(path => currentPath === path || currentPath.startsWith(path + '?'))) {
         const targetPath = allAllowedPaths[0];
         if (targetPath) {
           setCurrentPath(targetPath);
-          const parentGroup = filteredMenuRoutes.find((g) => g.children.some((c) => c.path === targetPath));
+          const parentGroup = filteredMenuRoutes.find((g) => g.children.some((c) => c.path === targetPath || targetPath.startsWith(c.path+'?')));
           if (parentGroup) setExpandedMenuId(parentGroup.id);
         }
       }
@@ -297,7 +299,8 @@ export default function App() {
   };
 
   const handleNavigate = (path: string, extraParam?: string) => {
-    const targetPath = !path || path === '/' ? '/dashboard/index' : path;
+    const aliases:Record<string,string>={'/build/verify':'/approval/pending?type=flow','/flowdoc/verify':'/approval/pending?type=duty','/sysdoc/audit':'/approval/pending?type=sysDoc','/risk/audit':'/approval/pending?type=risk'};
+    const targetPath = aliases[path] || (!path || path === '/' ? '/dashboard/index' : path);
     if (extraParam) {
       if (targetPath.startsWith('/build/') || targetPath.startsWith('/property/')) {
         setSelectedFlowId(extraParam);
@@ -312,7 +315,7 @@ export default function App() {
     setCurrentPath(targetPath);
     setFullScreenMode('none');
     const matchedGroup =
-      MENU_ROUTES.find((g) => g.children.some((c) => c.path === targetPath)) ||
+      MENU_ROUTES.find((g) => g.children.some((c) => c.path === targetPath || targetPath.startsWith(c.path+'?'))) ||
       MENU_ROUTES.find((g) => {
         if (targetPath.startsWith('/task/') && g.id === 'workspace') return true;
         if (targetPath.startsWith('/property/') && (g.id === 'workspace' || g.id === 'property')) return true;
@@ -341,7 +344,7 @@ export default function App() {
 
   const resolveBreadcrumb = () => {
     for (const group of MENU_ROUTES) {
-      const child = group.children.find((c) => c.path === currentPath);
+      const child = group.children.find((c) => c.path === currentPath || currentPath.startsWith(c.path+'?'));
       if (child) {
         return { parentTitle: group.title, childTitle: child.title };
       }
@@ -552,7 +555,7 @@ export default function App() {
             const IconComp = group.icon;
             const isSingle = group.children.length === 1;
             const isExpanded = expandedMenuId === group.id;
-            const hasActiveChild = group.children.some((c) => c.path === currentPath);
+            const hasActiveChild = group.children.some((c) => c.path === currentPath || currentPath.startsWith(c.path+'?'));
 
             if (isSingle) {
               return (
@@ -712,7 +715,9 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-4 min-h-0">
           <ErrorBoundary fallbackTitle="页面视图加载异常">
-          {currentPath === '/dashboard/index' ? (
+          {currentPath.startsWith('/approval/') ? (
+            <ApprovalCenterView subPath={currentPath} onNavigate={handleNavigate} showToast={showToast} />
+          ) : currentPath === '/dashboard/index' ? (
             <DashboardView currentUser={currentUser} onNavigate={handleNavigate} />
           ) : currentPath === '/property/verify' || currentPath === '/property/partake' || currentPath === '/property/catalog' ? (
             <MyResponsibleView

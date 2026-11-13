@@ -22,6 +22,7 @@ const required: Record<string, string[]> = {
 export function authorize(method: string, path: string, actor: Actor, body: any = {}) {
   if (actor.roles.includes('admin')) return;
   if (method === 'GET') return;
+  if(method==='POST'&&/^\/api\/approvals\/[^/]+\/[^/]+\/action$/.test(path))return; // Scoped and checked by approval adapter.
   if(method==='POST'&&/^\/api\/training\/courses\/[^/]+\/(exam|practical|sections\/[^/]+\/complete|records\/[^/]+\/confirm)$/.test(path))return;
   if (path.startsWith('/api/org/') || path.startsWith('/api/system/')) throw new ForbiddenException('需要管理员权限');
   const approval = (path==='/api/dict/item'&&['approve','reject'].includes(body?.action)) || /\/audits\/(action|batch-action)|\/audit\/tasks\/|\/repeal\/(action|approveStep|confirmArchive|restore)$|\/publish$|\/batch-publish$/.test(path);
@@ -116,6 +117,8 @@ export function prepare(method: string, path: string, req: DomainRequest, state:
     for(const iid of req.body.itemIds)find(manual.items,iid);
   }
   if(path==='/api/flowdoc/audit/submit') {
+    req.body.submitter=actor.userName;
+    req.body.submitterId=actor.id;
     const manual=find(state.dutyManuals,req.body.manualId);
     for(const iid of req.body.itemIds||[])find(manual.items,iid);
     for(const level of req.body.levels||[]) {

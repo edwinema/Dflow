@@ -34,7 +34,7 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
       validateDocumentContent(item);
       if(!item || typeof item!=='object' || Array.isArray(item))throw new BadRequestException('条目不能为空');
       const chain=levels(item.approvalFlow?.length?item.approvalFlow:config()[itemType]);
-      const row={...item,id:`${itemType}_${randomUUID()}`,status:'pending',approvalFlow:chain,currentLevel:1,applyTime:now,validityPeriod:item.validityPeriod||'',publishTime:'',auditTime:'',auditor:'',auditRemark:'',approvalHistory:[]};
+      const row={...item,id:`${itemType}_${randomUUID()}`,status:'pending',applicantId:actor.id,approvalFlow:chain,currentLevel:1,applyTime:now,validityPeriod:item.validityPeriod||'',publishTime:'',auditTime:'',auditor:'',auditRemark:'',approvalHistory:[]};
       delete row.resubmitApproval; list.unshift(row); return reply(row);
     }
     const target=list.find((r:any)=>r.id===(id||item?.id));
@@ -46,7 +46,7 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
       const chain=levels(item.approvalFlow??target.approvalFlow??config()[itemType]);
       // Editing content invalidates prior approval; clients cannot forge approval state.
       const previous=structuredClone(target);
-      Object.assign(target,item,{id:target.id,status:'pending',approvalFlow:chain,currentLevel:1,applyTime:now,publishTime:'',auditTime:'',auditor:'',auditRemark:''});
+      Object.assign(target,item,{id:target.id,status:'pending',applicantId:actor.id,approvalFlow:chain,currentLevel:1,applyTime:now,publishTime:'',auditTime:'',auditor:'',auditRemark:''});
       target.approvalHistory=[...(previous.approvalHistory||[]),{time:now,action:'修订送审',operator:actor.userName,approvalFlow:previous.approvalFlow||[]}];
       delete target.resubmitApproval; return reply(target);
     }
@@ -415,7 +415,7 @@ app.post('/api/org/roles/:id/permissions', (req, res) => {
     const row={id:`audit_${randomUUID()}`,modelId:flow.id,flowId:flow.id,flowCode:flow.flowNo,flowName:flow.label,versionNo,archPath:flow.archName,
       urgency:body.urgency||'普通',changeType:body.changeType||'版本升级',changeSummary:body.changeSummary||'',effectiveDate:body.effectiveDate||'',
       publishPolicy:body.publishPolicy||'immediate',scheduledTime:body.scheduledTime||'',approvalLevels:chain,currentLevel:1,
-      submitTime:new Date().toISOString(),submitUser:actor.userName,submitUserDept:actor.deptName||'',auditStatus:'待审核',auditResult:'待审核',auditUser:chain[0]?.approverName||'',auditOpinion:''};
+      submitTime:new Date().toISOString(),submitUserId:actor.id,submitUser:actor.userName,submitUserDept:actor.deptName||'',auditStatus:'待审核',auditResult:'待审核',auditUser:chain[0]?.approverName||'',auditOpinion:''};
     flow.status='verified';s.flowAuditRecords.unshift(row);return row;
   };
   const schedule=(body:any)=>{
@@ -442,7 +442,7 @@ app.post('/api/org/roles/:id/permissions', (req, res) => {
     const flow=s.flows.find((f:any)=>f.id===row.modelId), now=new Date().toISOString();
     const chain=row.approvalLevels||[],index=(row.currentLevel||1)-1,step=chain[index];
     if(body.action==='withdraw') {
-      if(!actor.roles.includes('admin')&&row.submitUser!==actor.userName)throw new ForbiddenException('仅送审人可撤回');
+      if(!actor.roles.includes('admin')&&(row.submitUserId?row.submitUserId!==actor.id:row.submitUser!==actor.userName))throw new ForbiddenException('仅送审人可撤回');
       row.auditStatus='已撤回';row.auditResult='已撤回';flow.status='draft';
     } else {
       if(!['approve','reject'].includes(body.action))throw new BadRequestException('审核动作无效');
