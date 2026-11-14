@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Actor, Registry, State } from './types';
+import { assignedApprover } from './approval-identity';
 import { validateDocumentContent } from './document-templates';
 
 export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
@@ -57,11 +58,10 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
       Object.assign(target,{status:'pending',currentLevel:1,applyTime:now,auditTime:'',auditor:'',auditRemark:''});return reply(target);
     }
     if(!['approve','reject'].includes(action))throw new BadRequestException('审核动作无效');
-    if(!actor.roles.some(r=>['admin','auditor'].includes(r)))throw new ForbiddenException('需要审批权限');
     if(target.status!=='pending')throw new ConflictException('该审批已处理');
     const chain=target.approvalFlow||[], index=chain.findIndex((n:any)=>n.status==='pending'), current=chain[index];
     if(chain.length && !current)throw new ConflictException('审批路径没有待审核节点');
-    if(current && !actor.roles.includes('admin') && ![actor.userName,actor.userId].includes(current.approverName))throw new ForbiddenException('仅当前审批人可操作');
+    if(!actor.roles.includes('admin') && !assignedApprover(s,actor,current))throw new ForbiddenException('仅当前审批人可操作');
     if(current)Object.assign(current,{status:action==='approve'?'approved':'rejected',auditor:actor.userName,auditRemark:typeof auditRemark==='string'?auditRemark:'',auditTime:now});
     Object.assign(target,{auditTime:now,auditor:actor.userName,auditRemark:typeof auditRemark==='string'?auditRemark:''});
     if(action==='reject')target.status='rejected';
@@ -446,8 +446,7 @@ app.post('/api/org/roles/:id/permissions', (req, res) => {
       row.auditStatus='已撤回';row.auditResult='已撤回';flow.status='draft';
     } else {
       if(!['approve','reject'].includes(body.action))throw new BadRequestException('审核动作无效');
-      if(!actor.roles.some(r=>['admin','auditor'].includes(r)))throw new ForbiddenException('需要审批权限');
-      if(step&&!actor.roles.includes('admin')&&![actor.userName,actor.userId].includes(step.approverName))throw new ForbiddenException('仅当前审批人可操作');
+        if(!actor.roles.includes('admin')&&!assignedApprover(s,actor,step))throw new ForbiddenException('仅当前审批人可操作');
       if(step)Object.assign(step,{status:body.action==='approve'?'approved':'rejected',auditTime:now,opinion:body.opinion||'',operator:actor.userName});
       if(body.action==='reject') {row.auditStatus='已驳回';row.auditResult='驳回修改';flow.status='draft';}
       else if(index+1<chain.length) {chain[index+1].status='pending';row.currentLevel=index+2;row.auditUser=chain[index+1].approverName;row.auditResult=`第${index+2}级审批中`;}

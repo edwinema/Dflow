@@ -9,6 +9,7 @@ export interface Actor {
   deptName?: string;
   empNo?: string;
   companyName?: string;
+  menuPermissions?: string[];
 }
 export interface DomainRequest {
   body: RecordData;

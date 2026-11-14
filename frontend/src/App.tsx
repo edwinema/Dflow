@@ -17,7 +17,7 @@ import {
   User,
 } from 'lucide-react';
 import { MENU_ROUTES } from './config/menuRoutes';
-import { normalizeMenuPermissions } from './utils/menuPermissions';
+import { canAccessPath } from './utils/menuPermissions';
 import { DashboardView } from './components/DashboardView';
 import { FlowDesignView } from './components/FlowDesignView';
 import { ApprovalCenterView } from './components/ApprovalCenterView';
@@ -86,6 +86,12 @@ export default function App() {
       setToast((prev) => (prev?.msg === msg ? null : prev));
     }, 2800);
   };
+
+  useEffect(() => {
+    const onError = (event: Event) => showToast((event as CustomEvent).detail?.message || '权限不足', 'error');
+    window.addEventListener('api-error', onError);
+    return () => window.removeEventListener('api-error', onError);
+  }, []);
 
   const [loginUser, setLoginUser] = useState('admin');
   const [loginPass, setLoginPass] = useState('');
@@ -164,63 +170,9 @@ export default function App() {
     }
   }, [token, currentPath, fullScreenMode]);
 
-  const isPathAllowed = (path: string, user: any): boolean => {
-    if (!user) return true;
-    if (path.startsWith('/approval/')) return Boolean(user.id);
-    const perms = normalizeMenuPermissions(user.menuPermissions);
-    if (
-      perms.includes('all') ||
-      perms.includes('全部菜单') ||
-      user.roleLabel === '超级管理员' ||
-      (user.roleNames && user.roleNames.includes('超级管理员'))
-    ) {
-      return true;
-    }
-    if (perms.length === 0) return true;
-
-    const pathKeyMap: Record<string, string[]> = {
-      '/dashboard/index': ['collab', '协同工作', 'workspace', 'dashboard', '综合首页'],
-      '/task/todolist': ['collab', '协同工作', 'workspace', 'task_todo', '待办任务'],
-      '/task/finishlist': ['collab', '协同工作', 'workspace', 'task_finish', '已办任务'],
-      '/task/learning': ['collab', '协同工作', 'workspace', 'task_learning', '流程培训'],
-      '/property/verify': ['collab', '协同工作', 'workspace', '我的负责'],
-      '/property/partake': ['collab', '协同工作', 'workspace', '我的参与'],
-      '/property/overview': ['property', '流程资产', '架构全景'],
-      '/property/integrate': ['property', '流程资产', '业务集成'],
-      '/property/catalog': ['property', '流程资产', '目录清单'],
-      '/build/design': ['design', '流程设计'],
-      '/build/verify': ['design', '流程设计', '流程审核'],
-      '/build/roles': ['design', '流程设计', '流程角色'],
-      '/build/terms': ['design', '流程设计', '流程术语'],
-      '/execute/process': ['execute', '流程运行', '流程实例运行'],
-      '/mining/engine': ['mining', '流程挖掘', '流程挖掘诊断'],
-      '/flowdoc/duty': ['duty', '权责管控', '权责建设', '权责清单与手册'],
-      '/flowdoc/manual': ['duty', '权责管控', '权责手册'],
-      '/flowdoc/dutyList': ['duty', '权责管控', '权责手册'],
-      '/flowdoc/verify': ['duty', '权责管控', '权责审核'],
-      '/sysdoc/index2': ['governance', '风控合规', 'sysdoc_lib', '制度文件库'],
-      '/sysdoc/indexview': ['governance', '风控合规', 'sysdoc_query', '制度查阅', '/sysdoc/indexview'],
-      '/risk/index': ['governance', '风控合规', 'risk_lib', '风险合规库'],
-      '/risk/riskview': ['governance', '风控合规', 'risk_query', '风险查阅', '/risk/riskview'],
-      '/build/repeal': ['governance', '风控合规', 'flow_obsolete', '流程废止归档'],
-      '/org/dept': ['organization', '组织权限', '部门组织'],
-      '/org/user': ['organization', '组织权限', '用户管理'],
-      '/org/role': ['organization', '组织权限', '权限管理'],
-      '/system/column': ['settings', '系统设置', '表单引擎'],
-      '/system/company': ['settings', '系统设置', '公司授权'],
-      '/system/api': ['settings', '系统设置', 'API管理'],
-      '/sysdoc/audit': ['governance', '风控合规', 'sysdoc_lib', '制度文件库', '制度审批'],
-      '/risk/audit': ['governance', '风控合规', 'risk_lib', '风险合规库', '风险审批'],
-      '/system/models': ['settings', '系统设置', '模型配置'],
-    };
-
-    const keys = pathKeyMap[path] || [];
-    return perms.some((p) => p === path || keys.includes(p));
-  };
-
   const filteredMenuRoutes = useMemo(() => {
     return MENU_ROUTES.map((group) => {
-      const validChildren = group.children.filter((child) => isPathAllowed(child.path, currentUser));
+      const validChildren = group.children.filter((child) => canAccessPath(child.path, currentUser));
       return {
         ...group,
         children: validChildren,
@@ -301,6 +253,7 @@ export default function App() {
   const handleNavigate = (path: string, extraParam?: string) => {
     const aliases:Record<string,string>={'/build/verify':'/approval/pending?type=flow','/flowdoc/verify':'/approval/pending?type=duty','/sysdoc/audit':'/approval/pending?type=sysDoc','/risk/audit':'/approval/pending?type=risk'};
     const targetPath = aliases[path] || (!path || path === '/' ? '/dashboard/index' : path);
+    if (!canAccessPath(targetPath, currentUser)) { showToast('您没有访问该页面的权限', 'error'); return; }
     if (extraParam) {
       if (targetPath.startsWith('/build/') || targetPath.startsWith('/property/')) {
         setSelectedFlowId(extraParam);

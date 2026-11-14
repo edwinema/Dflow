@@ -578,7 +578,7 @@ test('training persists revisions, isolates progress, grades on server and requi
 
 test('unified approvals isolate views, delegate four business actions and reject stale or unauthorized decisions',async()=>{
   const make=(id,name,roles)=>({id,userId:id,userName:name,nickName:name,roles});
-  const applicant=make('ac_owner','审批申请人',['editor']),reviewer=make('ac_reviewer','审批处理人',['auditor']),next=make('ac_next','后续审批人',['auditor']),outsider=make('ac_out','其他审批人',['auditor']),cc=make('ac_cc','抄送用户',['viewer']);
+  const applicant=make('ac_owner','审批申请人',['editor']),reviewer=make('ac_reviewer','审批处理人',['viewer']),next=make('ac_next','后续审批人',['editor']),outsider=make('ac_out','其他审批人',['auditor']),cc=make('ac_cc','抄送用户',['viewer']);
   const step=name=>({level:1,levelName:'部门审批',approverName:name,status:'pending'});
   await db.transaction(true,async c=>{const before=await db.load(c),s=structuredClone(before);
     s.orgUsers.push(...[applicant,reviewer,next,outsider,cc].map(a=>({id:a.id,userName:a.userId,nickName:a.userName,status:'0',accessRoles:a.roles})));
@@ -610,4 +610,17 @@ test('unified approvals isolate views, delegate four business actions and reject
   await act('flow',created.id,withdrawing,'withdraw',applicant);
   assert.equal((await detail('flow',created.id,applicant)).status,'withdrawn');
 
+});
+
+
+test('session exposes enabled role menu grants without escalating API roles', async()=>{
+  const user=(await request('POST','/api/org/users',{userName:'p0_menu',nickName:'菜单验证',password,status:'0',roleNames:['P0流程管理员'],accessRoles:['viewer']})).body.data;
+  const role=(await request('POST','/api/org/roles',{roleName:'P0流程管理员',roleKey:'p0_menu',status:'0',menuPermissions:['collab','property','settings']})).body.data;
+  const cookies=[];const res={cookie:(name,value)=>cookies.push(value),clearCookie:()=>{}};
+  const req={method:'POST',path:'/api/session',ip:'p0_menu',headers:{origin:process.env.APP_ORIGIN},cookies:{},body:{userId:'p0_menu',password}};
+  const login=await auth.login(req,res);assert.deepEqual(login.data.roles,['viewer']);assert.deepEqual(login.data.menuPermissions,['collab','property','settings']);
+  await request('POST',`/api/org/roles/${role.id}/permissions`,{menuPermissions:['collab']});
+  const current=await auth.authenticate({method:'GET',path:'/api/session',headers:{},cookies:{qp_session:cookies[0]}});
+  assert.deepEqual(current.menuPermissions,['collab']);assert.deepEqual(current.roles,['viewer']);
+  await status(request('POST','/api/system/apis',{name:'cannot escalate'}, {},current),403);
 });

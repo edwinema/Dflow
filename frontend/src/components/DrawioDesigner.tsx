@@ -535,7 +535,7 @@ export const DrawioDesigner: React.FC<DrawioDesignerProps> = ({
   const [isStarred, setIsStarred] = useState(false);
   const [latestXml, setLatestXml] = useState('');
   const [saving, setSaving] = useState(false);
-  const [lastSavedText, setLastSavedText] = useState('已自动保存');
+  const [lastSavedText, setLastSavedText] = useState('尚未保存到服务器');
 
   const [selectedCells, setSelectedCells] = useState<any[]>([]);
   const selectedCell = selectedCells[0] || null;
@@ -700,7 +700,7 @@ export const DrawioDesigner: React.FC<DrawioDesignerProps> = ({
       },
       onAutosave: (xml) => {
         setLatestXml(xml);
-        setLastSavedText('所有更改已保存');
+        setLastSavedText('有更改尚未保存到服务器');
       },
       onStats: (stats) => {
         setCanvasStats(stats);
@@ -766,9 +766,12 @@ export const DrawioDesigner: React.FC<DrawioDesignerProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ xml: latestXml, title: flowTitle }),
       }).then((r) => r.json());
-      if (res.status === 1) {
-        showToast('流程图已保存', 'success');
-      }
+      if (res.status !== 1) throw new Error(res.info || '流程图保存失败');
+      setLastSavedText('所有更改已保存到服务器');
+      showToast('流程图已保存', 'success');
+    } catch (error: any) {
+      setLastSavedText('保存失败，更改尚未保存到服务器');
+      showToast(error.message || '流程图保存失败', 'error');
     } finally {
       setSaving(false);
     }
@@ -1087,12 +1090,17 @@ export const DrawioDesigner: React.FC<DrawioDesignerProps> = ({
             onClick={async () => {
               if (latestXml) {
                 try {
-                  await fetch(`/api/flow/${flowId}/xml`, {
+                  const result = await fetch(`/api/flow/${flowId}/xml`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ xml: latestXml, title: flowTitle }),
-                  });
-                } catch {}
+                  }).then(response => response.json());
+                  if (result.status !== 1) throw new Error(result.info || '流程图保存失败');
+                } catch (error: any) {
+                  setLastSavedText('保存失败，更改尚未保存到服务器');
+                  showToast(error.message || '流程图保存失败', 'error');
+                  return;
+                }
               }
               onBack();
             }}

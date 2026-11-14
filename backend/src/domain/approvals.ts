@@ -1,15 +1,14 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { approvalIdentity } from './approval-identity';
 import { Actor, DomainRequest, DomainResponse, Registry, State } from './types';
 
 interface SourceRoute { method:string;path:string;handler:(req:DomainRequest,res:DomainResponse)=>any;flush:boolean }
 export function registerApprovals(app:Registry,s:State,actor:Actor,routes:SourceRoute[],flush:()=>void) {
   const admin=actor.roles.includes('admin');
-  // Legacy records use names. A non-unique display name must never grant access.
-  const identities=[actor.id,actor.userId,...(s.orgUsers.filter((u:any)=>u.nickName===actor.userName).length===1?[actor.userName]:[])].filter(Boolean);
-  const mine=(v:any)=>typeof v==='string'&&identities.includes(v);
+  const mine=(value:any)=>approvalIdentity(s,actor,value);
   const types=['flow','duty','sysDoc','risk'];
-  const displayName=(id:any)=>s.orgUsers.find((u:any)=>u.id===id||u.userId===id)?.nickName||id;
+  const displayName=(id:any)=>s.orgUsers.find((u:any)=>u.id===id||u.userName===id)?.nickName||id;
   const sources=()=>[
     ...(s.flowAuditRecords||[]).map((r:any)=>({type:'flow',r})),
     ...(s.dutyAuditTasks||[]).map((r:any)=>({type:'duty',r})),
@@ -28,7 +27,7 @@ export function registerApprovals(app:Registry,s:State,actor:Actor,routes:Source
     const applicantMine=mine(applicant);
     const participant=chain.some((n:any)=>mine(n.approverId||n.approverName));
     const visible=admin||applicantMine||participant||processed||cc;
-    const canAct=status==='pending'&&(admin||(mine(approver)&&actor.roles.includes('auditor')));
+    const canAct=status==='pending'&&(admin||mine(approver));
     const revision=createHash('sha256').update(JSON.stringify(r)).digest('hex');
     return {type,id:r.id,title:r.flowName||r.dutyName||r.name||r.title||r.docName||r.riskName||r.id,code:r.flowCode||r.dutyNo||r.code||r.docCode||r.riskCode||'',status,applicant:displayName(applicant),approver:displayName(approver),submittedAt:r.submitTime||r.applyTime||r.createTime||'',version:r.versionNo||r.version||'',summary:r.changeSummary||r.remark||r.description||'',history,steps:chain.map((n:any)=>({name:n.levelName||`第${n.level}级`,approver:n.approverName||n.approverId,status:n.status,opinion:n.opinion||n.auditRemark||''})),revision,canAct,canWithdraw:type==='flow'&&status==='pending'&&(admin||applicantMine),isMine:applicantMine,isPending:status==='pending'&&mine(approver),isProcessed:processed,isCc:cc,visible};
   };

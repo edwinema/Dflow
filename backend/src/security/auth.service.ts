@@ -45,7 +45,16 @@ export class AuthService {
       VALUES($1,$2,now()+make_interval(hours=>$3))`, [tokenHash(token), user.id, Number(process.env.SESSION_HOURS || 8)]);
     res.cookie('qp_session', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict', path: '/', maxAge: Number(process.env.SESSION_HOURS || 8) * 3600000 });
-    return { status: 1, data: this.actor(user.payload), info: 'ok' };
+    return { status: 1, data: await this.sessionActor(user.payload), info: 'ok' };
+  }
+  private async sessionActor(user: any): Promise<Actor> {
+    const actor = this.actor(user);
+    if (Array.isArray(user.menuPermissions)) return {...actor, menuPermissions: user.menuPermissions.filter((v:any)=>typeof v==='string')};
+    const names = Array.isArray(user.roleNames) ? user.roleNames : [];
+    const rows = (await this.db.pool.query('SELECT payload FROM organization_roles')).rows;
+    const assigned = rows.map(row=>row.payload).filter((role:any)=>role.status==='0' && names.includes(role.roleName));
+    if (assigned.length) actor.menuPermissions = [...new Set<string>(assigned.flatMap((role:any)=>Array.isArray(role.menuPermissions)?role.menuPermissions.filter((v:any)=>typeof v==='string'):[]))];
+    return actor;
   }
   actor(user: any): Actor {
     return { id: user.id, userId: user.userName, userName: user.nickName || user.userName,
@@ -59,7 +68,7 @@ export class AuthService {
     const { rows } = await this.db.pool.query(`SELECT u.payload FROM sessions s JOIN users u ON u.id=s.user_id
       WHERE s.token_hash=$1 AND s.expires_at>now() AND u.payload->>'status'='0'`, [tokenHash(token)]);
     if (!rows[0]) throw new UnauthorizedException('登录已过期');
-    const actor = this.actor(rows[0].payload);
+    const actor = await this.sessionActor(rows[0].payload);
     await this.throttle(`user:${actor.id}`, req.path.startsWith('/api/ai/') ? 20 : 300);
     return actor;
   }
