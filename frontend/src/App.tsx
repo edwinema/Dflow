@@ -581,6 +581,13 @@ export default function App() {
               <div key={group.id}>
                 <button
                   onClick={() => {
+                    if (group.id === 'workspace') {
+                      setSidebarCollapsed(false);
+                      setExpandedMenuId(group.id);
+                      const home = group.children.find((child) => child.path === '/dashboard/index');
+                      handleNavigate(home?.path || group.children[0].path);
+                      return;
+                    }
                     if (sidebarCollapsed) {
                       setSidebarCollapsed(false);
                       setExpandedMenuId(group.id);
