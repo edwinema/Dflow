@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Dflow 离线授权签发工具</title>
+<style>body{font:15px/1.6 system-ui,sans-serif;background:#f3f6fa;color:#243044;margin:0;padding:32px}main{max-width:760px;margin:auto;background:white;padding:32px;border:1px solid #dbe2ea;border-radius:16px}h1{font-size:24px;margin-top:0}h2{font-size:18px}label{display:block;margin:16px 0}input,select,textarea{box-sizing:border-box;display:block;width:100%;padding:10px;margin-top:6px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}button{padding:10px 16px;background:#2563eb;color:white;border:0;border-radius:6px;cursor:pointer;margin:8px 8px 8px 0}button:disabled{opacity:.5}small{color:#64748b}.notice{background:#eff6ff;padding:16px;border-radius:8px}#result{white-space:pre-wrap;color:#166534}section{border-top:1px solid #e2e8f0;margin-top:24px;padding-top:16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}</style></head>
+<body><main><h1>Dflow 离线授权签发工具</h1>
+<p class="notice">请将本文件下载到电脑后，用 Chrome 或 Edge 打开。此工具不发送网络请求，私钥只在本机内存中使用。服务器仅配置对应公钥。请由软件所有者保管签发私钥，勿上传到服务器或代码仓库。</p>
+<section><h2>1. 选择签发私钥</h2><label>导入已有私钥（PKCS#8 PEM）<input id="privateFile" type="file" accept=".pem,.key"></label><small id="keyStatus">尚未导入私钥。已有部署请使用原来的签发私钥。</small>
+<details><summary>首次配置：创建新的签发密钥</summary><p>仅首次使用。下载私钥后请妥善备份，并将对应公钥配置到服务器的 deploy/cloud/licenses/license-public.pem。替换公钥会使旧证书失效。</p><button id="generate">生成并下载私钥</button><button id="public" disabled>下载对应公钥</button></details></section>
+<section><h2>2. 填写或导入授权申请</h2><label>导入网站下载的申请文件<input id="requestFile" type="file" accept=".json"></label>
+<label>公司法定全称<input id="companyName" required maxlength="200"></label>
+<label>服务器机器标识<input id="machineCode" required maxlength="200"></label>
+<label>授权版本<input id="edition" value="企业旗舰版 (Enterprise)" required maxlength="200"></label>
+<div class="grid"><label>用户数<input id="users" type="number" value="200" min="1" max="1000000"></label><label>到期日（北京时间）<input id="expiry" type="date" required></label></div></section>
+<section><h2>3. 生成授权证书</h2><p>证书绑定上述公司与服务器。公司更名、迁移服务器或修改期限、配额时需重新签发。</p><button id="issue">签发并下载 .lic 证书</button><p id="result" role="status"></p></section></main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);let privateKey,publicPem;
+const bytesToBase64=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes)));
+const base64url=bytes=>bytesToBase64(bytes).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const toPem=(bytes,type)=>'-----BEGIN '+type+'-----\n'+bytesToBase64(bytes).match(/.{1,64}/g).join('\n')+'\n-----END '+type+'-----\n';
+function download(name,text,type='text/plain'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function error(e){$('result').textContent='操作未完成：'+e.message;}
+const algorithm={name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'};
+$('privateFile').onchange=async e=>{privateKey=undefined;publicPem=undefined;$('public').disabled=true;$('keyStatus').textContent='尚未导入私钥';try{const f=e.target.files[0];if(!f)return;if(f.size>16000)throw Error('私钥文件过大');const pem=await f.text();if(!pem.includes('BEGIN PRIVATE KEY'))throw Error('需要 PKCS#8 格式的 PRIVATE KEY 文件');const raw=pem.replace(/-----[^-]+-----/g,'').replace(/\s/g,'');privateKey=await crypto.subtle.importKey('pkcs8',Uint8Array.from(atob(raw),c=>c.charCodeAt(0)),algorithm,false,['sign']);$('keyStatus').textContent='已导入签发私钥（仅保留在本页面内存中）';$('result').textContent='';}catch(e){error(e);}};
+$('generate').onclick=async()=>{if(!confirm('仅首次部署需要生成新密钥。已有部署应导入原私钥。确认生成？'))return;$('generate').disabled=true;try{const pair=await crypto.subtle.generateKey({...algorithm,modulusLength:3072,publicExponent:new Uint8Array([1,0,1])},true,['sign','verify']);const pem=toPem(await crypto.subtle.exportKey('pkcs8',pair.privateKey),'PRIVATE KEY');publicPem=toPem(await crypto.subtle.exportKey('spki',pair.publicKey),'PUBLIC KEY');privateKey=pair.privateKey;download('dflow-license-private.pem',pem);$('public').disabled=false;$('keyStatus').textContent='已生成密钥，请备份私钥并下载对应公钥配置到服务器';}catch(e){error(e);}finally{$('generate').disabled=false;}};
+$('public').onclick=()=>download('license-public.pem',publicPem);
+$('requestFile').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>20000)throw Error('申请文件过大');const c=JSON.parse(await f.text());if(!c.companyName||!c.machineCode||!c.edition||!Number.isInteger(c.authUsersCount)||!Number.isFinite(Date.parse(c.expireDate)))throw Error('申请文件字段不完整');$('companyName').value=c.companyName;$('machineCode').value=c.machineCode;$('edition').value=c.edition;$('users').value=c.authUsersCount;$('expiry').value=new Date(Date.parse(c.expireDate)+8*3600000).toISOString().slice(0,10);$('result').textContent='已读取申请，请核对后签发。';}catch(e){error(e);}};
+$('issue').onclick=async()=>{try{if(!privateKey)throw Error('请先导入签发私钥');const claims={companyName:$('companyName').value.trim(),machineCode:$('machineCode').value.trim(),edition:$('edition').value.trim(),authUsersCount:Number($('users').value),expireDate:new Date($('expiry').value+'T23:59:59+08:00').toISOString()};if(!claims.companyName||!claims.machineCode||!claims.edition||!Number.isInteger(claims.authUsersCount)||claims.authUsersCount<1||claims.authUsersCount>1000000||Date.parse(claims.expireDate)<=Date.now())throw Error('请填写完整信息、有效用户数和未来到期日');const payload=base64url(new TextEncoder().encode(JSON.stringify(claims)));const signature=base64url(await crypto.subtle.sign(algorithm,privateKey,new TextEncoder().encode(payload)));download('dflow-license.lic',JSON.stringify({format:'dflow-license-v1',...claims,licenseKey:payload+'.'+signature},null,2),'application/json');$('result').textContent='证书已生成：'+claims.companyName+'，'+claims.authUsersCount+' 用户。\n请返回网站导入 .lic 证书并确认更新授权。';}catch(e){error(e);}};
+</script></body></html>
