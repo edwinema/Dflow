@@ -286,6 +286,7 @@ export default function App() {
   };
 
   const handleEnterDesigner = (flowId: string) => {
+    if (flows.find((flow:any)=>flow.id===flowId)?.canEdit === false) { showToast('该流程为只读，请由责任人将您加入协作后再编辑', 'warning'); return; }
     setActiveDesignerFlowId(flowId || 'flow_101');
     setFullScreenMode('designer');
   };

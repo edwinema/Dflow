@@ -1671,7 +1671,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
               title={`点击查看流转轨迹：当前待第${lvlNum}级【${approver}】审批`}
             >
               <Clock className="w-3 h-3 shrink-0" />
-              <span className="truncate">待第${lvlNum}级 (${approver})</span>
+              <span className="truncate">待第{lvlNum}级 ({approver})</span>
             </button>
           );
         },

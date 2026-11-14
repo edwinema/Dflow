@@ -20,7 +20,7 @@ export function registerApprovals(app:Registry,s:State,actor:Actor,routes:Source
     const status=['待审核','审核中','pending'].includes(rawStatus)?'pending':['已审核','已通过','approved'].includes(rawStatus)?'approved':['已驳回','rejected'].includes(rawStatus)?'rejected':['已撤回','withdrawn'].includes(rawStatus)?'withdrawn':rawStatus;
     const current=type==='duty'?chain[r.currentLevelIndex||0]:chain[(r.currentLevel||1)-1];
     const approver=current?.approverId||current?.approverName||r.currentApprover||r.auditUser||'';
-    const applicant=r.submitUserId||r.submitterId||r.applicantId||r.submitUser||r.submitter||r.creatorId||r.creator||r.createUser||'';
+    const applicant=r.submitUserId||r.submitterId||r.applicantId||r.submitUser||r.submitter||r.creatorId||r.creator||r.createUser||r.applicant||r.applicantName||r.creatorName||'';
     const history=[...(r.history||[]),...(r.approvalHistory||[]),...chain.filter((n:any)=>['approved','rejected'].includes(n.status)).map((n:any)=>({operator:n.operator||n.auditor||n.approverId||n.approverName,action:n.status,time:n.auditTime||n.operateTime,opinion:n.opinion||n.auditRemark,nodeName:n.levelName}))];
     const processed=history.some((h:any)=>mine(h.operator||h.userId)&&!['提交送审','修订送审','重新送审'].includes(h.action));
     const cc=Array.isArray(r.ccUserIds)&&r.ccUserIds.some(mine);

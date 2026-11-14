@@ -2106,9 +2106,10 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                         </span>
                       )}
                     </button>
-                    <button
+                    <button style={{display:fl.canDirectPublish===false?'none':undefined}}
                       onClick={() => {
                         setOpenMenuId(null);
+                        if(fl.canDirectPublish===false){showToast('无权直接发布该流程','warning');return;}
                         handlePublishFlow(false, fl);
                       }}
                       className="w-full px-3.5 py-1.5 text-left hover:bg-[#ecf5ff] hover:text-[#409eff] cursor-pointer flex items-center gap-1.5"
@@ -2116,9 +2117,10 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                       <Zap className="w-3.5 h-3.5 text-[#409eff]" />
                       <span>直接发布流程</span>
                     </button>
-                    <button
+                    <button style={{display:fl.canEdit===false?'none':undefined}}
                       onClick={() => {
                         setOpenMenuId(null);
+                        if(fl.canEdit===false){showToast('仅责任人或协作者可送审该流程','warning');return;}
                         handlePublishFlow(true, fl);
                       }}
                       className="w-full px-3.5 py-1.5 text-left hover:bg-[#f0f9eb] hover:text-[#67c23a] cursor-pointer flex items-center gap-1.5"
@@ -2273,12 +2275,14 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                 )}
               </button>
               <button
+                hidden={currentFlow?.canDirectPublish === false} style={{display:currentFlow?.canDirectPublish===false?'none':undefined}}
                 onClick={() => handlePublishFlow(false)}
                 className="h-8 px-3 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium cursor-pointer"
               >
                 直接发布
               </button>
               <button
+                hidden={currentFlow?.canEdit === false} style={{display:currentFlow?.canEdit===false?'none':undefined}}
                 onClick={() => handlePublishFlow(true)}
                 className="h-8 px-3 rounded bg-[#67c23a] hover:bg-[#5daf34] text-white text-xs font-medium cursor-pointer"
               >
@@ -2291,6 +2295,7 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                 版本历史
               </button>
               <button
+                hidden={currentFlow?.canEdit === false} style={{display:currentFlow?.canEdit===false?'none':undefined}}
                 onClick={() => onEnterDesigner(selectedNode.id)}
                 className="h-8 px-3.5 rounded bg-[#e6a23c] hover:bg-[#cf9236] text-white text-xs font-medium flex items-center gap-1 cursor-pointer"
               >
@@ -2933,7 +2938,8 @@ export const FlowDesignView: React.FC<FlowDesignViewProps> = ({
                         <ZoomIn className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => onEnterDesigner(selectedNode.id)}
+                        hidden={currentFlow?.canEdit === false} style={{display:currentFlow?.canEdit===false?'none':undefined}}
+                onClick={() => onEnterDesigner(selectedNode.id)}
                         className="h-7 px-3 rounded bg-[#409eff] hover:bg-[#3390ff] text-white text-xs font-medium flex items-center gap-1 cursor-pointer"
                       >
                         <PenLine className="w-3.5 h-3.5" />

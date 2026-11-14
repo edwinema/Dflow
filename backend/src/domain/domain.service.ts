@@ -12,6 +12,8 @@ import { registerTraining } from './training';
 import { registerOperations } from './operations';
 import { registerExtensions, modelActivities } from './extensions';
 import { authorize, prepare, assertInvariants, redact } from './validation';
+import { effectiveRoles } from '../security/role-capabilities';
+import { canEditFlow, ownsFlow } from './flow-access';
 import { hashPassword } from '../security/password';
 import { registerModels, generateWithModel } from '../model-provider';
 import { NativeService } from '../native.service';
@@ -118,7 +120,8 @@ export class DomainService {
       // Re-check identity after acquiring the write lock (role/status changes may have queued ahead).
       const current=(await client.query('SELECT payload FROM users WHERE id=$1',[actor.id])).rows[0]?.payload;
       if(!current || current.status!=='0') throw new ForbiddenException('用户已停用');
-      actor={...actor,roles:current.accessRoles||['viewer'],userName:current.nickName||current.userName};
+      const state=await this.db.load(client), before=structuredClone(state);
+      actor={...actor,roles:effectiveRoles(current,state.orgRoles),userName:current.nickName||current.userName};
       authorize(method,path,actor,request.body);
       const fingerprint=createHash('sha256').update(JSON.stringify([method,path,request.query,request.body||{}])).digest('hex');
       const receipt=typeof request.headers['idempotency-key']==='string'?request.headers['idempotency-key']:undefined;
@@ -130,7 +133,6 @@ export class DomainService {
           return prior.response;
         }
       }
-      const state=await this.db.load(client), before=structuredClone(state);
       const {routes,flush}=registry(state,actor);
       const found=match(routes,method,path);
       const req: DomainRequest={body:structuredClone(request.body||{}),query:{...request.query},params:found?.params||{}};
@@ -160,7 +162,13 @@ export class DomainService {
         await client.query(`INSERT INTO audit_log(request_id,actor_id,method,route,changed_entities) VALUES($1,$2,$3,$4,$5)`,
           [request.headers['x-request-id'],actor.id,method,path,JSON.stringify(Object.keys(state).filter(k=>JSON.stringify(before[k])!==JSON.stringify(state[k])))]);
       }
-      response.body=redact(response.body);
+      const project=(value:any):any=>{
+        if(Array.isArray(value))return value.map(project);
+        if(!value||typeof value!=='object'||Buffer.isBuffer(value))return value;
+        const flow=state.flows.find((f:any)=>f.id===value.id);
+        return {...Object.fromEntries(Object.entries(value).map(([key,v])=>[key,project(v)])),...(flow?{canEdit:canEditFlow(state,actor,flow),canDirectPublish:canEditFlow(state,actor,flow)&&actor.roles.some(r=>['admin','auditor'].includes(r))}:{})};
+      };
+      response.body=redact(project(response.body));
       if(write&&receipt) await client.query('INSERT INTO request_receipts(actor_id,key,fingerprint,response) VALUES($1,$2,$3,$4)',[actor.id,receipt,fingerprint,response]);
       return response;
     });
@@ -168,6 +176,20 @@ export class DomainService {
   private async checkProtectedFields(req:DomainRequest,method:string,path:string,state:State,actor:Actor) {
     if(method==='GET') return;
     if(req.body.xml!==undefined) modelActivities(req.body.xml);
+    if(path.startsWith('/api/org/roles')&&req.body.apiRoles!==undefined&&(!Array.isArray(req.body.apiRoles)||!req.body.apiRoles.every((v:any)=>['viewer','editor','auditor'].includes(v))))throw new BadRequestException('角色后台能力只能选择查看、编制或审核');
+    if(!actor.roles.includes('admin')) {
+      const modelWrite=['/api/flow/model','/api/flow/model/full','/api/flow/model/publish','/api/flow/:id/xml'];
+      const protectedPath=modelWrite.includes(path)||path==='/api/flow/audits/apply'||path==='/api/flow/repeal/apply'||path==='/api/flow/model/upload-attachment'||path==='/api/flow/collaborators';
+      if(protectedPath && !(path==='/api/flow/model'&&method==='POST') && !(path==='/api/flow/collaborators'&&req.body.targetType==='arch')) {
+        const id=req.params.id||req.body.modelId||req.body.flowId||req.body.targetId||req.body.id||req.query.id;
+        for(const flowId of req.body.ids||[id]) {
+          const flow=state.flows.find((f:any)=>f.id===flowId);
+          if(flow&&!canEditFlow(state,actor,flow))throw new ForbiddenException('仅流程责任人或已加入协作的编制人员可修改该流程');
+          if(flow&&(path==='/api/flow/collaborators'||['ownerId','ownerName','collaborators'].some(key=>req.body[key]!==undefined&&JSON.stringify(req.body[key])!==JSON.stringify(flow[key])))&&!ownsFlow(state,actor,flow))throw new ForbiddenException('仅流程责任人可变更责任人或协作者');
+        }
+      }
+    }
+
     if(path.startsWith('/api/flowdoc/manuals/')&&!path.endsWith('/archive')) {
       const manual=state.dutyManuals.find((m:any)=>m.id===req.params.id);
       if(manual?.archived)throw new ConflictException('归档手册只读，请先恢复');
@@ -201,8 +223,14 @@ export class DomainService {
     // Never persist a password in a business JSON document or include it in a response.
     for(const user of state.orgUsers) delete user.password;
     for(const flow of state.flows) {
+      delete flow.canEdit;delete flow.canDirectPublish;
       const old=before.flows.find((f:any)=>f.id===flow.id);
-      if(!old) {delete flow.publishTime;delete flow.publishUserName;}
+      if(!old) {delete flow.publishTime;delete flow.publishUserName;const owners=state.orgUsers.filter((u:any)=>[u.id,u.userName,u.nickName].includes(flow.ownerName));flow.ownerId=actor.roles.includes('admin')?(owners.length===1?owners[0].id:undefined):actor.id;if(!actor.roles.includes('admin'))flow.ownerName=actor.userName;}
+      if(old && (flow.ownerName!==old.ownerName || flow.ownerId!==old.ownerId)) {
+        const owners=state.orgUsers.filter((u:any)=>u.status==='0'&&(flow.ownerId!==old.ownerId?u.id===flow.ownerId:[u.id,u.userName,u.nickName].includes(flow.ownerName)));
+        if(owners.length!==1)throw new BadRequestException('流程责任人必须为唯一的启用用户');
+        flow.ownerId=owners[0].id;flow.ownerName=owners[0].nickName||owners[0].userName;
+      }
       if(old&&['published','scheduled'].includes(old.status)&&['/api/flow/model/full','/api/flow/:id/xml','/api/flow/model'].includes(path)&&JSON.stringify(old)!==JSON.stringify(flow)){flow.status='draft';delete flow.scheduledTime;delete flow.targetVersion;}
     }
     for(const arch of state.archTypes)if(!before.archTypes.some((a:any)=>a.id===arch.id)){delete arch.publishTime;delete arch.publishUserName;}

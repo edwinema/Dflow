@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { Request, Response } from 'express';
 import { Database } from '../database';
 import { Actor } from '../domain/types';
+import { effectiveRoles } from './role-capabilities';
 import { tokenHash, verifyPassword } from './password';
 
 @Injectable()
@@ -49,9 +50,11 @@ export class AuthService {
   }
   private async sessionActor(user: any): Promise<Actor> {
     const actor = this.actor(user);
-    if (Array.isArray(user.menuPermissions)) return {...actor, menuPermissions: user.menuPermissions.filter((v:any)=>typeof v==='string')};
+
     const names = Array.isArray(user.roleNames) ? user.roleNames : [];
     const rows = (await this.db.pool.query('SELECT payload FROM organization_roles')).rows;
+    actor.roles = effectiveRoles(user,rows.map(row=>row.payload));
+    if (Array.isArray(user.menuPermissions)) return {...actor, menuPermissions: user.menuPermissions.filter((v:any)=>typeof v==='string')};
     const assigned = rows.map(row=>row.payload).filter((role:any)=>role.status==='0' && names.includes(role.roleName));
     if (assigned.length) actor.menuPermissions = [...new Set<string>(assigned.flatMap((role:any)=>Array.isArray(role.menuPermissions)?role.menuPermissions.filter((v:any)=>typeof v==='string'):[]))];
     return actor;

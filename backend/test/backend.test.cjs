@@ -404,9 +404,9 @@ test('flow attachments persist metadata, associate real bytes and reject metadat
 });
 test('updated GitHub process card metadata round-trips and populates relational projections',async()=>{
   const flow=(await request('POST','/api/flow/model',{label:'卡片元数据流程',parentId:'arch_root',flowNo:'IPD-TR-900'})).body.data;
-  await request('PUT','/api/flow/model/full',{...flow,flowNo:'IPD-TR-901',flowLevel:'L3',businessScope:'产品开发',applicableScope:'结构开发部,质量部',adaptScope:'旧字段不应覆盖',deptName:'流程管理部',ownerName:'流程管理员',collaborators:[{id:'u_admin',userName:'管理员',deptName:'流程管理部'}]});
+  await request('PUT','/api/flow/model/full',{...flow,flowNo:'IPD-TR-901',flowLevel:'L3',businessScope:'产品开发',applicableScope:'结构开发部,质量部',adaptScope:'旧字段不应覆盖',deptName:'流程管理部',ownerName:'管理员',collaborators:[{id:'u_admin',userName:'管理员',deptName:'流程管理部'}]});
   const row=(await db.pool.query('SELECT flow_no,flow_level,business_scope,applicable_scope,dept_name,owner_name FROM flow_models WHERE id=$1',[flow.id])).rows[0];
-  assert.deepEqual(row,{flow_no:'IPD-TR-901',flow_level:'L3',business_scope:'产品开发',applicable_scope:'结构开发部,质量部',dept_name:'流程管理部',owner_name:'流程管理员'});
+  assert.deepEqual(row,{flow_no:'IPD-TR-901',flow_level:'L3',business_scope:'产品开发',applicable_scope:'结构开发部,质量部',dept_name:'流程管理部',owner_name:'管理员'});
   const persisted=(await request('GET','/api/flow/model/full',{}, {id:flow.id})).body.data;
   assert.deepEqual(persisted.collaborators,[{id:'u_admin',userName:'管理员',deptName:'流程管理部'}]);
 });
@@ -582,7 +582,7 @@ test('unified approvals isolate views, delegate four business actions and reject
   const step=name=>({level:1,levelName:'部门审批',approverName:name,status:'pending'});
   await db.transaction(true,async c=>{const before=await db.load(c),s=structuredClone(before);
     s.orgUsers.push(...[applicant,reviewer,next,outsider,cc].map(a=>({id:a.id,userName:a.userId,nickName:a.userName,status:'0',accessRoles:a.roles})));
-    s.flows.push({id:'ac_model',parentId:'arch_root',label:'统一审批流程',versionNo:'V1',status:'verified',xml:'<mxfile><diagram><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>'});
+    s.flows.push({id:'ac_model',ownerId:applicant.id,ownerName:applicant.userName,parentId:'arch_root',label:'统一审批流程',versionNo:'V1',status:'verified',xml:'<mxfile><diagram><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>'});
     s.flowAuditRecords.push({id:'ac_flow',modelId:'ac_model',flowName:'统一审批流程',submitUserId:applicant.id,submitUser:applicant.userName,submitTime:new Date().toISOString(),auditStatus:'待审核',currentLevel:1,versionNo:'V2',approvalLevels:[step(reviewer.userName),{...step(next.userName),level:2,status:'waiting'}],ccUserIds:[cc.id]});
     s.dutyManuals.push({id:'ac_manual',manualName:'测试手册',items:[{id:'ac_item',status:'待审核'}]});
     s.dutyAuditTasks.push({id:'ac_duty',manualId:'ac_manual',dutyItemId:'ac_item',dutyName:'统一权责审批',submitterId:applicant.id,submitter:applicant.userName,status:'待审核',levels:[step(reviewer.userName)],currentLevelIndex:0,currentApprover:reviewer.userName,history:[]});
@@ -623,4 +623,36 @@ test('session exposes enabled role menu grants without escalating API roles', as
   const current=await auth.authenticate({method:'GET',path:'/api/session',headers:{},cookies:{qp_session:cookies[0]}});
   assert.deepEqual(current.menuPermissions,['collab']);assert.deepEqual(current.roles,['viewer']);
   await status(request('POST','/api/system/apis',{name:'cannot escalate'}, {},current),403);
+});
+
+
+test('configured business capabilities allow scoped authorship, deny unrelated flows and revoke immediately',async()=>{
+  const role=(await request('POST','/api/org/roles',{roleName:'P1流程管理员',roleKey:'p1_flow_manager',status:'0',menuPermissions:['collab','design','risk','duty']})).body.data;
+  await status(request('POST',`/api/org/roles/${role.id}/permissions`,{apiRoles:['admin']}),400);
+  await request('POST',`/api/org/roles/${role.id}/permissions`,{apiRoles:['editor'],menuPermissions:['collab','design','risk','duty']});
+  const user=(await request('POST','/api/org/users',{userName:'p1_author',nickName:'P1编制人',password,status:'0',roleNames:['P1流程管理员']})).body.data;
+  const logged=await auth.sessionActor({...user,accessRoles:['viewer']});assert.ok(logged.roles.includes('editor'));assert.equal(logged.roles.includes('admin'),false);
+  const owned=(await request('POST','/api/flow/model',{parentId:'arch_root',label:'本人流程'},{},logged)).body.data;
+  const other=(await request('POST','/api/flow/model',{parentId:'arch_root',label:'其他流程'})).body.data;
+  await request('POST',`/api/flow/${owned.id}/xml`,{xml:diagram([]),title:'本人修改'},{},logged);
+  await status(request('POST',`/api/flow/${other.id}/xml`,{xml:diagram([])},{},logged),403);
+  await status(request('PUT','/api/flow/model/full',{id:other.id,ownerName:logged.userName},{},logged),403);
+  await status(request('POST','/api/flow/collaborators',{targetId:other.id,targetType:'flow',collaborators:[{userId:logged.id}]},{},logged),403);
+  await request('POST','/api/flow/collaborators',{targetId:other.id,targetType:'flow',collaborators:[{userId:logged.id}]});
+  await request('POST',`/api/flow/${other.id}/xml`,{xml:diagram([]),title:'协作修改'},{},logged);
+  await status(request('POST','/api/flow/collaborators',{targetId:other.id,targetType:'flow',collaborators:[]},{},logged),403);
+  const models=(await request('GET','/api/flow/fullSimpleModels',{}, {},logged)).body.data;
+  assert.equal(models.find(f=>f.id===owned.id).canEdit,true);
+  const doc=(await request('POST','/api/dict/item',{itemType:'sysDoc',action:'create',item:{name:'可编制制度',applicantId:'spoof',applicantName:'伪造'}} ,{},logged)).body.data;
+  assert.equal(doc.applicantId,logged.id);assert.equal(doc.applicantName,logged.userName);
+  await request('POST','/api/flowdoc/manuals',{manualName:'可编制权责',manualNo:'P1-DOA'}, {},logged);
+  await request('POST',`/api/org/roles/${role.id}/permissions`,{apiRoles:[],menuPermissions:['collab']});
+  await status(request('POST',`/api/flow/${owned.id}/xml`,{xml:diagram([])},{},logged),403);
+});
+
+test('legacy applicant and canonical applicant match between approval lists and details',async()=>{
+  await db.transaction(true,async c=>{const before=await db.load(c),s=structuredClone(before);s.dictBundle.risk.push({id:'p1_legacy_applicant',name:'历史风险',status:'pending',applicant:'admin',approvalFlow:[]});await db.save(c,before,s);});
+  const list=(await request('GET','/api/approvals',{}, {view:'query',keyword:'历史风险'})).body.data.items;
+  const detail=(await request('GET','/api/approvals/risk/p1_legacy_applicant')).body.data;
+  assert.equal(list[0].applicant,'管理员');assert.equal(detail.applicant,list[0].applicant);
 });

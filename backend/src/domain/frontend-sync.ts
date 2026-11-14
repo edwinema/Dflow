@@ -35,7 +35,7 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
       validateDocumentContent(item);
       if(!item || typeof item!=='object' || Array.isArray(item))throw new BadRequestException('条目不能为空');
       const chain=levels(item.approvalFlow?.length?item.approvalFlow:config()[itemType]);
-      const row={...item,id:`${itemType}_${randomUUID()}`,status:'pending',applicantId:actor.id,approvalFlow:chain,currentLevel:1,applyTime:now,validityPeriod:item.validityPeriod||'',publishTime:'',auditTime:'',auditor:'',auditRemark:'',approvalHistory:[]};
+      const row={...item,id:`${itemType}_${randomUUID()}`,status:'pending',applicantId:actor.id,applicantName:actor.userName,approvalFlow:chain,currentLevel:1,applyTime:now,validityPeriod:item.validityPeriod||'',publishTime:'',auditTime:'',auditor:'',auditRemark:'',approvalHistory:[]};
       delete row.resubmitApproval; list.unshift(row); return reply(row);
     }
     const target=list.find((r:any)=>r.id===(id||item?.id));
@@ -47,7 +47,7 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
       const chain=levels(item.approvalFlow??target.approvalFlow??config()[itemType]);
       // Editing content invalidates prior approval; clients cannot forge approval state.
       const previous=structuredClone(target);
-      Object.assign(target,item,{id:target.id,status:'pending',applicantId:actor.id,approvalFlow:chain,currentLevel:1,applyTime:now,publishTime:'',auditTime:'',auditor:'',auditRemark:''});
+      Object.assign(target,item,{id:target.id,status:'pending',applicantId:actor.id,applicantName:actor.userName,approvalFlow:chain,currentLevel:1,applyTime:now,publishTime:'',auditTime:'',auditor:'',auditRemark:''});
       target.approvalHistory=[...(previous.approvalHistory||[]),{time:now,action:'修订送审',operator:actor.userName,approvalFlow:previous.approvalFlow||[]}];
       delete target.resubmitApproval; return reply(target);
     }
@@ -55,7 +55,7 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
       if(target.status!=='rejected')throw new ConflictException('只有驳回的条目可重新送审');
       target.approvalHistory=[...(target.approvalHistory||[]),{time:now,action:'重新送审',operator:actor.userName,approvalFlow:structuredClone(target.approvalFlow||[])}];
       target.approvalFlow=levels(target.approvalFlow?.length?target.approvalFlow:config()[itemType]);
-      Object.assign(target,{status:'pending',currentLevel:1,applyTime:now,auditTime:'',auditor:'',auditRemark:''});return reply(target);
+      Object.assign(target,{applicantId:actor.id,applicantName:actor.userName,status:'pending',currentLevel:1,applyTime:now,auditTime:'',auditor:'',auditRemark:''});return reply(target);
     }
     if(!['approve','reject'].includes(action))throw new BadRequestException('审核动作无效');
     if(target.status!=='pending')throw new ConflictException('该审批已处理');
@@ -379,8 +379,9 @@ app.delete('/api/org/roles/:id', (req, res) => {
 app.post('/api/org/roles/:id/permissions', (req, res) => {
   const target = orgRoles.find((r) => r.id === req.params.id);
   if (!target) return res.status(404).json({ status: 0, info: '未找到指定角色' });
-  const { menuPermissions = [], featurePermissions, fieldPermissions } = req.body || {};
+  const { menuPermissions = [], featurePermissions, fieldPermissions, apiRoles } = req.body || {};
   target.menuPermissions = menuPermissions;
+  if(apiRoles!==undefined)target.apiRoles=apiRoles;
   if (featurePermissions) target.featurePermissions = featurePermissions;
   if (fieldPermissions) target.fieldPermissions = fieldPermissions;
   res.json({ status: 1, data: target, list: orgRoles, info: '角色权限配置已保存并即时生效' });

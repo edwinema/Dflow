@@ -284,6 +284,8 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
     orole_8: ['collab', 'property', 'execute', 'mining', 'duty', 'risk'],
   });
 
+  const [roleApiRoles, setRoleApiRoles] = useState<Record<string,string[]>>({});
+
   const [roleFeaturePermissions, setRoleFeaturePermissions] = useState<Record<string, {
     sysDoc: { readOnly: boolean; canDownload: boolean; previewOnly: boolean };
     risk: { readOnly: boolean; canDownload: boolean; previewOnly: boolean };
@@ -490,11 +492,13 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
         setJobTitles(json.data.jobTitles || []);
         setUsers(json.data.users || []);
         setRoles(json.data.roles || []);
+        setSelectedRoleId(prev => (json.data.roles || []).some((role:any)=>role.id===prev) ? prev : json.data.roles?.[0]?.id || '');
         if (json.data.roles) {
           const pMap: Record<string, string[]> = {};
           const fMap: Record<string, any> = {};
           const fieldMap: Record<string, any> = {};
           json.data.roles.forEach((r: any) => {
+            setRoleApiRoles(prev=>({...prev,[r.id]:Array.isArray(r.apiRoles)?r.apiRoles:[]}));
             if (r.menuPermissions) pMap[r.id] = normalizeMenuPermissions(r.menuPermissions);
             if (r.featurePermissions) fMap[r.id] = r.featurePermissions;
             if (r.fieldPermissions) fieldMap[r.id] = r.fieldPermissions;
@@ -3713,21 +3717,25 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
                     const currentFields = roleFieldPermissions[selectedRoleId] || {};
 
                     try {
-                      await fetch(`/api/org/roles/${selectedRoleId}/permissions`, {
+                      const response = await fetch(`/api/org/roles/${selectedRoleId}/permissions`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           menuPermissions: currentPerms,
+                          apiRoles: roleApiRoles[selectedRoleId] || [],
                           featurePermissions: currentFeatures,
                           fieldPermissions: currentFields,
                         }),
                       });
+                      const result = await response.json();
+                      if (!response.ok || result.status !== 1) throw new Error(result.info || '保存权限配置失败');
                       setRoles((prev) =>
                         prev.map((r) =>
                           r.id === selectedRoleId
                             ? {
                                 ...r,
                                 menuPermissions: currentPerms,
+                                apiRoles: roleApiRoles[selectedRoleId] || [],
                                 featurePermissions: currentFeatures,
                                 fieldPermissions: currentFields,
                               }
@@ -3750,6 +3758,12 @@ export const OrgManageView: React.FC<OrgManageViewProps> = ({
             {/* Tab 1: 菜单与功能权限配置 */}
             {activePermissionTab === 'menu' && (
               <div className="flex-1 overflow-y-auto space-y-2.5">
+                <section className="rounded border border-[#E4E7ED] bg-white p-4 space-y-3">
+                  <h3 className="font-medium text-[#303133]">后台操作能力</h3>
+                  <p className="text-xs text-[#909399]">菜单控制可见范围；以下能力控制实际写操作。未勾选时仅可查阅及处理明确指派给本人的审批。</p>
+                  <div className="flex flex-wrap gap-5">{[{id:'editor',label:'业务编制与送审',desc:'仅修改本人负责或已加入协作的流程；可编制制度和权责。'},{id:'auditor',label:'审核与直接发布',desc:'审批仍校验当前节点；直接发布还需具备该流程的编辑权限。'}].map(cap=><label key={cap.id} className="flex gap-2 items-start text-xs cursor-pointer"><input aria-label={cap.label} type="checkbox" checked={(roleApiRoles[selectedRoleId]||[]).includes(cap.id)} onChange={e=>setRoleApiRoles(prev=>({...prev,[selectedRoleId]:e.target.checked?[...(prev[selectedRoleId]||[]),cap.id]:(prev[selectedRoleId]||[]).filter(v=>v!==cap.id)}))}/><span><span className="font-medium">{cap.label}</span><span className="block text-[#909399] mt-1">{cap.desc}</span></span></label>)}</div>
+                  <p className="text-xs text-[#909399]">系统管理员能力不通过业务角色授予；修改后保存权限矩阵生效。</p>
+                </section>
                 {[
                   {
                     id: 'collab',
