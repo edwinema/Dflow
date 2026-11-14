@@ -16,7 +16,7 @@ export function registerFrontendSync(app: Registry, s: State, actor: Actor) {
   };
   app.get('/api/dict/approval-path', (_req,res)=>res.json({status:1,data:config(),info:'ok'}));
   app.post('/api/dict/approval-path', (req,res)=>{
-    if (!actor.roles.includes('admin')) throw new ForbiddenException('配置审批路径需要管理员权限');
+    if (!actor.roles.some(r=>['admin','approval_manager'].includes(r))) throw new ForbiddenException('配置审批路径需要审批管理员权限');
     const body=req.body, next=structuredClone(config());
     if(body.type!==undefined) {
       if(!['sysDoc','risk'].includes(body.type)) throw new BadRequestException('目录类型无效');

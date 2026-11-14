@@ -496,7 +496,7 @@ export const SysDocRiskModuleView: React.FC<SysDocRiskModuleViewProps> = ({
     return false;
   }, [isPublishedViewOnly, isRisk, currentUser]);
 
-  const canManageFolders = !isReadOnly && (!Array.isArray(currentUser?.roles) || currentUser.roles.some((role: string) => ['admin', 'editor'].includes(role)));
+  const canManageFolders = !isReadOnly && (!Array.isArray(currentUser?.roles) || currentUser.roles.some((role: string) => ['admin', 'editor', isRisk?'risk_editor':'document_editor'].includes(role)));
   const [folderSaving, setFolderSaving] = useState(false);
   const folderRequestRef = useRef(false);
 

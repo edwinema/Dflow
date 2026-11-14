@@ -25,6 +25,17 @@ export function authorize(method: string, path: string, actor: Actor, body: any 
   if(method==='POST'&&/^\/api\/approvals\/[^/]+\/[^/]+\/action$/.test(path))return; // Scoped and checked by approval adapter.
   if(method==='POST'&&/^\/api\/training\/courses\/[^/]+\/(exam|practical|sections\/[^/]+\/complete|records\/[^/]+\/confirm)$/.test(path))return;
   if (path.startsWith('/api/org/') || path.startsWith('/api/system/')) throw new ForbiddenException('需要管理员权限');
+  if(path==='/api/dict/approval-path') {
+    if(actor.roles.includes('approval_manager'))return;
+    throw new ForbiddenException('需要审批管理员权限');
+  }
+  if(path==='/api/files'&&actor.roles.some(r=>['document_editor','risk_editor','duty_editor'].includes(r)))return;
+  const scoped = path==='/api/dict/item' ? (body.itemType==='sysDoc'?'document_editor':body.itemType==='risk'?'risk_editor':'')
+    : path==='/api/dict/tree' ? (body.treeType==='sysDoc'?'document_editor':body.treeType==='risk'?'risk_editor':'')
+    : path.startsWith('/api/dict/document-templates') ? 'document_editor'
+    : path.startsWith('/api/flowdoc/') ? 'duty_editor' : '';
+  if(scoped && actor.roles.includes(scoped) && !['approve','reject'].includes(body.action)
+    && !/\/audit\/tasks\/|\/publish$|\/batch-publish$/.test(path))return;
   const approval = (path==='/api/dict/item'&&['approve','reject'].includes(body?.action)) || /\/audits\/(action|batch-action)|\/audit\/tasks\/|\/repeal\/(action|approveStep|confirmArchive|restore)$|\/publish$|\/batch-publish$/.test(path);
   const editorAction=(path==='/api/flow/model/publish'&&body?.audit===true)||(path.startsWith('/api/flow/audits/')&&body?.action==='withdraw');
   if ((approval&&!editorAction) ? !actor.roles.includes('auditor') : !actor.roles.includes('editor')) throw new ForbiddenException('权限不足');

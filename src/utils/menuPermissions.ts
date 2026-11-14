@@ -23,7 +23,8 @@ export function canAccessPath(path: string, user: any): boolean {
   if (admin) return true;
   if (path.startsWith('/org/') || path.startsWith('/system/')) return false;
   const editing = ['/build/', '/flowdoc/duty', '/sysdoc/index2', '/sysdoc/audit', '/risk/index', '/risk/audit'];
-  if (editing.some(prefix=>path.startsWith(prefix)) && !roles.includes('editor')) return false;
+  const domainCapability=path.startsWith('/sysdoc/')?'document_editor':path.startsWith('/risk/')?'risk_editor':path.startsWith('/flowdoc/')?'duty_editor':'';
+  if (editing.some(prefix=>path.startsWith(prefix)) && !roles.includes('editor') && !(domainCapability&&roles.includes(domainCapability))) return false;
   if (path.startsWith('/approval/')) return true;
   const perms = normalizeMenuPermissions(user.menuPermissions);
   // No configured menu grants: use the capability-filtered defaults, never admin pages.

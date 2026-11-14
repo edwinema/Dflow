@@ -176,7 +176,7 @@ export class DomainService {
   private async checkProtectedFields(req:DomainRequest,method:string,path:string,state:State,actor:Actor) {
     if(method==='GET') return;
     if(req.body.xml!==undefined) modelActivities(req.body.xml);
-    if(path.startsWith('/api/org/roles')&&req.body.apiRoles!==undefined&&(!Array.isArray(req.body.apiRoles)||!req.body.apiRoles.every((v:any)=>['viewer','editor','auditor'].includes(v))))throw new BadRequestException('角色后台能力只能选择查看、编制或审核');
+    if(path.startsWith('/api/org/roles')&&req.body.apiRoles!==undefined&&(!Array.isArray(req.body.apiRoles)||!req.body.apiRoles.every((v:any)=>['viewer','editor','auditor','document_editor','risk_editor','duty_editor','approval_manager',...(state.orgRoles.find((r:any)=>r.id===req.params.id)?.roleName==='系统管理员'?['admin']:[])].includes(v))))throw new BadRequestException('角色后台能力只能选择查看、编制或审核');
     if(!actor.roles.includes('admin')) {
       const modelWrite=['/api/flow/model','/api/flow/model/full','/api/flow/model/publish','/api/flow/:id/xml'];
       const protectedPath=modelWrite.includes(path)||path==='/api/flow/audits/apply'||path==='/api/flow/repeal/apply'||path==='/api/flow/model/upload-attachment'||path==='/api/flow/collaborators';
